@@ -34,3 +34,18 @@ export async function confirmVerification({
 
   return response?.data?.data;
 }
+
+export async function putLocalSessionKey({
+  sessionKey,
+}: {
+  sessionKey: string;
+}): Promise<void> {
+  await API.put(ApiRoutes.auth.putLocalSessionKey, {
+    key: sessionKey,
+  });
+}
+
+export async function getLocalSessionKey(): Promise<string> {
+  const response = await API.get(ApiRoutes.auth.getLocalSessionKey);
+  return response?.data?.data?.session_key || "";
+}
