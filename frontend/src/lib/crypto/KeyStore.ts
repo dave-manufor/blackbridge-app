@@ -18,7 +18,7 @@ export class KeyStore {
     return KeyStore.instance;
   }
 
-  openDB(): Promise<IDBDatabase> {
+  private openDB(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(idbConfig.name, idbConfig.version);
 

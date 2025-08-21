@@ -16,9 +16,21 @@ import {
 interface CryptoWorkerInterface {
   importPrivateKey(armoredKey: string, passphrase: string): Promise<void>;
 
+  wrapPrivateKey(params: { passphrase: string }): Promise<string>;
+
   clearPrivateKey(): void;
 
-  generateRandomFragment(length: number): string;
+  generateRandomFragment(
+    length: number,
+    options: {
+      prefix?: string;
+      suffix?: string;
+      uppercase?: boolean;
+      lowercase?: boolean;
+      digits?: boolean;
+      specialCharacters?: boolean;
+    }
+  ): string;
 
   encryptFragment(fragment: string, public_key: string): Promise<string>;
 

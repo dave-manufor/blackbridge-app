@@ -49,6 +49,31 @@ export class CryptoWorker implements CryptoWorkerInterface {
     this.privateKey = null;
   }
 
+  /**
+   * Encrypts and wraps the loaded private key using the provided passphrase.
+   *
+   * @param params - An object containing the passphrase to encrypt the private key.
+   * @param params.passphrase - The passphrase used to encrypt the private key.
+   * @returns A promise that resolves to the armored (ASCII-encoded) encrypted private key string.
+   * @throws If the private key is not loaded.
+   */
+  async wrapPrivateKey({
+    passphrase,
+  }: {
+    passphrase: string;
+  }): Promise<string> {
+    if (!this.privateKey) {
+      throw new Error("wrapPrivateKey(): Private key not loaded.");
+    }
+
+    const wrappedKey = await openpgp.encryptKey({
+      privateKey: this.privateKey,
+      passphrase: passphrase,
+    });
+
+    return wrappedKey.armor();
+  }
+
   /*------------ Helpers ------------*/
 
   /**
@@ -211,9 +236,36 @@ export class CryptoWorker implements CryptoWorkerInterface {
     return { data, algorithm };
   }
 
-  generateRandomFragment(length: number = 12): string {
+  generateRandomFragment(
+    length: number = 12,
+    options: {
+      prefix?: string;
+      suffix?: string;
+      uppercase?: boolean;
+      lowercase?: boolean;
+      digits?: boolean;
+      specialCharacters?: boolean;
+    } = {
+      uppercase: true,
+      lowercase: true,
+      digits: true,
+      specialCharacters: false,
+    }
+  ): string {
+    const uppercaseString = options?.uppercase
+      ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      : "";
+    const lowercaseString = options?.lowercase
+      ? "abcdefghijklmnopqrstuvwxyz"
+      : "";
+    const digitsString = options?.digits ? "0123456789" : "";
+    const specialCharactersString = options?.specialCharacters ? "!@#$%&?" : "";
     const characters =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+      uppercaseString +
+      lowercaseString +
+      digitsString +
+      specialCharactersString;
+
     let fragment = "";
 
     // Create a Uint32Array to hold random values
