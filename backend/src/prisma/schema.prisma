@@ -45,7 +45,7 @@ model Sessions{
   user_id String @db.Uuid
   // TODO: Ensure tokens and keys are hashed before being stored
   hashed_refresh_token String @unique
-  hashed_session_key String? @unique
+  session_key String? @unique
   user_agent String
   browser String
   os String
