@@ -17,15 +17,26 @@ interface RequestUploadPayload {
   size: number;
   metadata?: object;
 }
-export async function requestUpload(payload: RequestUploadPayload) {
+export async function requestUpload(
+  payload: RequestUploadPayload,
+  signal?: AbortSignal
+) {
   try {
-    const response = await API.post(ApiRoutes.files.requestUpload, {
-      transfer_id: payload.transfer_id,
-      name: payload.name,
-      size: payload.size,
-      content_type: payload.content_type,
-      metadata: payload.metadata ? JSON.stringify(payload.metadata) : undefined,
-    });
+    const response = await API.post(
+      ApiRoutes.files.requestUpload,
+      {
+        transfer_id: payload.transfer_id,
+        name: payload.name,
+        size: payload.size,
+        content_type: payload.content_type,
+        metadata: payload.metadata
+          ? JSON.stringify(payload.metadata)
+          : undefined,
+      },
+      {
+        signal,
+      }
+    );
 
     return response.data?.data as {
       file_id: string;
@@ -36,11 +47,20 @@ export async function requestUpload(payload: RequestUploadPayload) {
   }
 }
 
-export async function announceUpload({ block_id }: { block_id: string }) {
+export async function announceUpload(
+  { block_id }: { block_id: string },
+  signal?: AbortSignal
+) {
   try {
-    const response = await API.post(ApiRoutes.files.announceUpload, {
-      block_id,
-    });
+    const response = await API.post(
+      ApiRoutes.files.announceUpload,
+      {
+        block_id,
+      },
+      {
+        signal,
+      }
+    );
 
     return response.data?.data as UploadPart[];
   } catch (error) {
@@ -56,12 +76,14 @@ interface UploadPartPayload {
 
 // Do not export. Used in exported processBlockUpload function
 async function uploadPart(
-  payload: UploadPartPayload
+  payload: UploadPartPayload,
+  signal?: AbortSignal
 ): Promise<UploadPartResponse> {
   const { fileChunk, part, onUploadProgress } = payload;
   try {
     const response = await axios.put(part.presigned_url, fileChunk, {
       onUploadProgress: onUploadProgress,
+      signal,
     });
 
     return {
@@ -78,12 +100,21 @@ interface CallRetryEndpointPayload {
   failed_parts: UploadPart[];
 }
 // Do not export. Used in exported processBlockUpload function
-async function callRetryEndpoint(payload: CallRetryEndpointPayload) {
+async function callRetryEndpoint(
+  payload: CallRetryEndpointPayload,
+  signal?: AbortSignal
+) {
   try {
-    const response = await API.post(ApiRoutes.files.retryParts, {
-      block_id: payload.block_id,
-      failed_parts: payload.failed_parts,
-    });
+    const response = await API.post(
+      ApiRoutes.files.retryParts,
+      {
+        block_id: payload.block_id,
+        failed_parts: payload.failed_parts,
+      },
+      {
+        signal,
+      }
+    );
 
     return response.data?.data as UploadPart[];
   } catch (error) {
@@ -99,7 +130,10 @@ interface ProcessBlockUploadPayload {
     partIndex: number
   ) => void;
 }
-export async function processBlockUpload(payload: ProcessBlockUploadPayload) {
+export async function processBlockUpload(
+  payload: ProcessBlockUploadPayload,
+  signal?: AbortSignal
+) {
   const { block, initialParts, handleProgress } = payload;
   try {
     // No parts to upload, return early
@@ -120,11 +154,14 @@ export async function processBlockUpload(payload: ProcessBlockUploadPayload) {
             : part.part_index * part.part_size;
         const end = start + part.part_size;
         const chunk = block.slice(start, end);
-        return uploadPart({
-          fileChunk: chunk,
-          part,
-          onUploadProgress: (e) => handleProgress(e, part.part_index),
-        });
+        return uploadPart(
+          {
+            fileChunk: chunk,
+            part,
+            onUploadProgress: (e) => handleProgress(e, part.part_index),
+          },
+          signal
+        );
       });
 
       const results = await Promise.allSettled(uploadPromises);
@@ -160,10 +197,13 @@ export async function processBlockUpload(payload: ProcessBlockUploadPayload) {
       retryCount++;
 
       try {
-        const refreshedParts = await callRetryEndpoint({
-          block_id: initialParts[0].block_id,
-          failed_parts: failedParts,
-        });
+        const refreshedParts = await callRetryEndpoint(
+          {
+            block_id: initialParts[0].block_id,
+            failed_parts: failedParts,
+          },
+          signal
+        );
         partsToUpload = refreshedParts;
       } catch (error) {
         throw new Error(`Failed to refresh parts: ${error}`);
@@ -185,13 +225,22 @@ interface FinalizeBlockPayload {
   encrypted_size: number;
   parts: UploadPartResponse[];
 }
-export async function finalizeBlock(payload: FinalizeBlockPayload) {
+export async function finalizeBlock(
+  payload: FinalizeBlockPayload,
+  signal?: AbortSignal
+) {
   try {
-    const response = await API.post(ApiRoutes.files.finalizeBlock, {
-      block_key: payload.block_key,
-      encrypted_size: payload.encrypted_size,
-      parts: payload.parts,
-    });
+    const response = await API.post(
+      ApiRoutes.files.finalizeBlock,
+      {
+        block_key: payload.block_key,
+        encrypted_size: payload.encrypted_size,
+        parts: payload.parts,
+      },
+      {
+        signal,
+      }
+    );
 
     return response.data?.data;
   } catch (error) {
@@ -199,11 +248,20 @@ export async function finalizeBlock(payload: FinalizeBlockPayload) {
   }
 }
 
-export async function finalizeFile({ file_id }: { file_id: string }) {
+export async function finalizeFile(
+  { file_id }: { file_id: string },
+  signal?: AbortSignal
+) {
   try {
-    const response = await API.post(ApiRoutes.files.finalizeFile, {
-      file_id,
-    });
+    const response = await API.post(
+      ApiRoutes.files.finalizeFile,
+      {
+        file_id,
+      },
+      {
+        signal,
+      }
+    );
 
     return response.data?.data;
   } catch (error) {

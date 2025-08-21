@@ -31,7 +31,10 @@ const CONCURRENCY_LIMIT = 2;
  * Main transfer orchestration function.
  * Handles the entire E2EE transfer process.
  */
-const transfer = async (payload: { data: z.infer<typeof transferSchema> }) => {
+const transfer = async (
+  payload: { data: z.infer<typeof transferSchema> },
+  signal: AbortSignal
+) => {
   const { data } = payload;
   const { files } = data;
   uploadStore.initializeUpload(files);
@@ -55,7 +58,8 @@ const transfer = async (payload: { data: z.infer<typeof transferSchema> }) => {
           duration: TRANSFER_DURATIONS[data.duration],
           isLink: false,
           recipients: data.recipients as string[],
-        }
+        },
+    signal
   );
 
   // 2. Generate a single session key for the entire transfer
@@ -74,12 +78,15 @@ const transfer = async (payload: { data: z.infer<typeof transferSchema> }) => {
     // Initialize file-specific progress and state
     uploadStore.initializeFileProgressMap(i, file.size);
 
-    const { file_id, blocks } = await requestUpload({
-      transfer_id: transferId,
-      name: file.name,
-      content_type: file.type,
-      size: file.size,
-    });
+    const { file_id, blocks } = await requestUpload(
+      {
+        transfer_id: transferId,
+        name: file.name,
+        content_type: file.type,
+        size: file.size,
+      },
+      signal
+    );
 
     // Create an array of block processing thunks
     const blockProcessingTask = blocks.map((block, j) => async () => {
@@ -97,7 +104,7 @@ const transfer = async (payload: { data: z.infer<typeof transferSchema> }) => {
         outputFormat: "binary",
       });
 
-      const parts = await announceUpload({ block_id: block.id });
+      const parts = await announceUpload({ block_id: block.id }, signal);
 
       // Pre-populate parts with 0 loaded bytes
       parts.forEach((part) => {
@@ -107,39 +114,45 @@ const transfer = async (payload: { data: z.infer<typeof transferSchema> }) => {
       // Guarantees it's a Blob-safe buffer
       const safeBuffer = encryptedChunk.data.slice().buffer;
 
-      const uploadedParts = await processBlockUpload({
-        block: new Blob([safeBuffer]),
-        initialParts: parts,
-        handleProgress: (e: AxiosProgressEvent, partIndex: number) => {
-          // This progress is for the encrypted chunk, so we map it back to original file size for UI
-          const partOriginalSize =
-            parts.find((p) => p.part_index === partIndex)?.part_size ?? 0;
-          if (!e.total || partOriginalSize === 0) return;
+      const uploadedParts = await processBlockUpload(
+        {
+          block: new Blob([safeBuffer]),
+          initialParts: parts,
+          handleProgress: (e: AxiosProgressEvent, partIndex: number) => {
+            // This progress is for the encrypted chunk, so we map it back to original file size for UI
+            const partOriginalSize =
+              parts.find((p) => p.part_index === partIndex)?.part_size ?? 0;
+            if (!e.total || partOriginalSize === 0) return;
 
-          // Map encrypted progress back to the original unencrypted part size
-          const progressRatio = e.loaded / e.total;
-          const loadedForThisPartOriginal = partOriginalSize * progressRatio;
+            // Map encrypted progress back to the original unencrypted part size
+            const progressRatio = e.loaded / e.total;
+            const loadedForThisPartOriginal = partOriginalSize * progressRatio;
 
-          uploadStore.setPartProgress(
-            i,
-            j,
-            partIndex,
-            loadedForThisPartOriginal
-          );
+            uploadStore.setPartProgress(
+              i,
+              j,
+              partIndex,
+              loadedForThisPartOriginal
+            );
+          },
         },
-      });
+        signal
+      );
 
-      await finalizeBlock({
-        block_key: block.path,
-        encrypted_size: encryptedChunk.data.byteLength,
-        parts: uploadedParts,
-      });
+      await finalizeBlock(
+        {
+          block_key: block.path,
+          encrypted_size: encryptedChunk.data.byteLength,
+          parts: uploadedParts,
+        },
+        signal
+      );
     });
 
     // Execute all block tasks for the current file in parallel with a limit.
     await runInParallel(blockProcessingTask, CONCURRENCY_LIMIT);
 
-    await finalizeFile({ file_id });
+    await finalizeFile({ file_id }, signal);
   }
 
   // 4. Encrypt session key for all parties and commit the transfer
@@ -200,7 +213,7 @@ const transfer = async (payload: { data: z.infer<typeof transferSchema> }) => {
     devOnly(() => {
       console.log("Email-based key encryption initiated");
     });
-    const recipients = await getPublicKeys(data.recipients as string[]);
+    const recipients = await getPublicKeys(data.recipients as string[], signal);
     const validRecipients = recipients.filter(
       (recipient) => recipient.public_key
     );
@@ -217,7 +230,7 @@ const transfer = async (payload: { data: z.infer<typeof transferSchema> }) => {
     );
   }
 
-  await commitTransfer(commitPayload as CommitTransferPayload);
+  await commitTransfer(commitPayload as CommitTransferPayload, signal);
 };
 
 interface InitiateTransferPayload {
@@ -225,13 +238,18 @@ interface InitiateTransferPayload {
 }
 
 const useInitiateTransfer = () => {
+  const controller = new AbortController();
   return useMutation({
     mutationFn: (payload: InitiateTransferPayload) =>
-      transfer({
-        data: payload.data,
-      }),
+      transfer(
+        {
+          data: payload.data,
+        },
+        controller.signal
+      ),
     onSuccess: () => uploadStore.setStatus("success"),
     onError: (error) => {
+      controller.abort();
       uploadStore.setStatus("error");
       devOnly(() => {
         console.error("Error during transfer:", error);

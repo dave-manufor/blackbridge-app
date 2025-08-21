@@ -12,13 +12,13 @@ type InitializeTransferPayload = {
   | { isLink: false; recipients: string[] }
 );
 export async function initializeTransfer(
-  payload: InitializeTransferPayload
+  payload: InitializeTransferPayload, signal?: AbortSignal
 ): Promise<string> {
   try {
     const endpoint = payload.isLink
       ? ApiRoutes.transfer.initiateLinkTransfer
       : ApiRoutes.transfer.initiateEmailTransfer;
-    const response = await API.post(endpoint, payload);
+    const response = await API.post(endpoint, payload, {signal});
     return response.data?.data?.transfer_id as string;
   } catch (error) {
     throw new Error(`Failed to initiate transfer: ${error}`);
@@ -50,7 +50,7 @@ export type CommitTransferPayload = {
     }
 );
 
-export async function commitTransfer(payload: CommitTransferPayload) {
+export async function commitTransfer(payload: CommitTransferPayload, signal?: AbortSignal) {
   try {
     const endpoint = payload.isLink
       ? ApiRoutes.transfer.commitLinkTransfer({
@@ -59,7 +59,7 @@ export async function commitTransfer(payload: CommitTransferPayload) {
       : ApiRoutes.transfer.commitEmailTransfer({
           transferId: payload.transfer_id,
         });
-    await API.post(endpoint, payload);
+    await API.post(endpoint, payload, {signal});
   } catch (error) {
     throw new Error(`Failed to commit transfer: ${error}`);
   }
