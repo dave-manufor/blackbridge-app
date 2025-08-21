@@ -363,8 +363,6 @@ class AuthController {
         message: 'Sign in successful',
         data: {
           serverProof: serverProofBase64,
-          accessToken,
-          exp: accessPayload.exp,
         },
       });
     } catch (error) {
@@ -452,10 +450,6 @@ class AuthController {
       // Send new access token to client
       res.status(StatusCodesConfig.OK).json({
         message: 'Access token refreshed successfully',
-        data: {
-          accessToken,
-          exp: accessPayload.exp,
-        },
       });
     } catch (error) {
       this.authLogger.error(error, 'Error refreshing token');
