@@ -1,0 +1,65 @@
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100vw;
+}
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo {
+  width: 300px;
+  max-width: 65vw;
+  height: auto;
+}
+
+.circlesWrapper {
+  position: relative;
+  width: 100px;
+  max-width: 20vw;
+  aspect-ratio: 1;
+}
+
+.circle {
+  position: absolute;
+  width: 15%; /* diameter */
+  aspect-ratio: 1;
+  background-color: #000;
+  border-radius: 50%;
+  animation: bounce 1.7s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+.circle1 {
+  left: 20%;
+  top: 32.5%;
+  animation-delay: -0.4s;
+}
+
+.circle2 {
+  left: 50%;
+  transform: translateX(-50%);
+  top: 32.5%;
+  animation-delay: -0.2s;
+}
+
+.circle3 {
+  right: 20%;
+  top: 32.5%;
+  animation-delay: 0s;
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    top: 32.5%;
+  }
+  50% {
+    top: 67.5%;
+  }
+}

@@ -1,0 +1,67 @@
+.filePicker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.filePicker.draggable {
+  padding: 24px 32px;
+  border: 2px dashed;
+  border-radius: 8px;
+}
+
+.draggable.primary {
+  border-color: var(--primary-300);
+}
+
+.draggable.neutral {
+  border-color: var(--neutral-300);
+}
+
+.draggable.ghost {
+  border-color: var(--neutral-100);
+}
+
+.upload {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: fit-content;
+  padding: 12px;
+  border-radius: 50%;
+  margin-bottom: 12px;
+}
+
+.primary .upload {
+  background-color: var(--primary-100);
+  color: var(--primary-500);
+}
+
+.neutral .upload {
+  background-color: var(--neutral-100);
+  color: var(--neutral-300);
+}
+
+.ghost .upload {
+  background: transparent;
+  color: var(--neutral-500);
+}
+
+.browse {
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.primary .browse {
+  color: var(--primary-500);
+}
+
+.neutral .browse {
+  color: var(--neutral-500);
+}
+
+.ghost .browse {
+  color: var(--neutral-500);
+}

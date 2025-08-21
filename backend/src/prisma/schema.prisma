@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+model Users{
+  id String @db.Uuid @id @default(uuid()) @unique
+  email String @unique
+  verified Boolean @default(false)
+  profile_picture String? @db.Uuid
+  salt String
+  verifier String
+  sessions Sessions[]
+  keys Keys[]
+  files Files[]
+  transfers Transfers[]
+  transfers_received EmailTransfers[]
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  @@index([email], name: "idx_user_email")
+}
+
+model Keys{
+  id String @db.Uuid @id @default(uuid()) @unique
+  user_id String @db.Uuid
+  primary Boolean @default(false)
+  salt String
+  public_key String
+  private_key String
+  version Int @default(1)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  user Users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  @@unique([user_id, primary], name: "single_primary_key_pair_per_user")
+  @@index([user_id], name: "idx_key_pair_user_id")
+}
+
+model Sessions{
+  id String @db.Uuid @id @default(uuid()) @unique
+  user_id String @db.Uuid
+  // TODO: Ensure tokens and keys are hashed before being stored
+  hashed_refresh_token String @unique
+  hashed_session_key String? @unique
+  user_agent String
+  browser String
+  os String
+  platform String
+  device_name String?
+  ip_address String
+  revoked Boolean @default(false)
+  revoked_at DateTime?
+  expires_at DateTime
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  user Users @relation(fields: [user_id], references: [id],onDelete: Cascade, onUpdate: Cascade)
+  @@index([user_id], name: "idx_session_user_id")
+}
+
+enum FILE_STATUS {
+  PENDING
+  PROCESSING
+  UPLOADED
+  FAILED
+}
+
+model Files {
+  id String @db.Uuid @id @default(uuid())
+  user_id String @db.Uuid
+  transfer_id String @db.Uuid
+  status FILE_STATUS @default(PENDING)
+  name String
+  size BigInt @db.BigInt
+  content_type String
+  metadata Json? @db.JsonB
+  blocks FileBlocks[]
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  user Users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  transfer Transfers @relation(fields: [transfer_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  @@index([user_id], name: "idx_file_user_id")
+  @@index([status], name: "idx_file_status")
+}
+
+model FileBlocks {
+  id String @db.Uuid @id @default(uuid())
+  file_id String @db.Uuid
+  index Int
+  size Int
+  encrypted_size Int?
+  path String @unique
+  upload_id String? @unique
+  status FILE_STATUS @default(PENDING)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  file Files @relation(fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  @@index([file_id], name: "idx_file_blocks_file_id")
+}
+
+enum TRANSFER_TYPE {
+  EMAIL
+  LINK
+}
+
+enum TRANSFER_STATUS {
+  PENDING
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+model Transfers{
+  id String @db.Uuid @id @default(uuid()) @unique
+  owner_user_id String @db.Uuid
+  owner_file_key String?
+  transfer_type TRANSFER_TYPE
+  title String?
+  description String?
+  status TRANSFER_STATUS @default(ACTIVE)
+  expiration_date DateTime?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  email_transfers EmailTransfers[]
+  link_transfers LinkTransfers?
+  files Files[]
+  user Users @relation(fields: [owner_user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  @@index([owner_user_id], name: "idx_transfer_owner_user_id")
+  @@index([transfer_type], name: "idx_transfer_type")
+}
+
+model EmailTransfers{
+  id String @db.Uuid @id @default(uuid()) @unique
+  transfer_id String @db.Uuid @unique
+  recipient_user_id String @db.Uuid
+  file_key String?
+  created_at DateTime @default(now())
+  transfer Transfers @relation(fields: [transfer_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  recipient_user Users @relation(fields: [recipient_user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  @@index([recipient_user_id], name: "idx_user_transfers_recipient_user_id")
+  @@index([transfer_id], name: "idx_user_transfer_id")
+}
+
+model LinkTransfers{
+  id String @db.Uuid @id @default(uuid()) @unique
+  transfer_id String @db.Uuid @unique
+  file_key String?
+  encrypted_fragment String?
+  is_password_protected Boolean @default(false)
+  download_limit Int?
+  download_count Int @default(0)
+  last_accessed DateTime?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  transfer Transfers @relation(fields: [transfer_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  @@index([transfer_id], name: "idx_link_transfer_id")
+}

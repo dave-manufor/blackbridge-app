@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+.section {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  align-content: flex-start;
+  column-gap: 24px;
+  row-gap: 24px;
+  margin-bottom: var(--section-gap);
+  /* row-gap: 72px; */
+
+  /* Responsive Styles */
+  @apply max-md:grid-cols-8 max-sm:grid-cols-7;
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}

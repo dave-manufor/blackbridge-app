@@ -1,0 +1,27 @@
+/* ------------ CSS Reset------------ */
+@layer base {
+  * {
+    font-family: "Outfit", sans-serif;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-size: inherit;
+    vertical-align: baseline;
+  }
+
+  ul,
+  ol {
+    list-style: none;
+  }
+
+  a,
+  .link {
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  table {
+    border-collapse: collapse;
+    border-spacing: 0;
+  }
+}
