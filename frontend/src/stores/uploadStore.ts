@@ -112,6 +112,11 @@ export const useUploadStore = create<UploadState & UploadActions>()(
         // Calculate the change (delta)
         const delta = progress - previousProgress;
 
+        // Ignore negative delta to avoid UI glitching or progress rollback on failed part
+        if (delta < 0) {
+          return;
+        }
+
         // Update the running totals
         const newTotal = totalUploaded + delta;
         const newProgress = (newTotal / totalUploadSize) * 100;
