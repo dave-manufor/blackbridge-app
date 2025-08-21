@@ -521,13 +521,50 @@ class AuthController {
 
   private putLocalSessionKey = async (req: Request, res: Response) => {
     const { key } = req.body as BodyTypeToShape<'putSessionKey'>;
-    // TODO: Implement putLocalSessionKey logic
-    throw new Error('Not implemented');
+    const { userId, sessionId } = req.session;
+
+    try {
+      await db.sessions.update({
+        where: { user_id: userId, id: sessionId },
+        data: { session_key: key },
+      });
+
+      res.status(StatusCodesConfig.OK).json({
+        message: 'Session key updated successfully',
+      });
+    } catch (error) {
+      this.authLogger.error(error, 'Error updating session key');
+      res.status(StatusCodesConfig.INTERNAL_SERVER_ERROR).json({
+        message: 'Internal Server Error',
+      });
+    }
   };
 
   private getLocalSessionKey = async (req: Request, res: Response) => {
-    // TODO: Implement getLocalSessionKey logic
-    throw new Error('Not implemented');
+    const { userId, sessionId } = req.session;
+
+    try {
+      const session = await db.sessions.findUnique({
+        where: { user_id: userId, id: sessionId },
+      });
+
+      if (!session) {
+        res.sendStatus(StatusCodesConfig.NOT_FOUND);
+        return;
+      }
+
+      res.status(StatusCodesConfig.OK).json({
+        message: 'Session key retrieved successfully',
+        data: {
+          session_key: session.session_key,
+        },
+      });
+    } catch (error) {
+      this.authLogger.error(error, 'Error retrieving session key');
+      res.status(StatusCodesConfig.INTERNAL_SERVER_ERROR).json({
+        message: 'Internal Server Error',
+      });
+    }
   };
 
   private getValidationSchema = <T extends BodyType>(type: T): SchemaMap[T] => {

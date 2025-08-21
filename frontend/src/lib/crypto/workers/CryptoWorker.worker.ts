@@ -13,6 +13,7 @@ import {
   DecryptDataOptions,
 } from "./crypto";
 import { expose } from "comlink";
+import bcrypt from "bcryptjs";
 
 /**
  * Web Worker class that performs cryptographic operations (encryption, decryption, key management)
@@ -49,7 +50,57 @@ export class CryptoWorker implements CryptoWorkerInterface {
     this.privateKey = null;
   }
 
-  /*------------ Helpers ------------*/
+  /**
+   * Encrypts and wraps the loaded private key using the provided passphrase.
+   *
+   * @param params - An object containing the passphrase to encrypt the private key.
+   * @param params.passphrase - The passphrase used to encrypt the private key.
+   * @returns A promise that resolves to the armored (ASCII-encoded) encrypted private key string.
+   * @throws If the private key is not loaded.
+   */
+  async wrapPrivateKey({
+    passphrase,
+  }: {
+    passphrase: string;
+  }): Promise<string> {
+    if (!this.privateKey) {
+      throw new Error("wrapPrivateKey(): Private key not loaded.");
+    }
+
+    const wrappedKey = await openpgp.encryptKey({
+      privateKey: this.privateKey,
+      passphrase: passphrase,
+    });
+
+    return wrappedKey.armor();
+  }
+
+  async generateKeyPair(
+    password: string,
+    email: string
+  ): Promise<{
+    privateKey: string;
+    publicKey: string;
+    salt: string;
+  }> {
+    // 1. Generate salt
+    const salt = await bcrypt.genSalt(12);
+    // 2. Hash password with salt
+    const hash = await bcrypt.hash(password, salt);
+    // 3. Generate key pair using the hashed password and user ID
+    const { privateKey, publicKey } = await openpgp.generateKey({
+      userIDs: [{ name: email }],
+      passphrase: hash,
+      format: "armored",
+      type: "ecc",
+    });
+    // 4. Return the key pair and salt
+    return {
+      privateKey: privateKey,
+      publicKey: publicKey,
+      salt: salt,
+    };
+  }
 
   /**
    * Encrypts a session key using either public keys or passphrase.
@@ -191,8 +242,6 @@ export class CryptoWorker implements CryptoWorkerInterface {
     }
   }
 
-  /*------------ Public Interface Methods ------------*/
-
   /**
    * Generates a random session key using the specified AES algorithm.
    *
@@ -211,9 +260,36 @@ export class CryptoWorker implements CryptoWorkerInterface {
     return { data, algorithm };
   }
 
-  generateRandomFragment(length: number = 12): string {
+  generateRandomFragment(
+    length: number = 12,
+    options: {
+      prefix?: string;
+      suffix?: string;
+      uppercase?: boolean;
+      lowercase?: boolean;
+      digits?: boolean;
+      specialCharacters?: boolean;
+    } = {
+      uppercase: true,
+      lowercase: true,
+      digits: true,
+      specialCharacters: false,
+    }
+  ): string {
+    const uppercaseString = options?.uppercase
+      ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      : "";
+    const lowercaseString = options?.lowercase
+      ? "abcdefghijklmnopqrstuvwxyz"
+      : "";
+    const digitsString = options?.digits ? "0123456789" : "";
+    const specialCharactersString = options?.specialCharacters ? "!@#$%&?" : "";
     const characters =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+      uppercaseString +
+      lowercaseString +
+      digitsString +
+      specialCharactersString;
+
     let fragment = "";
 
     // Create a Uint32Array to hold random values

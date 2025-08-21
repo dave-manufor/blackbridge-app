@@ -6,6 +6,8 @@ export default {
     refresh: "/auth/refresh",
     requestVerification: "/auth/verification/request",
     confirmVerification: "/auth/verification/confirm",
+    putLocalSessionKey: "/auth/sessions/local/key",
+    getLocalSessionKey: "/auth/sessions/local/key",
     signOut: "/auth/logout",
     resetPassword: "/auth/reset-password",
     changePassword: "/auth/change-password",

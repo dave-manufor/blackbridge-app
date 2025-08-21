@@ -8,11 +8,14 @@ import { API, ApiRoutes } from "@/api";
 import { User } from "@/types/auth";
 import axios, { AxiosError } from "axios";
 import { devOnly, isDevEnvironment } from "@/utils/dev";
-import { generateKeyPair } from "@/lib/crypto/keyManager";
 import { Keys } from "@/types/keys";
 import { devtools } from "zustand/middleware";
 import { CryptoBridge } from "@/lib/crypto/workers/CryptoBridge";
 import bcrypt from "bcryptjs";
+import {
+  getLocalSessionKey,
+  putLocalSessionKey,
+} from "@/api/services/authService";
 
 const cryptoBridge = CryptoBridge.getInstance();
 
@@ -95,10 +98,15 @@ export const useAuthStore = create<AuthStore>()(
           const passphrase = bcrypt.hashSync(password, _primaryKeys?.salt);
 
           if (_primaryKeys) {
-            cryptoBridge.initialize(
+            const sessionKey = await cryptoBridge.initialize(
+              me.id,
               _primaryKeys?.private_key || "",
               passphrase
             );
+
+            await putLocalSessionKey({
+              sessionKey,
+            });
           }
 
           set({
@@ -127,6 +135,10 @@ export const useAuthStore = create<AuthStore>()(
         devOnly(() => console.log("Signing out"));
         try {
           await API.post(ApiRoutes.auth.signOut);
+          const user = get().user;
+          if (user) {
+            await cryptoBridge.terminate(user.id);
+          }
           set({
             authenticated: false,
             user: null,
@@ -136,8 +148,6 @@ export const useAuthStore = create<AuthStore>()(
           });
         } catch (error) {
           devOnly(() => console.error(error));
-        } finally {
-          await cryptoBridge.terminate();
         }
       },
 
@@ -150,7 +160,7 @@ export const useAuthStore = create<AuthStore>()(
             publicKey,
             privateKey,
             salt: keySalt,
-          } = await generateKeyPair(password, email);
+          } = await cryptoBridge.generateKeyPair(password, email);
 
           await API.post(ApiRoutes.auth.register, {
             identifier: email,
@@ -211,6 +221,11 @@ export const useAuthStore = create<AuthStore>()(
             }
           );
           await get().refreshUser(); // Refresh user data after validating session
+          const sessionKey = await getLocalSessionKey();
+          const user = get().user;
+          if (user) {
+            await cryptoBridge.initializeFromLocal(user.id, sessionKey);
+          }
           set({ authenticated: true });
           devOnly(() => console.log("Session is valid, user authenticated"));
         } catch (error) {
