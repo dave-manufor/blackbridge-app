@@ -13,6 +13,7 @@ import {
   DecryptDataOptions,
 } from "./crypto";
 import { expose } from "comlink";
+import bcrypt from "bcryptjs";
 
 /**
  * Web Worker class that performs cryptographic operations (encryption, decryption, key management)
@@ -74,7 +75,32 @@ export class CryptoWorker implements CryptoWorkerInterface {
     return wrappedKey.armor();
   }
 
-  /*------------ Helpers ------------*/
+  async generateKeyPair(
+    password: string,
+    email: string
+  ): Promise<{
+    privateKey: string;
+    publicKey: string;
+    salt: string;
+  }> {
+    // 1. Generate salt
+    const salt = await bcrypt.genSalt(12);
+    // 2. Hash password with salt
+    const hash = await bcrypt.hash(password, salt);
+    // 3. Generate key pair using the hashed password and user ID
+    const { privateKey, publicKey } = await openpgp.generateKey({
+      userIDs: [{ name: email }],
+      passphrase: hash,
+      format: "armored",
+      type: "ecc",
+    });
+    // 4. Return the key pair and salt
+    return {
+      privateKey: privateKey,
+      publicKey: publicKey,
+      salt: salt,
+    };
+  }
 
   /**
    * Encrypts a session key using either public keys or passphrase.
@@ -215,8 +241,6 @@ export class CryptoWorker implements CryptoWorkerInterface {
       );
     }
   }
-
-  /*------------ Public Interface Methods ------------*/
 
   /**
    * Generates a random session key using the specified AES algorithm.

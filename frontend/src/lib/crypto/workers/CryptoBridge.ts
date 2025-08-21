@@ -181,6 +181,23 @@ export class CryptoBridge implements CryptoBridgeInterface {
       .decryptSessionKey(sessionKeyArmored, options)) as openpgp.SessionKey;
   }
 
+  async generateKeyPair(
+    password: string,
+    email: string
+  ): Promise<{
+    privateKey: string;
+    publicKey: string;
+    salt: string;
+  }> {
+    return (await this.workerPool
+      .getWorker()
+      .generateKeyPair(password, email)) as {
+      privateKey: string;
+      publicKey: string;
+      salt: string;
+    };
+  }
+
   async encrypt<T extends EncryptionOutputFormat>(
     data: Uint8Array | string,
     options: EncryptDataOptions<T>

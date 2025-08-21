@@ -18,6 +18,15 @@ interface CryptoWorkerInterface {
 
   wrapPrivateKey(params: { passphrase: string }): Promise<string>;
 
+  generateKeyPair(
+    password: string,
+    email: string
+  ): Promise<{
+    privateKey: string;
+    publicKey: string;
+    salt: string;
+  }>;
+
   clearPrivateKey(): void;
 
   generateRandomFragment(

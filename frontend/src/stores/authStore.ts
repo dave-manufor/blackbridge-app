@@ -8,7 +8,6 @@ import { API, ApiRoutes } from "@/api";
 import { User } from "@/types/auth";
 import axios, { AxiosError } from "axios";
 import { devOnly, isDevEnvironment } from "@/utils/dev";
-import { generateKeyPair } from "@/lib/crypto/keyManager";
 import { Keys } from "@/types/keys";
 import { devtools } from "zustand/middleware";
 import { CryptoBridge } from "@/lib/crypto/workers/CryptoBridge";
@@ -161,7 +160,7 @@ export const useAuthStore = create<AuthStore>()(
             publicKey,
             privateKey,
             salt: keySalt,
-          } = await generateKeyPair(password, email);
+          } = await cryptoBridge.generateKeyPair(password, email);
 
           await API.post(ApiRoutes.auth.register, {
             identifier: email,
