@@ -4,6 +4,7 @@ import { SignInView, SignUpView, VerificationView } from "./views/auth";
 import ProtectedRoute from "./components/routes/ProtectedRoute";
 import DashboardView from "./views/dashboard/DashboardView";
 import SideBarLayout from "./layouts/SideBarLayout";
+import { TransferDetailsView, TransferHistoryView } from "./views/transfers";
 
 const router = createBrowserRouter([
   // Auth Routes
@@ -40,6 +41,14 @@ const router = createBrowserRouter([
           {
             path: "/",
             element: <DashboardView />,
+          },
+          {
+            path: "/transfers",
+            element: <TransferHistoryView />,
+          },
+          {
+            path: "/transfers/:transferID",
+            element: <TransferDetailsView />,
           },
         ],
       },

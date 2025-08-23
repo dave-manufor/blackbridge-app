@@ -84,19 +84,19 @@ const items: {
       label: "Transfer History",
       defaultIcon: FaRegFolderOpen,
       activeIcon: FaFolderOpen,
-      url: "/history",
+      url: "/transfers",
       children: [
         {
           label: "Sent Files",
           defaultIcon: IoCaretUpCircleOutline,
           activeIcon: IoCaretUpCircle,
-          url: "/history/sent",
+          url: "/transfers/sent",
         },
         {
           label: "Received Files",
           defaultIcon: IoCaretDownCircleOutline,
           activeIcon: IoCaretDownCircle,
-          url: "/history/received",
+          url: "/transfers/received",
         },
         // {
         //   label: "Deleted Files",
