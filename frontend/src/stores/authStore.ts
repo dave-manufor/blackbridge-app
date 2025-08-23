@@ -179,7 +179,7 @@ export const useAuthStore = create<AuthStore>()(
             });
           } else {
             devOnly(() => console.error(error));
-            set({ authError: "Sign-in failed. Please try again." });
+            set({ authError: "Sign-up failed. Please try again." });
           }
         } finally {
           set({ authLoading: false });
