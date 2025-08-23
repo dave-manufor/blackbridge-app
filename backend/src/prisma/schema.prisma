@@ -125,9 +125,9 @@ model Transfers{
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   email_transfers EmailTransfers[]
-  link_transfers LinkTransfers?
+  link_transfer LinkTransfers?
   files Files[]
-  user Users @relation(fields: [owner_user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  owner Users @relation(fields: [owner_user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   @@index([owner_user_id], name: "idx_transfer_owner_user_id")
   @@index([transfer_type], name: "idx_transfer_type")
 }

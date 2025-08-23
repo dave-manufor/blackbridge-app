@@ -2,11 +2,14 @@ import StatusCodes from '../config/StatusCodes.config';
 import logger from '../lib/logger';
 import { verifyToken } from '../middlewares/auth.middleware';
 import { bodyValidator } from '../middlewares/validation.middleware';
-import { FILE_STATUS, TRANSFER_STATUS, TRANSFER_TYPE } from '@prisma/client';
+import { FILE_STATUS, TRANSFER_STATUS, TRANSFER_TYPE, Prisma } from '@prisma/client';
 import db, { useSerializableTransaction } from '../services/db';
 import { PGPValidator } from '../utils/PGPValidator';
 import { Request, Response, Router } from 'express';
 import { z } from 'zod';
+import { prettyZodErrors } from 'utils/zod';
+import { PaginationDetails } from 'custom';
+import { getPaginationResult } from 'utils/prisma';
 
 class TransferController {
   public path = '/transfers';
@@ -20,13 +23,14 @@ class TransferController {
 
   private initializeRoutes() {
     // TODO: Implement the following routes
+    this.router.get('/', verifyToken(), this.getTransfers);
+    this.router.get('/:id', verifyToken(), this.getTransferDetails);
     // POST /initiate - Start a transfer
     this.router.post('/links/initiate', verifyToken(), this.validateBody('initiateLinkTransfer'), this.initiateLinkTransfer);
     this.router.post('/emails/initiate', verifyToken(), this.validateBody('initiateEmailTransfer'), this.initiateEmailTransfer);
     // POST /commit - Finalize and commit transfer
     this.router.post('/links/commit/:id', verifyToken(), this.validateBody('commitLinkTransfer'), this.commitLinkTransfer);
     this.router.post('/emails/commit/:id', verifyToken(), this.validateBody('commitEmailTransfer'), this.commitEmailTransfer);
-    // GET /received - Get all files shared with the user
     // GET /received/:id/download-request - Request to download a shared file (pre-sign)
     // GET /sent - Get all files shared by the user (both user-to-user and links)
     // DELETE /user/:id - Revoke access to a shared file (user-to-user)
@@ -51,10 +55,10 @@ class TransferController {
           description,
           expiration_date,
           status: TRANSFER_STATUS.PENDING,
-          user: {
+          owner: {
             connect: { id: userId },
           },
-          link_transfers: {
+          link_transfer: {
             create: {
               is_password_protected,
             },
@@ -285,6 +289,182 @@ class TransferController {
       this.transferLogger.error({ error }, 'Failed to commit link transfer');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
       return;
+    }
+  }
+
+  private async getTransfers(req: Request, res: Response) {
+    const { userId } = req.session;
+    const query = req.query;
+
+    // Validate Filter Query
+    const querySchema = z.object({
+      page: z.coerce.number().min(1).default(1),
+      limit: z.coerce.number().min(1).max(100).default(10),
+      direction: z.enum(['SENT', 'RECEIVED', 'ALL']).default('ALL'),
+      type: z.enum(Object.keys(TRANSFER_TYPE) as [string, ...string[]]).optional(),
+      status: z.enum(Object.keys(TRANSFER_STATUS) as [string, ...string[]]).optional(),
+      search: z.string().min(1).max(100).optional(),
+    });
+
+    const queryResult = querySchema.safeParse(query);
+    if (!queryResult.success) {
+      const errors = prettyZodErrors(queryResult.error);
+      res.status(StatusCodes.BAD_REQUEST).json({ message: 'Invalid query parameters', details: errors });
+      return;
+    }
+
+    const { page, limit, status, search, direction } = queryResult.data;
+
+    try {
+      // Fetch paginated transfers based on filters if any
+
+      const ownerSelector = [
+        {
+          AND: [{ owner_user_id: userId }, { status: { not: { in: ['PENDING'] } } }],
+        },
+      ];
+
+      const recipientSelector = [
+        {
+          AND: [{ email_transfers: { some: { recipient_user: { id: userId } } } }, { status: { in: ['ACTIVE', 'EXPIRED'] } }],
+        },
+      ];
+
+      const primarySelectors = {
+        ALL: [...ownerSelector, ...recipientSelector],
+        SENT: ownerSelector,
+        RECEIVED: recipientSelector,
+      };
+
+      const where = {
+        // Select based on direction
+        OR: primarySelectors[direction],
+        ...(status && { status: status as TRANSFER_STATUS }),
+        ...(search && {
+          OR: [
+            { title: { contains: search, mode: Prisma.QueryMode.insensitive } },
+            { description: { contains: search, mode: Prisma.QueryMode.insensitive } },
+            { email_transfers: { some: { recipient_user: { email: { contains: search, mode: Prisma.QueryMode.insensitive } } } } },
+            { files: { some: { name: { contains: search, mode: Prisma.QueryMode.insensitive } } } },
+          ],
+        }),
+      };
+
+      const include = {
+        owner: {
+          select: {
+            id: true,
+            email: true,
+            profile_picture: true,
+          },
+        },
+        files: {
+          select: {
+            name: true,
+            size: true,
+            content_type: true,
+          },
+        },
+      };
+
+      const omit = {
+        owner_file_key: true,
+      };
+
+      const [transfers, count] = await getPaginationResult({
+        modelName: 'Transfers',
+        page,
+        limit,
+        where,
+        include,
+        omit,
+        orderBy: {
+          created_at: 'desc',
+        },
+      });
+
+      const totalPages = Math.ceil(count / limit);
+
+      const paginationDetails: PaginationDetails = {
+        page: page,
+        limit: limit,
+        totalPages: totalPages,
+        totalItems: count,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      };
+      // return filtered transfers
+      res.status(StatusCodes.OK).json({ message: 'Transfers fetched successfully', data: transfers, pagination: paginationDetails });
+    } catch (error) {
+      // this.transferLogger.error({ error }, 'Failed to get transfers');
+      console.error(error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  }
+
+  private async getTransferDetails(req: Request, res: Response) {
+    const { id } = req.params;
+    const { userId } = req.session;
+
+    try {
+      const transfer = await db.transfers.findUnique({
+        where: {
+          id: id,
+        },
+        include: {
+          email_transfers: true,
+          link_transfer: true,
+          files: true,
+        },
+      });
+
+      // Checks
+
+      // Check if transfer exists
+      if (!transfer) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Transfer not found' });
+        return;
+      }
+
+      // Check if user has permission to access the transfer
+      if (transfer.owner_user_id !== userId && !transfer.email_transfers.some((email) => email.recipient_user_id === userId)) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to access this transfer' });
+        return;
+      }
+
+      // Check if user is a recipient and transfer is revoked or pending
+      if (
+        transfer.email_transfers.some((email) => email.recipient_user_id === userId) &&
+        ([TRANSFER_STATUS.REVOKED, TRANSFER_STATUS.PENDING] as Array<string>).includes(transfer.status)
+      ) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to access this transfer' });
+        return;
+      }
+
+      // Formatting
+
+      // Remove owner file key if not owner requesting
+      if (transfer.owner_user_id !== userId) {
+        delete transfer.owner_file_key;
+      }
+
+      // Remove other email transfers if not owner requesting
+      if (transfer.owner_user_id !== userId) {
+        transfer.email_transfers = transfer.email_transfers.filter((email) => email.recipient_user_id === userId);
+      }
+
+      res.status(StatusCodes.OK).json({
+        message: 'Transfer fetched successfully',
+        data: {
+          ...transfer,
+          isOwner: transfer.owner_user_id === userId,
+          fileCount: transfer.files.length,
+          totalSize: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   }
 
