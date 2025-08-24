@@ -1,0 +1,17 @@
+export const TRANSFER_TYPES = {
+  EMAIL: "EMAIL",
+  LINK: "LINK",
+};
+
+export const TRANSFER_STATUS = {
+  PENDING: "PENDING",
+  ACTIVE: "ACTIVE",
+  EXPIRED: "EXPIRED",
+  REVOKED: "REVOKED",
+};
+
+export const TRANSFER_DIRECTION = {
+  ALL: "ALL",
+  SENT: "SENT",
+  RECEIVED: "RECEIVED",
+};

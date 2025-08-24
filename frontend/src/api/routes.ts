@@ -25,6 +25,7 @@ export default {
     finalizeFile: "files/upload/finalize",
   },
   transfer: {
+    getTransfers: "transfers",
     initiateEmailTransfer: "transfers/emails/initiate",
     commitEmailTransfer: ({ transferId }: { transferId: string }) =>
       `transfers/emails/commit/${transferId}`,

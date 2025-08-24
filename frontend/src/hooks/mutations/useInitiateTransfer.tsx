@@ -1,5 +1,5 @@
 import { AxiosProgressEvent } from "axios";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { transferSchema } from "@/lib/validators";
 import TRANSFER_DURATIONS from "@/config/constants/transferDurations";
@@ -21,6 +21,7 @@ import { getPublicKeys } from "@/api/services/userService";
 import { devOnly } from "@/utils/dev";
 import { useUploadStore } from "@/stores/uploadStore";
 import { runInParallel } from "@/utils/concurrency";
+import { queryKeys } from "../queries";
 
 const cryptoBridge = CryptoBridge.getInstance();
 const uploadStore = useUploadStore.getState();
@@ -238,6 +239,7 @@ interface InitiateTransferPayload {
 }
 
 const useInitiateTransfer = () => {
+  const queryClient = useQueryClient();
   const controller = new AbortController();
   return useMutation({
     mutationFn: (payload: InitiateTransferPayload) =>
@@ -247,7 +249,10 @@ const useInitiateTransfer = () => {
         },
         controller.signal
       ),
-    onSuccess: () => uploadStore.setStatus("success"),
+    onSuccess: () => {
+      uploadStore.setStatus("success");
+      queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all });
+    },
     onError: (error) => {
       controller.abort();
       uploadStore.setStatus("error");

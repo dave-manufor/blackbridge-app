@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { z } from "zod";
-import useInitiateTransfer from "@/hooks/useInitiateTransfer";
+import useInitiateTransfer from "@/hooks/mutations/useInitiateTransfer";
 import toast from "react-hot-toast";
 import { devOnly } from "@/utils/dev";
 import { Progress } from "@/components/ui/progress";

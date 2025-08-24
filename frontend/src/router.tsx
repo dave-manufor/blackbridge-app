@@ -5,6 +5,9 @@ import ProtectedRoute from "./components/routes/ProtectedRoute";
 import DashboardView from "./views/dashboard/DashboardView";
 import SideBarLayout from "./layouts/SideBarLayout";
 import { TransferDetailsView, TransferHistoryView } from "./views/transfers";
+import TransferListAll from "./views/transfers/TransferListAll";
+import TransferListSent from "./views/transfers/TransferListSent";
+import TransferListReceived from "./views/transfers/TransferListReceived";
 
 const router = createBrowserRouter([
   // Auth Routes
@@ -45,6 +48,20 @@ const router = createBrowserRouter([
           {
             path: "/transfers",
             element: <TransferHistoryView />,
+            children: [
+              {
+                index: true,
+                element: <TransferListAll />,
+              },
+              {
+                path: "/transfers/sent",
+                element: <TransferListSent />,
+              },
+              {
+                path: "/transfers/received",
+                element: <TransferListReceived />,
+              },
+            ],
           },
           {
             path: "/transfers/:transferID",
