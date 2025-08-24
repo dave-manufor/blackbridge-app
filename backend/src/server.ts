@@ -11,6 +11,7 @@ import { HomeController, AuthController, UserController, FileController, Transfe
 import { initDB } from './services/db';
 import AWS from 'aws-sdk';
 import { parse } from 'path';
+import nocache from 'nocache';
 
 const port = Number(process.env.PORT) || 3000;
 const crossOrigin = process.env.CROSS_ORIGIN || 'http://localhost:5174';
@@ -45,6 +46,7 @@ let app: App;
         express.json(),
         express.urlencoded({ extended: true }),
         helmet(),
+        nocache(),
         cors(corsOptions),
         cookieParser(),
         useragent.express(),
