@@ -303,7 +303,7 @@ class TransferController {
       direction: z.enum(['SENT', 'RECEIVED', 'ALL']).default('ALL'),
       type: z.enum(Object.keys(TRANSFER_TYPE) as [string, ...string[]]).optional(),
       status: z.enum(Object.keys(TRANSFER_STATUS) as [string, ...string[]]).optional(),
-      search: z.string().min(1).max(100).optional(),
+      search: z.string().optional(),
     });
 
     const queryResult = querySchema.safeParse(query);
