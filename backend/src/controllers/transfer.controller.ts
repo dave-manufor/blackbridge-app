@@ -4,12 +4,12 @@ import { verifyToken } from '../middlewares/auth.middleware';
 import { bodyValidator } from '../middlewares/validation.middleware';
 import { FILE_STATUS, TRANSFER_STATUS, TRANSFER_TYPE, Prisma } from '@prisma/client';
 import db, { useSerializableTransaction } from '../services/db';
-import { PGPValidator } from '../utils/PGPValidator';
+import { PGPValidator } from '../utils/PGPValidator.utils';
 import { Request, Response, Router } from 'express';
 import { z } from 'zod';
-import { prettyZodErrors } from 'utils/zod';
+import { prettyZodErrors } from 'utils/zod.utils';
 import { PaginationDetails } from 'custom';
-import { getPaginationResult } from 'utils/prisma';
+import { getPaginationResult } from 'utils/db.utils';
 
 class TransferController {
   public path = '/transfers';
@@ -371,7 +371,7 @@ class TransferController {
         owner_file_key: true,
       };
 
-      const [transfers, count] = await getPaginationResult({
+      const [transfers, paginationDetails] = await getPaginationResult({
         modelName: 'Transfers',
         page,
         limit,
@@ -383,18 +383,17 @@ class TransferController {
         },
       });
 
-      const totalPages = Math.ceil(count / limit);
+      // Add derived meta
+      const enrichedTransfers = transfers.map((transfer) => ({
+        ...transfer,
+        total_files_count: transfer.files.length,
+        total_files_size_bytes: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
+        is_owner: transfer.owner_user_id === userId,
+        is_expired: transfer.status === 'EXPIRED' || Date.now() > new Date(String(transfer.expiration_date)).getTime(),
+      }));
 
-      const paginationDetails: PaginationDetails = {
-        page: page,
-        limit: limit,
-        totalPages: totalPages,
-        totalItems: count,
-        hasNextPage: page < totalPages,
-        hasPreviousPage: page > 1,
-      };
       // return filtered transfers
-      res.status(StatusCodes.OK).json({ message: 'Transfers fetched successfully', data: transfers, pagination: paginationDetails });
+      res.status(StatusCodes.OK).json({ message: 'Transfers fetched successfully', data: enrichedTransfers, pagination: paginationDetails });
     } catch (error) {
       // this.transferLogger.error({ error }, 'Failed to get transfers');
       console.error(error);
