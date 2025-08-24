@@ -14,10 +14,10 @@ import { JWTAuthPayload, JWTOtpPayload, OtpActionType, OtpRequest } from 'custom
 import { verifyToken } from '../middlewares/auth.middleware';
 import { bodyValidator } from '../middlewares/validation.middleware';
 import bcrypt from 'bcrypt';
-import { hashOTP, hashRefreshToken, verifyOTPHash } from '../utils/hashing';
+import { hashOTP, hashRefreshToken, verifyOTPHash } from '../utils/hashing.utils';
 import { otpVerificationLimiter } from 'middlewares/rateLimiter.middleware';
 import cacheConfig from 'config/cache.config';
-import { generateOTP } from 'utils/otp';
+import { generateOTP } from 'utils/otp.utils';
 
 class AuthController {
   public path = '/auth';
