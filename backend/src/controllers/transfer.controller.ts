@@ -386,6 +386,7 @@ class TransferController {
       // Add derived meta
       const enrichedTransfers = transfers.map((transfer) => ({
         ...transfer,
+        recommended_title: transfer.title || transfer.files[0]?.name || 'Untitled',
         total_files_count: transfer.files.length,
         total_files_size_bytes: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
         is_owner: transfer.owner_user_id === userId,
