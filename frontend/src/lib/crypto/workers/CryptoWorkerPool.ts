@@ -4,7 +4,9 @@ import { devOnly } from "@/utils/dev";
 
 // Determine optimal pool size based on the user's CPU capabilities,
 // defaulting to 4 if navigator.hardwareConcurrency is unavailable.
-const poolSize = navigator.hardwareConcurrency || 4;
+const poolSize = navigator.hardwareConcurrency
+  ? Math.min(navigator.hardwareConcurrency, 4)
+  : 4;
 
 /**
  * Singleton class that manages a pool of Web Workers for cryptographic operations.
@@ -27,8 +29,10 @@ export class CryptoWorkerPool {
   /** Index of the next worker to receive a task (round-robin) */
   private currentWorkerIndex: number = 0;
 
-  /** Indicates whether the worker pool has been initialized */
+  /** Indicates whether the worker pool has been initialized with private key*/
   public initialized: boolean = false;
+
+  public spawned: boolean = false;
 
   /**
    * Returns the singleton instance of the CryptoWorkerPool.
@@ -45,8 +49,34 @@ export class CryptoWorkerPool {
   }
 
   /**
-   * Initializes the worker pool by spawning Web Workers, wrapping them with Comlink,
-   * and importing a private key into each one.
+   * Spawns a set of Web Workers for cryptographic operations not requiring private key access.
+   * This method is idempotent and can be called multiple times without adverse effects.
+   *
+   * @returns {Promise<void>}
+   */
+  public async spawn() {
+    if (this.spawned) return;
+
+    for (let i = 0; i < this.maxWorkers; i++) {
+      const worker = new Worker(
+        new URL("./CryptoWorker.worker.ts", import.meta.url),
+        { type: "module" }
+      );
+
+      const cryptoWorker = wrap<CryptoWorker>(worker);
+
+      this.bareWorkers.push(worker);
+      this.workers.push(cryptoWorker);
+    }
+
+    devOnly(() => console.log("Workers spawned:", this.workers.length));
+
+    this.spawned = true;
+    this.currentWorkerIndex = 0;
+  }
+
+  /**
+   * Initializes all workers in the pool by importing the provided PGP private key.
    *
    * @param {string} armoredKey - The PGP armored private key to import
    * @param {string} passphrase - The passphrase used to decrypt the private key
@@ -56,28 +86,15 @@ export class CryptoWorkerPool {
     armoredKey: string,
     passphrase: string
   ): Promise<void> {
-    for (let i = 0; i < this.maxWorkers; i++) {
-      const worker = new Worker(
-        new URL("./CryptoWorker.worker.ts", import.meta.url),
-        { type: "module" }
-      );
+    await this.spawn();
 
-      const cryptoWorker = wrap<CryptoWorker>(worker);
-
-      try {
-        // Import the private key into the worker before marking it ready
-        await cryptoWorker.importPrivateKey(armoredKey, passphrase);
-        this.bareWorkers.push(worker);
-        this.workers.push(cryptoWorker);
-      } catch (error) {
-        devOnly(() => console.error("Error initializing worker:", error));
-        worker.terminate(); // Prevent leaked worker if import fails
-      }
-    }
-    devOnly(() => console.log("Workers initialized:", this.workers.length));
+    await Promise.all(
+      this.workers.map((worker) =>
+        worker.importPrivateKey(armoredKey, passphrase)
+      )
+    );
 
     this.initialized = true;
-    this.currentWorkerIndex = 0;
   }
 
   /**
@@ -88,10 +105,8 @@ export class CryptoWorkerPool {
    * @returns {Remote<CryptoWorker>} A Comlink-wrapped CryptoWorker instance
    */
   public getWorker(): Remote<CryptoWorker> {
-    if (!this.initialized) {
-      throw new Error(
-        "CryptoWorkerPool is not initialized. Call initialize() first."
-      );
+    if (!this.spawned) {
+      throw new Error("CryptoWorkerPool is not spawned. Call spawn() first.");
     }
 
     // Select the next worker in round-robin fashion
@@ -123,6 +138,7 @@ export class CryptoWorkerPool {
     this.workers = [];
     this.bareWorkers = [];
     this.currentWorkerIndex = 0;
+    this.spawned = false;
     this.initialized = false;
   }
 }

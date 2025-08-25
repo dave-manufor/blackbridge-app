@@ -155,6 +155,7 @@ export const useAuthStore = create<AuthStore>()(
         devOnly(() => console.log("Signing up with", email));
         set({ authLoading: true });
         try {
+          await cryptoBridge.spawn();
           const credentials = await generateSRPCredentials(email, password);
           const {
             publicKey,
