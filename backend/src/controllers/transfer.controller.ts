@@ -338,16 +338,22 @@ class TransferController {
 
       const where = {
         // Select based on direction
-        OR: primarySelectors[direction],
-        ...(status && { status: status as TRANSFER_STATUS }),
-        ...(search && {
-          OR: [
-            { title: { contains: search, mode: Prisma.QueryMode.insensitive } },
-            { description: { contains: search, mode: Prisma.QueryMode.insensitive } },
-            { email_transfers: { some: { recipient_user: { email: { contains: search, mode: Prisma.QueryMode.insensitive } } } } },
-            { files: { some: { name: { contains: search, mode: Prisma.QueryMode.insensitive } } } },
-          ],
-        }),
+        AND: [
+          {
+            OR: primarySelectors[direction],
+          },
+          { ...(status && { status: status as TRANSFER_STATUS }) },
+          {
+            ...(search && {
+              OR: [
+                { title: { contains: search, mode: Prisma.QueryMode.insensitive } },
+                { description: { contains: search, mode: Prisma.QueryMode.insensitive } },
+                { email_transfers: { some: { recipient_user: { email: { contains: search, mode: Prisma.QueryMode.insensitive } } } } },
+                { files: { some: { name: { contains: search, mode: Prisma.QueryMode.insensitive } } } },
+              ],
+            }),
+          },
+        ],
       };
 
       const include = {
