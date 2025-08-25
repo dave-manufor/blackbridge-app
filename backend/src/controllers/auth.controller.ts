@@ -50,8 +50,8 @@ class AuthController {
     );
     this.router.get('/sessions', verifyToken(), this.getSessions);
     this.router.get('/sessions/:id/revoke', verifyToken(), this.revokeSession);
-    this.router.put('/sessions/local/key', verifyToken(), this.validateBody('putSessionKey'), this.putLocalSessionKey);
-    this.router.get('/sessions/local/key', verifyToken(), this.getLocalSessionKey);
+    this.router.put('/sessions/local/key', verifyToken({ bypassVerification: true }), this.validateBody('putSessionKey'), this.putLocalSessionKey);
+    this.router.get('/sessions/local/key', verifyToken({ bypassVerification: true }), this.getLocalSessionKey);
   }
 
   private register = async (req: Request, res: Response) => {
