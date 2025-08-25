@@ -413,6 +413,13 @@ class TransferController {
           id: id,
         },
         include: {
+          owner: {
+            select: {
+              id: true,
+              email: true,
+              profile_picture: true,
+            },
+          },
           email_transfers: true,
           link_transfer: true,
           files: true,
