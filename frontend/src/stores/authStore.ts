@@ -16,6 +16,7 @@ import {
   getLocalSessionKey,
   putLocalSessionKey,
 } from "@/api/services/authService";
+import queryClient from "@/lib/queryClient";
 
 const cryptoBridge = CryptoBridge.getInstance();
 
@@ -139,6 +140,7 @@ export const useAuthStore = create<AuthStore>()(
           if (user) {
             await cryptoBridge.terminate(user.id);
           }
+          queryClient.invalidateQueries();
           set({
             authenticated: false,
             user: null,
