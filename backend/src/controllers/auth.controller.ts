@@ -397,7 +397,7 @@ class AuthController {
     try {
       const now = new Date();
 
-      const session = await db.sessions.findUnique({
+      const session = await db.sessions.findFirst({
         where: { id: payload.sessionId, expires_at: { gte: now }, revoked: false },
       });
 
