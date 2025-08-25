@@ -1,4 +1,5 @@
 import TransferSummaryCard from "@/components/features/transfers/TransferSummaryCard";
+import TransferSummaryCardSkeleton from "@/components/features/transfers/TransferSummaryCardSkeleton";
 import GridSection from "@/components/ui/GridSection";
 import { PaginationControls } from "@/components/ui/pagination";
 import { TRANSFER_DIRECTION } from "@/config/constants/transfers";
@@ -7,16 +8,23 @@ import { useGetTransfersQuery } from "@/hooks/queries";
 import { usePageReducer } from "@/hooks/reducers";
 
 const TransferListAll = () => {
-  const { search } = useTransferListContext();
+  const { search, limit } = useTransferListContext();
   const { page, dispatch: pageDispatch } = usePageReducer();
   const DIRECTION = TRANSFER_DIRECTION.ALL;
   const { isPending, isError, data } = useGetTransfersQuery({
     direction: DIRECTION,
     search,
+    limit,
     page,
   });
   return (
     <GridSection>
+      {isPending &&
+        Array.from({ length: limit ? Math.min(8, limit) : 8 }).map(
+          (_, index) => (
+            <TransferSummaryCardSkeleton className="col-span-3" key={index} />
+          )
+        )}
       {data?.data &&
         data.data.length > 0 &&
         data.data.map((transfer) => (
