@@ -1,3 +1,4 @@
+import TransferListEmptyState from "@/components/features/transfers/TransferListEmptyState";
 import TransferSummaryCard from "@/components/features/transfers/TransferSummaryCard";
 import TransferSummaryCardSkeleton from "@/components/features/transfers/TransferSummaryCardSkeleton";
 import GridSection from "@/components/ui/GridSection";
@@ -19,6 +20,9 @@ const TransferListReceived = () => {
   });
   return (
     <GridSection>
+      {!isPending && data?.data && data.data.length === 0 && (
+        <TransferListEmptyState className="col-span-full" />
+      )}
       {isPending &&
         Array.from({ length: limit ? Math.min(8, limit) : 8 }).map(
           (_, index) => (
@@ -40,16 +44,18 @@ const TransferListReceived = () => {
             transfer_type={transfer.transfer_type}
           />
         ))}
-      <PaginationControls
-        className="col-span-full"
-        currentPage={data?.pagination.page || 1}
-        hasPreviousPage={data?.pagination.hasPreviousPage || false}
-        hasNextPage={data?.pagination.hasNextPage || false}
-        totalPages={data?.pagination.totalPages || 1}
-        onPreviousPage={() => pageDispatch({ type: "PREVIOUS" })}
-        onNextPage={() => pageDispatch({ type: "NEXT" })}
-        onSetPage={(page) => pageDispatch({ type: "SET", payload: page })}
-      />
+      {!isPending && data?.data && data.data.length > 0 && (
+        <PaginationControls
+          className="col-span-full"
+          currentPage={data?.pagination.page || 1}
+          hasPreviousPage={data?.pagination.hasPreviousPage || false}
+          hasNextPage={data?.pagination.hasNextPage || false}
+          totalPages={data?.pagination.totalPages || 1}
+          onPreviousPage={() => pageDispatch({ type: "PREVIOUS" })}
+          onNextPage={() => pageDispatch({ type: "NEXT" })}
+          onSetPage={(page) => pageDispatch({ type: "SET", payload: page })}
+        />
+      )}
     </GridSection>
   );
 };
