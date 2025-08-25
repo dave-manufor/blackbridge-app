@@ -140,7 +140,7 @@ export const useAuthStore = create<AuthStore>()(
           if (user) {
             await cryptoBridge.terminate(user.id);
           }
-          queryClient.invalidateQueries();
+          queryClient.clear();
           set({
             authenticated: false,
             user: null,
