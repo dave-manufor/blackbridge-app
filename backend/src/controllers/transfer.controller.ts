@@ -321,7 +321,6 @@ class TransferController {
       const ownerSelector = [
         {
           owner_user_id: userId,
-          status: { not: TRANSFER_STATUS.PENDING },
         },
       ];
 
@@ -340,6 +339,7 @@ class TransferController {
 
       const where = {
         OR: primarySelectors[direction],
+        status: { not: TRANSFER_STATUS.PENDING },
         ...(status && { status: status as TRANSFER_STATUS }),
         ...(search && {
           OR: [
