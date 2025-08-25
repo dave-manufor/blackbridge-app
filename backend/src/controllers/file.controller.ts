@@ -7,7 +7,7 @@ import { v4 as uuid_v4 } from 'uuid';
 import uploadConfig from '../config/upload.config';
 import db, { useSerializableTransaction } from '../services/db';
 import { completeMultiPartUpload, getPresignedUrl, initiateMultiPartUpload } from '../services/aws';
-import { FILE_STATUS, Prisma, TRANSFER_STATUS, TRANSFER_TYPE } from '@prisma/client';
+import { FILE_STATUS, FileBlocks, Prisma, TRANSFER_STATUS, TRANSFER_TYPE } from '@prisma/client';
 import { bodyValidator } from '../middlewares/validation.middleware';
 import pLimit from 'p-limit';
 
@@ -98,35 +98,33 @@ class FileController {
         });
       }
 
-      let file: Prisma.FilesGetPayload<{}>;
-      let blocks: Prisma.FileBlocksGetPayload<{}>[] = [];
-
-      await useSerializableTransaction(async (tx) => {
-        // Create pending file and file blocks
-        file = await tx.files.create({
-          data: {
-            transfer_id: transfer_id,
-            user_id: userId,
-            name,
-            content_type,
-            size: size,
-            metadata: metadata ? JSON.parse(metadata) : null,
+      // Create pending file and file blocks
+      const file = await db.files.create({
+        data: {
+          transfer_id: transfer_id,
+          user_id: userId,
+          name,
+          content_type,
+          size: size,
+          metadata: metadata ? JSON.parse(metadata) : null,
+          blocks: {
+            create: blocksArr.map((block) => ({
+              index: block.index,
+              path: block.path,
+              size: block.size,
+            })),
           },
-        });
-
-        blocks = await tx.fileBlocks.createManyAndReturn({
-          data: blocksArr.map((block) => ({
-            ...block,
-            file_id: file.id,
-          })),
-        });
+        },
+        include: {
+          blocks: true,
+        },
       });
 
       res.status(StatusCodesConfig.OK).json({
         message: 'Upload request successful',
         data: {
           file_id: file.id,
-          blocks: blocks.map((block) => ({
+          blocks: file.blocks.map((block) => ({
             id: block.id,
             index: block.index,
             path: block.path,
