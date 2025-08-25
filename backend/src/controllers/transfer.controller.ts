@@ -320,13 +320,15 @@ class TransferController {
 
       const ownerSelector = [
         {
-          AND: [{ owner_user_id: userId }, { status: { not: { in: ['PENDING'] } } }],
+          owner_user_id: userId,
+          status: { not: TRANSFER_STATUS.PENDING },
         },
       ];
 
       const recipientSelector = [
         {
-          AND: [{ email_transfers: { some: { recipient_user: { id: userId } } } }, { status: { in: ['ACTIVE', 'EXPIRED'] } }],
+          email_transfers: { some: { recipient_user: { id: userId } } },
+          status: { in: [TRANSFER_STATUS.ACTIVE, TRANSFER_STATUS.EXPIRED] },
         },
       ];
 
@@ -337,23 +339,16 @@ class TransferController {
       };
 
       const where = {
-        // Select based on direction
-        AND: [
-          {
-            OR: primarySelectors[direction],
-          },
-          { ...(status && { status: status as TRANSFER_STATUS }) },
-          {
-            ...(search && {
-              OR: [
-                { title: { contains: search, mode: Prisma.QueryMode.insensitive } },
-                { description: { contains: search, mode: Prisma.QueryMode.insensitive } },
-                { email_transfers: { some: { recipient_user: { email: { contains: search, mode: Prisma.QueryMode.insensitive } } } } },
-                { files: { some: { name: { contains: search, mode: Prisma.QueryMode.insensitive } } } },
-              ],
-            }),
-          },
-        ],
+        OR: primarySelectors[direction],
+        ...(status && { status: status as TRANSFER_STATUS }),
+        ...(search && {
+          OR: [
+            { title: { contains: search, mode: Prisma.QueryMode.insensitive } },
+            { description: { contains: search, mode: Prisma.QueryMode.insensitive } },
+            { email_transfers: { some: { recipient_user: { email: { contains: search, mode: Prisma.QueryMode.insensitive } } } } },
+            { files: { some: { name: { contains: search, mode: Prisma.QueryMode.insensitive } } } },
+          ],
+        }),
       };
 
       const include = {
