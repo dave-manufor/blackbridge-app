@@ -7,6 +7,7 @@ import {
 } from "@/api/services/transferService";
 
 const useGetTransfersQuery = (query: GetTransfersQuery) => {
+  console.log(queryKeys.transfers.list(query));
   const queryKey = queryKeys.transfers.list(query);
   return useQuery<GetTransfersResponse>({
     queryKey,

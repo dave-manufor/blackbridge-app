@@ -21,6 +21,7 @@ const TransferListAll = () => {
         data.data.length > 0 &&
         data.data.map((transfer) => (
           <TransferSummaryCard
+            className="col-span-3"
             key={transfer.id}
             id={transfer.id}
             is_owner={transfer.is_owner}

@@ -3,13 +3,28 @@ import {
   NavigationTabs,
   NavigationTabsTrigger,
 } from "@/components/ui/navigation-tabs";
-import { TransferListProvider } from "@/contexts/TransferListContext";
+import { SearchBar } from "@/components/ui/search";
 import useAppHeader from "@/hooks/context/useAppHeader";
-import { useEffect } from "react";
+import useTransferListContext from "@/hooks/context/useTransferListContext";
+import { queryKeys } from "@/hooks/queries";
+import useDebounceCallback from "@/hooks/utils/useDebounceCallback";
+import { useIsFetching } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { Outlet } from "react-router";
 
 const TransferListLayout = () => {
   const { setHeaderTitle } = useAppHeader();
+  const [_search, _setSearch] = useState("");
+  const { setSearch } = useTransferListContext();
+  const isFetching = useIsFetching({ queryKey: queryKeys.transfers.all });
+  const debouncedSearch = useDebounceCallback((value: string) => {
+    setSearch(value);
+  }, 300);
+
+  const handleSearchChange = (value: string) => {
+    _setSearch(value);
+    debouncedSearch(value);
+  };
 
   useEffect(() => {
     setHeaderTitle("Transfer History");
@@ -28,9 +43,15 @@ const TransferListLayout = () => {
           </NavigationTabsTrigger>
         </NavigationTabs>
       </GridSection>
-      <TransferListProvider>
-        <Outlet />
-      </TransferListProvider>
+      <GridSection>
+        <SearchBar
+          search={_search}
+          setSearch={handleSearchChange}
+          className="col-span-full"
+          isLoading={isFetching > 0}
+        />
+      </GridSection>
+      <Outlet />
     </>
   );
 };

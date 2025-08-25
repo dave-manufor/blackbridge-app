@@ -8,6 +8,7 @@ import { TransferDetailsView, TransferHistoryView } from "./views/transfers";
 import TransferListAll from "./views/transfers/TransferListAll";
 import TransferListSent from "./views/transfers/TransferListSent";
 import TransferListReceived from "./views/transfers/TransferListReceived";
+import { TransferListProvider } from "./contexts/TransferListContext";
 
 const router = createBrowserRouter([
   // Auth Routes
@@ -47,7 +48,11 @@ const router = createBrowserRouter([
           },
           {
             path: "/transfers",
-            element: <TransferHistoryView />,
+            element: (
+              <TransferListProvider>
+                <TransferHistoryView />
+              </TransferListProvider>
+            ),
             children: [
               {
                 index: true,
