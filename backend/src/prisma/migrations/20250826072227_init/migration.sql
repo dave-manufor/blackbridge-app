@@ -2,15 +2,16 @@
 CREATE TYPE "FILE_STATUS" AS ENUM ('PENDING', 'PROCESSING', 'UPLOADED', 'FAILED');
 
 -- CreateEnum
-CREATE TYPE "SHARE_TYPE" AS ENUM ('USER', 'LINK');
+CREATE TYPE "TRANSFER_TYPE" AS ENUM ('EMAIL', 'LINK');
 
 -- CreateEnum
-CREATE TYPE "SHARE_STATUS" AS ENUM ('PENDING', 'ACTIVE', 'EXPIRED', 'REVOKED');
+CREATE TYPE "TRANSFER_STATUS" AS ENUM ('PENDING', 'ACTIVE', 'EXPIRED', 'REVOKED');
 
 -- CreateTable
 CREATE TABLE "Users" (
     "id" UUID NOT NULL,
     "email" TEXT NOT NULL,
+    "verified" BOOLEAN NOT NULL DEFAULT false,
     "profile_picture" UUID,
     "salt" TEXT NOT NULL,
     "verifier" TEXT NOT NULL,
@@ -39,12 +40,14 @@ CREATE TABLE "Keys" (
 CREATE TABLE "Sessions" (
     "id" UUID NOT NULL,
     "user_id" UUID NOT NULL,
-    "refresh_token" TEXT NOT NULL,
+    "hashed_refresh_token" TEXT NOT NULL,
+    "session_key" TEXT,
     "user_agent" TEXT NOT NULL,
     "browser" TEXT NOT NULL,
     "os" TEXT NOT NULL,
     "platform" TEXT NOT NULL,
     "device_name" TEXT,
+    "ip_address" TEXT NOT NULL,
     "revoked" BOOLEAN NOT NULL DEFAULT false,
     "revoked_at" TIMESTAMP(3),
     "expires_at" TIMESTAMP(3) NOT NULL,
@@ -58,6 +61,7 @@ CREATE TABLE "Sessions" (
 CREATE TABLE "Files" (
     "id" UUID NOT NULL,
     "user_id" UUID NOT NULL,
+    "transfer_id" UUID NOT NULL,
     "status" "FILE_STATUS" NOT NULL DEFAULT 'PENDING',
     "name" TEXT NOT NULL,
     "size" BIGINT NOT NULL,
@@ -75,8 +79,9 @@ CREATE TABLE "FileBlocks" (
     "file_id" UUID NOT NULL,
     "index" INTEGER NOT NULL,
     "size" INTEGER NOT NULL,
+    "encrypted_size" INTEGER,
     "path" TEXT NOT NULL,
-    "upload_id" TEXT NOT NULL,
+    "upload_id" TEXT,
     "status" "FILE_STATUS" NOT NULL DEFAULT 'PENDING',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
@@ -85,42 +90,46 @@ CREATE TABLE "FileBlocks" (
 );
 
 -- CreateTable
-CREATE TABLE "Shares" (
+CREATE TABLE "Transfers" (
     "id" UUID NOT NULL,
     "owner_user_id" UUID NOT NULL,
-    "file_id" UUID NOT NULL,
-    "share_type" "SHARE_TYPE" NOT NULL,
-    "status" "SHARE_STATUS" NOT NULL DEFAULT 'ACTIVE',
+    "owner_file_key" TEXT,
+    "transfer_type" "TRANSFER_TYPE" NOT NULL,
+    "title" TEXT,
+    "description" TEXT,
+    "status" "TRANSFER_STATUS" NOT NULL DEFAULT 'PENDING',
     "expiration_date" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "Shares_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Transfers_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "UserShares" (
-    "share_id" UUID NOT NULL,
+CREATE TABLE "EmailTransfers" (
+    "id" UUID NOT NULL,
+    "transfer_id" UUID NOT NULL,
     "recipient_user_id" UUID NOT NULL,
-    "file_key" TEXT NOT NULL,
+    "file_key" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "UserShares_pkey" PRIMARY KEY ("share_id","recipient_user_id")
+    CONSTRAINT "EmailTransfers_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "LinkShares" (
-    "id" TEXT NOT NULL,
-    "share_id" UUID NOT NULL,
-    "file_key" TEXT NOT NULL,
-    "password" TEXT NOT NULL,
+CREATE TABLE "LinkTransfers" (
+    "id" UUID NOT NULL,
+    "transfer_id" UUID NOT NULL,
+    "file_key" TEXT,
+    "encrypted_fragment" TEXT,
+    "is_password_protected" BOOLEAN NOT NULL DEFAULT false,
     "download_limit" INTEGER,
     "download_count" INTEGER NOT NULL DEFAULT 0,
     "last_accessed" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "LinkShares_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "LinkTransfers_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -136,15 +145,6 @@ CREATE INDEX "idx_user_email" ON "Users"("email");
 CREATE UNIQUE INDEX "Keys_id_key" ON "Keys"("id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Keys_salt_key" ON "Keys"("salt");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Keys_public_key_key" ON "Keys"("public_key");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Keys_private_key_key" ON "Keys"("private_key");
-
--- CreateIndex
 CREATE INDEX "idx_key_pair_user_id" ON "Keys"("user_id");
 
 -- CreateIndex
@@ -154,7 +154,10 @@ CREATE UNIQUE INDEX "Keys_user_id_primary_key" ON "Keys"("user_id", "primary");
 CREATE UNIQUE INDEX "Sessions_id_key" ON "Sessions"("id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Sessions_refresh_token_key" ON "Sessions"("refresh_token");
+CREATE UNIQUE INDEX "Sessions_hashed_refresh_token_key" ON "Sessions"("hashed_refresh_token");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Sessions_session_key_key" ON "Sessions"("session_key");
 
 -- CreateIndex
 CREATE INDEX "idx_session_user_id" ON "Sessions"("user_id");
@@ -166,6 +169,12 @@ CREATE INDEX "idx_file_user_id" ON "Files"("user_id");
 CREATE INDEX "idx_file_status" ON "Files"("status");
 
 -- CreateIndex
+CREATE INDEX "idx_files_transfer_status" ON "Files"("transfer_id", "status");
+
+-- CreateIndex
+CREATE INDEX "idx_files_user_transfer" ON "Files"("user_id", "transfer_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "FileBlocks_path_key" ON "FileBlocks"("path");
 
 -- CreateIndex
@@ -175,34 +184,49 @@ CREATE UNIQUE INDEX "FileBlocks_upload_id_key" ON "FileBlocks"("upload_id");
 CREATE INDEX "idx_file_blocks_file_id" ON "FileBlocks"("file_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Shares_id_key" ON "Shares"("id");
+CREATE INDEX "idx_file_id_status" ON "FileBlocks"("file_id", "status");
 
 -- CreateIndex
-CREATE INDEX "idx_share_file_id" ON "Shares"("file_id");
+CREATE UNIQUE INDEX "Transfers_id_key" ON "Transfers"("id");
 
 -- CreateIndex
-CREATE INDEX "idx_share_owner_user_id" ON "Shares"("owner_user_id");
+CREATE INDEX "idx_transfer_owner_user_id" ON "Transfers"("owner_user_id");
 
 -- CreateIndex
-CREATE INDEX "idx_share_type" ON "Shares"("share_type");
+CREATE INDEX "idx_transfer_type" ON "Transfers"("transfer_type");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "UserShares_share_id_key" ON "UserShares"("share_id");
+CREATE INDEX "idx_transfers_owner_status" ON "Transfers"("owner_user_id", "status");
 
 -- CreateIndex
-CREATE INDEX "idx_user_shares_recipient_user_id" ON "UserShares"("recipient_user_id");
+CREATE INDEX "idx_transfers_owner_type" ON "Transfers"("owner_user_id", "transfer_type");
 
 -- CreateIndex
-CREATE INDEX "idx_user_shares_share_id" ON "UserShares"("share_id");
+CREATE INDEX "idx_transfer_expiration_date" ON "Transfers"("expiration_date");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "LinkShares_id_key" ON "LinkShares"("id");
+CREATE UNIQUE INDEX "EmailTransfers_id_key" ON "EmailTransfers"("id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "LinkShares_share_id_key" ON "LinkShares"("share_id");
+CREATE INDEX "idx_user_transfers_recipient_user_id" ON "EmailTransfers"("recipient_user_id");
 
 -- CreateIndex
-CREATE INDEX "idx_link_shares_share_id" ON "LinkShares"("share_id");
+CREATE INDEX "idx_user_transfer_id" ON "EmailTransfers"("transfer_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "EmailTransfers_recipient_user_id_transfer_id_key" ON "EmailTransfers"("recipient_user_id", "transfer_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "LinkTransfers_id_key" ON "LinkTransfers"("id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "LinkTransfers_transfer_id_key" ON "LinkTransfers"("transfer_id");
+
+-- CreateIndex
+CREATE INDEX "idx_link_transfer_id" ON "LinkTransfers"("transfer_id");
+
+-- CreateIndex
+CREATE INDEX "idx_link_download_count_limit" ON "LinkTransfers"("download_count", "download_limit");
 
 -- AddForeignKey
 ALTER TABLE "Keys" ADD CONSTRAINT "Keys_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "Users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -214,19 +238,19 @@ ALTER TABLE "Sessions" ADD CONSTRAINT "Sessions_user_id_fkey" FOREIGN KEY ("user
 ALTER TABLE "Files" ADD CONSTRAINT "Files_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "Users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Files" ADD CONSTRAINT "Files_transfer_id_fkey" FOREIGN KEY ("transfer_id") REFERENCES "Transfers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "FileBlocks" ADD CONSTRAINT "FileBlocks_file_id_fkey" FOREIGN KEY ("file_id") REFERENCES "Files"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Shares" ADD CONSTRAINT "Shares_file_id_fkey" FOREIGN KEY ("file_id") REFERENCES "Files"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Transfers" ADD CONSTRAINT "Transfers_owner_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "Users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Shares" ADD CONSTRAINT "Shares_owner_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "Users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "EmailTransfers" ADD CONSTRAINT "EmailTransfers_transfer_id_fkey" FOREIGN KEY ("transfer_id") REFERENCES "Transfers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "UserShares" ADD CONSTRAINT "UserShares_share_id_fkey" FOREIGN KEY ("share_id") REFERENCES "Shares"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "EmailTransfers" ADD CONSTRAINT "EmailTransfers_recipient_user_id_fkey" FOREIGN KEY ("recipient_user_id") REFERENCES "Users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "UserShares" ADD CONSTRAINT "UserShares_recipient_user_id_fkey" FOREIGN KEY ("recipient_user_id") REFERENCES "Users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "LinkShares" ADD CONSTRAINT "LinkShares_share_id_fkey" FOREIGN KEY ("share_id") REFERENCES "Shares"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "LinkTransfers" ADD CONSTRAINT "LinkTransfers_transfer_id_fkey" FOREIGN KEY ("transfer_id") REFERENCES "Transfers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
