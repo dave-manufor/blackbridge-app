@@ -19,7 +19,7 @@ export const TransferListProvider = ({
 }) => {
   const [search, setSearch] = useState<string>("");
   const [page, setPage] = useState<number>(1);
-  const [limit, setLimit] = useState<number>(10);
+  const [limit, setLimit] = useState<number>(12);
 
   return (
     <TransferListContext.Provider

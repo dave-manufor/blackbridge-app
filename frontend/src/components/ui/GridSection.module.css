@@ -2,6 +2,7 @@
 
 .section {
   width: 100%;
+  max-width: 100%;
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   align-content: flex-start;
@@ -11,7 +12,7 @@
   /* row-gap: 72px; */
 
   /* Responsive Styles */
-  @apply max-md:grid-cols-8 max-sm:grid-cols-7;
+  @apply max-lg:grid-cols-8 max-sm:grid-cols-4;
 }
 
 .section:last-child {

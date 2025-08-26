@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+.header_section {
+  @apply col-span-full flex items-start justify-between gap-12 mb-8 max-w-full;
+}
+
+.header_info {
+  @apply flex flex-col items-start gap-2 grow overflow-hidden;
+}
+
+.header_title {
+  @apply text-4xl font-semibold max-w-full truncate;
+}
+
+.header_meta {
+  @apply text-neutral-400;
+}
+
+.header_badges {
+  @apply flex items-center gap-2 min-w-fit;
+}
+
+.details_section {
+  @apply col-span-6 flex flex-col gap-6;
+}
+
+.details_list {
+  @apply w-full flex flex-col gap-0;
+}
+
+.detail {
+  @apply flex items-center gap-4 border-t border-neutral-200 py-4 px-2;
+}
+
+.detail_name {
+  @apply text-neutral-400 min-w-[196px];
+}
+
+.files_section {
+  @apply col-span-4 -col-end-1;
+}
+
+.files_header {
+  @apply w-full flex flex-col items-start border-b border-neutral-200 pb-2 mb-2;
+}
+
+.files_title {
+  @apply text-lg font-semibold;
+}
+
+.files_info {
+  @apply -mt-1 w-full flex items-center justify-between gap-4 text-neutral-400;
+}
+
+.files_summary {
+  @apply flex items-center gap-2;
+}
+
+.files_download_icon {
+  @apply p-2 hover:bg-neutral-100 rounded-md cursor-pointer !text-2xl text-black;
+}
+
+.files_list {
+  @apply w-full flex flex-col gap-2;
+}
+
+.file_item {
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+}
+
+.file_info {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  max-width: calc(100% - 60px); /* leave room for the "Remove" button */
+}
+
+.file_icon {
+  width: 24px;
+  height: auto;
+}
+
+.file_details {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.file_name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text);
+  display: block;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.file_meta {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.email_chips {
+  @apply max-h-[130px] overflow-y-scroll flex flex-wrap gap-2;
+}
+
+.email_chip {
+  @apply flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-md;
+}
+
+.email_text {
+  @apply text-sm text-gray-800;
+}
+
+.email_delete_button {
+  @apply p-1 hover:bg-gray-200 rounded-md cursor-pointer;
+}

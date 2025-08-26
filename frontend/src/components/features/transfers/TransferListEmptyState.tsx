@@ -2,8 +2,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import AddFiles from "@assets/img/add-files-illustration.svg";
 import { FaPlus } from "react-icons/fa6";
+import { useNavigate } from "react-router";
 
 const TransferListEmptyState = ({ className }: { className?: string }) => {
+  const navigate = useNavigate();
   return (
     <div
       className={cn(
@@ -24,8 +26,10 @@ const TransferListEmptyState = ({ className }: { className?: string }) => {
         </span>
       </div>
       <div className="flex items-center gap-4">
-        <Button variant="outline">Request Transfer</Button>
-        <Button>
+        <Button onClick={() => navigate("/request")} variant="outline">
+          Request Transfer
+        </Button>
+        <Button onClick={() => navigate("/")}>
           <FaPlus />
           New Transfer
         </Button>

@@ -33,6 +33,7 @@ function SearchBar({
       )}
     >
       <FaSearch />
+      {isLoading && <LuLoaderCircle className="animate-spin" />}
       <input
         ref={inputRef}
         className="outline-none border-0 focus:ring-0 placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground grow"
@@ -40,7 +41,6 @@ function SearchBar({
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
-      {isLoading && <LuLoaderCircle className="animate-spin" />}
       {search && (
         <Button
           onClick={() => setSearch("")}

@@ -1,4 +1,5 @@
 import queryKeys from "./queryKeys";
 import useGetTransfersQuery from "./useGetTransfersQuery";
+import useGetTransferDetailsQuery from "./useGetTransferDetailsQuery";
 
-export { queryKeys, useGetTransfersQuery };
+export { queryKeys, useGetTransfersQuery, useGetTransferDetailsQuery };

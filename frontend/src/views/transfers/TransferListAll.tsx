@@ -1,6 +1,8 @@
+import transferStyles from "./TransferStyles.module.css";
 import TransferListEmptyState from "@/components/features/transfers/TransferListEmptyState";
 import TransferSummaryCard from "@/components/features/transfers/TransferSummaryCard";
 import TransferSummaryCardSkeleton from "@/components/features/transfers/TransferSummaryCardSkeleton";
+import GenericErrorState from "@/components/ui/GenericErrorState";
 import GridSection from "@/components/ui/GridSection";
 import { PaginationControls } from "@/components/ui/pagination";
 import { TRANSFER_DIRECTION } from "@/config/constants/transfers";
@@ -20,20 +22,24 @@ const TransferListAll = () => {
   });
   return (
     <GridSection>
+      {isError && <GenericErrorState className={transferStyles.state} />}
       {!isPending && data?.data && data.data.length === 0 && (
-        <TransferListEmptyState className="col-span-full" />
+        <TransferListEmptyState className={transferStyles.state} />
       )}
       {isPending &&
         Array.from({ length: limit ? Math.min(8, limit) : 8 }).map(
           (_, index) => (
-            <TransferSummaryCardSkeleton className="col-span-3" key={index} />
+            <TransferSummaryCardSkeleton
+              className={transferStyles.transfer_card}
+              key={index}
+            />
           )
         )}
       {data?.data &&
         data.data.length > 0 &&
         data.data.map((transfer) => (
           <TransferSummaryCard
-            className="col-span-3"
+            className={transferStyles.transfer_card}
             key={transfer.id}
             id={transfer.id}
             is_owner={transfer.is_owner}
@@ -46,7 +52,7 @@ const TransferListAll = () => {
         ))}
       {!isPending && data?.data && data.data.length > 0 && (
         <PaginationControls
-          className="col-span-full"
+          className={transferStyles.pagination_controls}
           currentPage={data?.pagination.page || 1}
           hasPreviousPage={data?.pagination.hasPreviousPage || false}
           hasNextPage={data?.pagination.hasNextPage || false}

@@ -126,3 +126,70 @@ export async function getTransfers(
     pagination: response?.data?.pagination,
   };
 }
+
+export type TransferDetailsData = {
+  id: string;
+  owner_user_id: string;
+  transfer_type: string;
+  title: string | null;
+  description: string | null;
+  status: string;
+  expiration_date: string;
+  created_at: string;
+  updated_at: string;
+  owner: {
+    id: string;
+    email: string;
+    profile_picture: string | null;
+  };
+  email_transfers: {
+    id: string;
+    file_key: string;
+    created_at: string;
+    recipient_user: {
+      id: string;
+      email: string;
+      profile_picture: string | null;
+    };
+  }[];
+  link_transfer: {
+    id: string;
+    transfer_id: string;
+    file_key: string;
+    encrypted_fragment: string;
+    is_password_protected: boolean;
+    download_limit: number | null;
+    download_count: number;
+    last_accessed: string | null;
+    created_at: string;
+    updated_at: string;
+  } | null;
+  files: {
+    id: string;
+    user_id: string;
+    transfer_id: string;
+    status: string;
+    name: string;
+    size: number;
+    content_type: string;
+    metadata: object | null;
+    created_at: string;
+    updated_at: string;
+  }[];
+  recommended_title: string;
+  total_files_count: number;
+  total_files_size_bytes: number;
+  is_owner: boolean;
+  is_expired: boolean;
+};
+
+export async function getTransferDetails(
+  transferId: string,
+  signal?: AbortSignal
+): Promise<TransferDetailsData> {
+  const endpoint = ApiRoutes.transfer.getTransferDetails({
+    transferId,
+  });
+  const response = await API.get(endpoint, { signal });
+  return response.data?.data as TransferDetailsData;
+}

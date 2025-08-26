@@ -26,6 +26,8 @@ export default {
   },
   transfer: {
     getTransfers: "transfers",
+    getTransferDetails: ({ transferId }: { transferId: string }) =>
+      `transfers/${transferId}`,
     initiateEmailTransfer: "transfers/emails/initiate",
     commitEmailTransfer: ({ transferId }: { transferId: string }) =>
       `transfers/emails/commit/${transferId}`,

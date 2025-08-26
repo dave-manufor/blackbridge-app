@@ -6,7 +6,7 @@ import { TRANSFER_STATUS, TRANSFER_TYPES } from "@/config/constants/transfers";
 import { cn } from "@/lib/utils";
 import { sentenceCase } from "@/utils/format";
 
-const badgeVariants = cva(
+const baseBadgeVariants = cva(
   "inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
   {
     variants: {
@@ -20,9 +20,15 @@ const badgeVariants = cva(
         outline:
           "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
       },
+      size: {
+        sm: "text-xs px-2 py-0.5",
+        md: "text-sm px-3 py-0.5",
+        lg: "text-base px-4 py-1",
+      },
     },
     defaultVariants: {
       variant: "default",
+      size: "sm",
     },
   }
 );
@@ -30,16 +36,17 @@ const badgeVariants = cva(
 function Badge({
   className,
   variant,
+  size,
   asChild = false,
   ...props
 }: React.ComponentProps<"span"> &
-  VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
+  VariantProps<typeof baseBadgeVariants> & { asChild?: boolean }) {
   const Comp = asChild ? Slot : "span";
 
   return (
     <Comp
       data-slot="badge"
-      className={cn(badgeVariants({ variant }), className)}
+      className={cn(baseBadgeVariants({ variant, size }), className)}
       {...props}
     />
   );
@@ -48,9 +55,11 @@ function Badge({
 function TransferStatusBadge({
   status,
   className,
+  size,
 }: {
   status: (typeof TRANSFER_STATUS)[keyof typeof TRANSFER_STATUS];
   className?: string;
+  size?: VariantProps<typeof baseBadgeVariants>["size"];
 }) {
   const badgeVariant = cva("border-transparent w-fit", {
     variants: {
@@ -71,7 +80,13 @@ function TransferStatusBadge({
   });
   const formattedStatus = sentenceCase(status);
   return (
-    <Badge className={cn(badgeVariant({ status }), className)}>
+    <Badge
+      className={cn(
+        className,
+        baseBadgeVariants({ size }),
+        badgeVariant({ status })
+      )}
+    >
       {formattedStatus}
     </Badge>
   );
@@ -80,9 +95,11 @@ function TransferStatusBadge({
 function TransferTypeBadge({
   type,
   className,
+  size,
 }: {
   type: (typeof TRANSFER_TYPES)[keyof typeof TRANSFER_TYPES];
   className?: string;
+  size?: VariantProps<typeof baseBadgeVariants>["size"];
 }) {
   const badgeVariant = cva("border-transparent w-fit", {
     variants: {
@@ -98,10 +115,16 @@ function TransferTypeBadge({
   const formattedType = sentenceCase(type);
   const badgeType = type === "EMAIL" || type === "LINK" ? type : "EMAIL";
   return (
-    <Badge className={cn(badgeVariant({ type: badgeType }), className)}>
+    <Badge
+      className={cn(
+        className,
+        baseBadgeVariants({ size }),
+        badgeVariant({ type: badgeType })
+      )}
+    >
       {formattedType}
     </Badge>
   );
 }
 
-export { Badge, badgeVariants, TransferStatusBadge, TransferTypeBadge };
+export { Badge, baseBadgeVariants, TransferStatusBadge, TransferTypeBadge };
