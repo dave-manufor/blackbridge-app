@@ -84,6 +84,10 @@ model Files {
   transfer Transfers @relation(fields: [transfer_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   @@index([user_id], name: "idx_file_user_id")
   @@index([status], name: "idx_file_status")
+  @@index([transfer_id, status], name: "idx_files_transfer_status")
+  @@index([user_id, transfer_id], name: "idx_files_user_transfer")
+  
+
 }
 
 model FileBlocks {
@@ -99,6 +103,7 @@ model FileBlocks {
   updated_at DateTime @updatedAt
   file Files @relation(fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   @@index([file_id], name: "idx_file_blocks_file_id")
+  @@index([file_id, status], name: "idx_file_id_status")
 }
 
 enum TRANSFER_TYPE {
@@ -120,7 +125,7 @@ model Transfers{
   transfer_type TRANSFER_TYPE
   title String?
   description String?
-  status TRANSFER_STATUS @default(ACTIVE)
+  status TRANSFER_STATUS @default(PENDING)
   expiration_date DateTime?
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -130,11 +135,14 @@ model Transfers{
   owner Users @relation(fields: [owner_user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   @@index([owner_user_id], name: "idx_transfer_owner_user_id")
   @@index([transfer_type], name: "idx_transfer_type")
+  @@index([owner_user_id, status], name: "idx_transfers_owner_status")
+  @@index([owner_user_id, transfer_type], name: "idx_transfers_owner_type")
+  @@index([expiration_date], name: "idx_transfer_expiration_date")
 }
 
 model EmailTransfers{
   id String @db.Uuid @id @default(uuid()) @unique
-  transfer_id String @db.Uuid @unique
+  transfer_id String @db.Uuid
   recipient_user_id String @db.Uuid
   file_key String?
   created_at DateTime @default(now())
@@ -142,6 +150,7 @@ model EmailTransfers{
   recipient_user Users @relation(fields: [recipient_user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   @@index([recipient_user_id], name: "idx_user_transfers_recipient_user_id")
   @@index([transfer_id], name: "idx_user_transfer_id")
+  @@unique([recipient_user_id, transfer_id], name: "unique_recipient_per_transfer")
 }
 
 model LinkTransfers{
@@ -157,4 +166,5 @@ model LinkTransfers{
   updated_at DateTime @updatedAt
   transfer Transfers @relation(fields: [transfer_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   @@index([transfer_id], name: "idx_link_transfer_id")
+  @@index([download_count, download_limit], name: "idx_link_download_count_limit")
 }

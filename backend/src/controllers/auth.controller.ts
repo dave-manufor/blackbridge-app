@@ -538,7 +538,7 @@ class AuthController {
     const { userId, sessionId } = req.session;
 
     try {
-      const session = await db.sessions.findUnique({
+      const session = await db.sessions.findFirst({
         where: { user_id: userId, id: sessionId },
       });
 

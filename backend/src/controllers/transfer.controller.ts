@@ -132,100 +132,126 @@ class TransferController {
     const { userId } = req.session;
     const { id } = req.params;
 
+    // normalize emails once
+    const keysByEmail = new Map(recipient_keys.map((r) => [r.email.trim().toLowerCase(), r.file_key]));
+
     try {
-      // Check that transfer exists
-      const transfer = await db.transfers.findUnique({
-        where: { id },
-      });
+      await useSerializableTransaction(async (tx) => {
+        // 1) Load transfer
+        const transfer = await tx.transfers.findUnique({
+          where: { id },
+          select: { id: true, owner_user_id: true, status: true },
+        });
 
-      if (!transfer) {
-        res.status(StatusCodes.NOT_FOUND).json({ message: 'Transfer not found' });
-        return;
-      }
+        if (!transfer) {
+          throw { status: StatusCodes.NOT_FOUND, message: 'Transfer not found' };
+        }
+        if (transfer.owner_user_id !== userId) {
+          throw { status: StatusCodes.FORBIDDEN, message: 'You do not have permission to commit this transfer' };
+        }
 
-      // Check that user has permission to commit transfer
-      if (transfer.owner_user_id !== userId) {
-        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to commit this transfer' });
-        return;
-      }
+        // If already ACTIVE, return early
+        if (transfer.status === TRANSFER_STATUS.ACTIVE) {
+          throw { status: StatusCodes.ACCEPTED, message: 'Transfer is already committed' };
+        }
 
-      //Check if transfer is already committed
-      if (transfer.status === TRANSFER_STATUS.ACTIVE) {
-        res.status(StatusCodes.ACCEPTED).json({ message: 'Transfer is already committed' });
-        return;
-      }
-
-      // Check that all associated files are finalized
-      const unfinalizedFiles = await db.files.findMany({
-        where: {
-          transfer_id: id,
-          status: FILE_STATUS.PENDING,
-        },
-      });
-      if (unfinalizedFiles.length > 0) {
-        res.status(StatusCodes.BAD_REQUEST).json({ message: 'All associated files must be finalized before committing transfer' });
-        return;
-      }
-
-      // Check that keys for all recipients are provided
-      const initiatedEmailTransfers = await db.emailTransfers.findMany({
-        where: {
-          transfer_id: id,
-        },
-        include: {
-          recipient_user: true,
-        },
-      });
-      const missingRecipients = initiatedEmailTransfers.filter((transfer) => {
-        return !recipient_keys.find((key) => key.email === transfer.recipient_user.email);
-      });
-      if (missingRecipients.length > 0) {
-        res.status(StatusCodes.BAD_REQUEST).json({
-          message: 'Missing keys for recipients',
-          details: {
-            missing_recipients: missingRecipients,
+        // 2) Ensure all files are finalized
+        const unfinalizedCount = await tx.files.count({
+          where: {
+            transfer_id: id,
+            status: { not: FILE_STATUS.UPLOADED },
           },
         });
-        return;
-      }
+        if (unfinalizedCount > 0) {
+          throw {
+            status: StatusCodes.BAD_REQUEST,
+            message: 'All associated files must be finalized before committing transfer',
+          };
+        }
 
-      useSerializableTransaction(async () => {
-        // Save owner keys
-        await db.transfers.update({
-          where: { id },
+        // 3) Load recipients for this transfer
+        const initiated = await tx.emailTransfers.findMany({
+          where: { transfer_id: id },
+          select: {
+            recipient_user_id: true,
+            recipient_user: { select: { email: true } },
+          },
+        });
+
+        // Build email -> userId map
+        const emailToUserId = new Map<string, string>(initiated.map((et) => [et.recipient_user.email.toLowerCase(), et.recipient_user_id]));
+
+        // Validate that keys are provided for all initiated recipients
+        const missing = initiated.map((et) => et.recipient_user.email.toLowerCase()).filter((email) => !keysByEmail.has(email));
+
+        if (missing.length > 0) {
+          throw {
+            status: StatusCodes.BAD_REQUEST,
+            message: 'Missing keys for recipients',
+            details: { missing_recipients: missing },
+          };
+        }
+
+        // 4) Update recipient keys in parallel
+        const recipientUpdates = [...keysByEmail.entries()].map(([email, file_key]) => {
+          const recipient_user_id = emailToUserId.get(email)!; // exists due to 'missing' check above
+          return tx.emailTransfers.update({
+            where: {
+              unique_recipient_per_transfer: {
+                transfer_id: id,
+                recipient_user_id,
+              },
+            },
+            data: { file_key },
+          });
+        });
+
+        // 5) Atomically set owner key + activate transfer
+        // Use updateMany with status=PENDING to avoid race committing twice
+        const activateTransfer = tx.transfers.updateMany({
+          where: {
+            id,
+            owner_user_id: userId,
+            status: TRANSFER_STATUS.PENDING,
+          },
           data: {
             owner_file_key: owner_key,
             status: TRANSFER_STATUS.ACTIVE,
           },
         });
-        // Save recipient keys
-        await db.$transaction(
-          recipient_keys.map((recipient) =>
-            db.emailTransfers.update({
-              where: {
-                transfer_id: id,
-                recipient_user: {
-                  email: recipient.email,
-                },
-              },
-              data: {
-                file_key: recipient.file_key,
-              },
-            }),
-          ),
-        );
+
+        // Run updates concurrently
+        const [activateResult] = await Promise.all([activateTransfer, Promise.all(recipientUpdates)]);
+
+        // If no row was updated, someone else raced us (now ACTIVE or changed)
+        if (activateResult.count === 0) {
+          // Re-check status to decide what to return
+          const current = await tx.transfers.findUnique({
+            where: { id },
+            select: { status: true },
+          });
+          if (current?.status === TRANSFER_STATUS.ACTIVE) {
+            throw { status: StatusCodes.ACCEPTED, message: 'Transfer is already committed' };
+          }
+          throw { status: StatusCodes.CONFLICT, message: 'Transfer could not be committed (state changed)' };
+        }
       });
-      // Send recipient notifications
-      // TODO: Implement notification logic
-      // Send invitee notifications
-      // TODO: Implement invitee notification logic
-      // Respond with success
+
+      // TODO: notify asynchronously (queue/job)
+      // notifyRecipients(id).catch(err => this.transferLogger.warn({ err }, 'notifyRecipients failed'));
+
       res.status(StatusCodes.ACCEPTED).json({ message: 'Email transfer committed successfully' });
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.status) {
+        // "Business" errors thrown above
+        res.status(error.status).json({ message: error.message, ...(error.details && { details: error.details }) });
+        return;
+      }
       this.transferLogger.error({ error }, 'Failed to commit email transfer');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   }
+
   private async commitLinkTransfer(req: Request, res: Response) {
     const { id } = req.params;
     const { userId } = req.session;
@@ -420,7 +446,20 @@ class TransferController {
               profile_picture: true,
             },
           },
-          email_transfers: true,
+          email_transfers: {
+            select: {
+              id: true,
+              file_key: true,
+              created_at: true,
+              recipient_user: {
+                select: {
+                  id: true,
+                  email: true,
+                  profile_picture: true,
+                },
+              },
+            },
+          },
           link_transfer: true,
           files: true,
         },
@@ -435,14 +474,14 @@ class TransferController {
       }
 
       // Check if user has permission to access the transfer
-      if (transfer.owner_user_id !== userId && !transfer.email_transfers.some((email) => email.recipient_user_id === userId)) {
+      if (transfer.owner_user_id !== userId && !transfer.email_transfers.some((email) => email.recipient_user.id === userId)) {
         res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to access this transfer' });
         return;
       }
 
       // Check if user is a recipient and transfer is revoked or pending
       if (
-        transfer.email_transfers.some((email) => email.recipient_user_id === userId) &&
+        transfer.email_transfers.some((email) => email.recipient_user.id === userId) &&
         ([TRANSFER_STATUS.REVOKED, TRANSFER_STATUS.PENDING] as Array<string>).includes(transfer.status)
       ) {
         res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to access this transfer' });
@@ -458,16 +497,18 @@ class TransferController {
 
       // Remove other email transfers if not owner requesting
       if (transfer.owner_user_id !== userId) {
-        transfer.email_transfers = transfer.email_transfers.filter((email) => email.recipient_user_id === userId);
+        transfer.email_transfers = transfer.email_transfers.filter((email) => email.recipient_user.id === userId);
       }
 
       res.status(StatusCodes.OK).json({
         message: 'Transfer fetched successfully',
         data: {
           ...transfer,
-          isOwner: transfer.owner_user_id === userId,
-          fileCount: transfer.files.length,
-          totalSize: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
+          recommended_title: transfer.title || transfer.files[0]?.name || 'Untitled',
+          total_files_count: transfer.files.length,
+          total_files_size_bytes: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
+          is_owner: transfer.owner_user_id === userId,
+          is_expired: transfer.status === 'EXPIRED' || Date.now() > new Date(String(transfer.expiration_date)).getTime(),
         },
       });
     } catch (error) {
