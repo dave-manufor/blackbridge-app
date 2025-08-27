@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { passwordRegex } from "./regex";
-import { TRANSFER_DURATIONS } from "@/config/constants/transfers";
+import {
+  LINK_TRANSFER_ACCESS_CONTROL,
+  TRANSFER_DURATIONS,
+} from "@/config/constants/transfers";
 
 export const signUpSchema = z
   .object({
@@ -44,10 +47,16 @@ export const transferSchema = z
     recipients: z.array(z.string().email()).optional(),
     isLink: z.boolean(),
     isPasswordProtected: z.boolean(),
+    access_control: z
+      .enum(
+        Object.values(LINK_TRANSFER_ACCESS_CONTROL) as [string, ...string[]]
+      )
+      .default(LINK_TRANSFER_ACCESS_CONTROL.PUBLIC),
     password: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (!data.isLink) {
+      // Email Transfer
       if (!data.recipients || data.recipients.length === 0) {
         ctx.addIssue({
           path: ["recipients"],
@@ -56,6 +65,14 @@ export const transferSchema = z
         });
       }
     } else {
+      // Link Transfer
+      if (!data.access_control) {
+        ctx.addIssue({
+          path: ["access_control"],
+          message: "Access control is required",
+          code: z.ZodIssueCode.custom,
+        });
+      }
       // Password requirement check
       if (data.isPasswordProtected) {
         if (!data.password) {

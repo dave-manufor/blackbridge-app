@@ -31,7 +31,10 @@ import {
   SelectValue,
   SelectContent,
 } from "@/components/ui/select";
-import { TRANSFER_DURATIONS } from "@/config/constants/transfers";
+import {
+  LINK_TRANSFER_ACCESS_CONTROL,
+  TRANSFER_DURATIONS,
+} from "@/config/constants/transfers";
 import { Card } from "@/components/ui/card";
 import { FaEllipsis, FaRegBell, FaRegEye } from "react-icons/fa6";
 import {
@@ -54,6 +57,7 @@ import { Progress } from "@/components/ui/progress";
 import { SimpleRadialChart } from "@/components/charts/SimpleRadialChart";
 import useAppHeader from "@hooks/context/useAppHeader";
 import { useEffect } from "react";
+import { FaCheck } from "react-icons/fa6";
 
 const DashboardView = () => {
   const { setHeaderTitle } = useAppHeader();
@@ -76,6 +80,7 @@ const DashboardView = () => {
       isLink: false,
       isPasswordProtected: false,
       password: undefined,
+      access_control: LINK_TRANSFER_ACCESS_CONTROL.PUBLIC,
     },
     mode: "onBlur",
     resolver: zodResolver(transferSchema),
@@ -88,10 +93,10 @@ const DashboardView = () => {
     watch,
     formState: { errors: formErrors },
   } = form;
-  const [files, isPasswordProtected] = watch([
+  const [files, isPasswordProtected, access_control] = watch([
     "files",
     "isPasswordProtected",
-    "recipients",
+    "access_control",
   ]);
 
   const handleFileChange = async (newFiles: FileList) => {
@@ -407,11 +412,50 @@ const DashboardView = () => {
                                     </DropdownMenuSubTrigger>
                                     <DropdownMenuPortal>
                                       <DropdownMenuSubContent className="text-neutral-600">
-                                        <DropdownMenuItem>
-                                          Anyone
+                                        <DropdownMenuItem
+                                          className="flex flex-col gap-0.5 items-start text-black"
+                                          onClick={() =>
+                                            setValue(
+                                              "access_control",
+                                              LINK_TRANSFER_ACCESS_CONTROL.PUBLIC
+                                            )
+                                          }
+                                        >
+                                          <span className="flex items-center gap-2">
+                                            Public{" "}
+                                            {access_control ===
+                                              LINK_TRANSFER_ACCESS_CONTROL.PUBLIC && (
+                                              <FaCheck className="text-xs" />
+                                            )}
+                                          </span>
+                                          <span className="text-xs text-neutral-400 max-w-72">
+                                            This link is open to everyone.
+                                            Anyone who has it can view the
+                                            content without needing to log in.
+                                          </span>
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem>
-                                          Share with
+                                        <DropdownMenuItem
+                                          className="flex flex-col gap-0.5 items-start text-black"
+                                          onClick={() =>
+                                            setValue(
+                                              "access_control",
+                                              LINK_TRANSFER_ACCESS_CONTROL.REQUIRE_AUTH
+                                            )
+                                          }
+                                        >
+                                          <span className="flex items-center gap-2">
+                                            Require Authentication{" "}
+                                            {access_control ===
+                                              LINK_TRANSFER_ACCESS_CONTROL.REQUIRE_AUTH && (
+                                              <FaCheck className="text-xs" />
+                                            )}
+                                          </span>
+                                          <span className="text-xs text-neutral-400 max-w-72">
+                                            Only people who sign in can open
+                                            this link. It&apos;s a safer option
+                                            if you want to keep access more
+                                            limited.
+                                          </span>
                                         </DropdownMenuItem>
                                       </DropdownMenuSubContent>
                                     </DropdownMenuPortal>
