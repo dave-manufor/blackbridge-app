@@ -53,9 +53,11 @@ export async function getPaginationResult<T extends ModelNames>(
   const { modelName, where, orderBy, include, select, omit, page, limit } = options;
 
   // Construct the pagination query dynamically to avoid type incompatibility
+  const safePage = Math.max(1, Math.trunc(page) || 1);
+  const safeLimit = Math.max(1, Math.trunc(limit) || 1);
   const query = {
-    skip: (page - 1) * limit,
-    take: limit,
+    skip: (safePage - 1) * safeLimit,
+    take: safeLimit,
     ...(where ? { where } : {}),
     ...(orderBy ? { orderBy } : {}),
     ...(include ? { include } : {}),
@@ -65,15 +67,15 @@ export async function getPaginationResult<T extends ModelNames>(
 
   const [results, total] = await Promise.all([db[modelName as string].findMany(query), db[modelName as string].count({ where })]);
 
-  const totalPages = Math.ceil(total / limit);
+  const totalPages = Math.ceil(total / safeLimit);
 
   const paginationDetails: PaginationDetails = {
-    page: page,
-    limit: limit,
+    page: safePage,
+    limit: safeLimit,
     totalPages: totalPages,
     totalItems: total,
-    hasNextPage: page < totalPages,
-    hasPreviousPage: page > 1,
+    hasNextPage: safePage < totalPages,
+    hasPreviousPage: safePage > 1,
   };
 
   return [results, paginationDetails];

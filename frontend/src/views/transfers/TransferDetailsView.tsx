@@ -199,7 +199,9 @@ const TransferDetailsView = () => {
                   <span className={`mb-auto ${styles.detail_name}`}>
                     Description
                   </span>
-                  <p className="!text-black">{transferDetails.description}</p>
+                  <p className="!text-black">
+                    {transferDetails.description || "No description available"}
+                  </p>
                 </li>
                 {transferDetails.transfer_type === "EMAIL" && (
                   <li className={styles.detail}>
@@ -323,7 +325,8 @@ const TransferDetailsView = () => {
                                   new Date(
                                     transferDetails.link_transfer.last_accessed
                                   ),
-                                  new Date()
+                                  new Date(),
+                                  { addSuffix: true }
                                 )
                               : "Never"}
                           </span>

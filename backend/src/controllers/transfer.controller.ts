@@ -352,7 +352,7 @@ class TransferController {
       return;
     }
 
-    const { page, limit, status, search, direction } = queryResult.data;
+    const { page, limit, status, search, direction, type } = queryResult.data;
 
     try {
       // Fetch paginated transfers based on filters if any
@@ -379,6 +379,7 @@ class TransferController {
       const where = {
         OR: primarySelectors[direction],
         status: { not: TRANSFER_STATUS.PENDING },
+        ...(type && { type: type as TRANSFER_TYPE }),
         ...(status && { status: status as TRANSFER_STATUS }),
         ...(search && {
           OR: [
@@ -418,17 +419,12 @@ class TransferController {
         },
       };
 
-      const omit = {
-        owner_file_key: true,
-      };
-
       const [transfers, paginationDetails] = await getPaginationResult({
         modelName: 'Transfers',
         page,
         limit,
         where,
         include,
-        omit,
         orderBy: {
           created_at: 'desc',
         },
@@ -442,10 +438,11 @@ class TransferController {
           total_files_count: transfer.files.length,
           total_files_size_bytes: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
           is_owner: transfer.owner_user_id === userId,
-          is_expired: transfer.status === 'EXPIRED' || Date.now() > new Date(String(transfer.expiration_date)).getTime(),
+          is_expired: transfer.status === TRANSFER_STATUS.EXPIRED || Date.now() > new Date(String(transfer.expiration_date)).getTime(),
           is_viewed: transfer.owner_user_id === userId ? true : transfer.email_transfers.some((et) => et.recipient_user.id === userId && et.viewed),
         };
         delete enrichedTransfer.email_transfers;
+        if (!enrichedTransfer.is_owner) delete enrichedTransfer.owner_file_key;
         return enrichedTransfer;
       });
 
