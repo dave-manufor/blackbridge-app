@@ -3,14 +3,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 const TransferSummaryCardSkeleton = ({
-  key,
   className,
 }: {
   key: string | number;
   className?: string;
 }) => {
   return (
-    <Card key={key} className={cn("p-4 gap-0", className)}>
+    <Card className={cn("p-4 gap-0", className)}>
       <div className="w-full overflow-hidden text-ellipsis font-medium mb-6 flex gap-4">
         <Skeleton className="w-full h-6" />
       </div>

@@ -418,25 +418,19 @@ const SkeletonUi = () => {
               <span className={`mb-auto ${styles.detail_name}`}>
                 <Skeleton className="h-4 w-32" />
               </span>
-              <p className="!text-black">
-                <Skeleton className="h-4 w-48" />
-              </p>
+              <Skeleton className="h-4 w-48" />
             </li>
             <li className={styles.detail}>
               <span className={`mb-auto ${styles.detail_name}`}>
                 <Skeleton className="h-4 w-32" />
               </span>
-              <p className="!text-black">
-                <Skeleton className="h-4 w-48" />
-              </p>
+              <Skeleton className="h-4 w-48" />
             </li>
             <li className={styles.detail}>
               <span className={`mb-auto ${styles.detail_name}`}>
                 <Skeleton className="h-4 w-32" />
               </span>
-              <p className="!text-black">
-                <Skeleton className="h-4 w-48" />
-              </p>
+              <Skeleton className="h-4 w-48" />
             </li>
           </ul>
         </section>
