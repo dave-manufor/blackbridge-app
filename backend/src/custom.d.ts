@@ -25,6 +25,20 @@ export interface JWTOtpPayload {
   exp: number;
 }
 
+export interface PaginationDetails {
+  page: number;
+  limit: number;
+  totalPages: number;
+  totalItems: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: PaginationDetails;
+}
+
 declare global {
   namespace Express {
     export interface Request {

@@ -120,6 +120,36 @@ function ChipInput({
     }
   };
 
+  const handleBlur: React.FocusEventHandler<HTMLInputElement> = (e) => {
+    const value = e.currentTarget.value.trim();
+    if (value) {
+      let valid = true;
+      if (validation) {
+        for (const rule of validation) {
+          if (!rule.test(value)) {
+            valid = false;
+            onError?.(rule.message);
+            break;
+          }
+        }
+      }
+
+      if (!allowDuplicates && chips.includes(value)) {
+        valid = false;
+      }
+
+      if (valid) {
+        setChips((prev) => {
+          const newChips = [...prev, value];
+          onChange?.(newChips);
+          return newChips;
+        });
+        onError?.(null);
+        e.currentTarget.value = "";
+      }
+    }
+  };
+
   const handlePaste: React.ClipboardEventHandler<HTMLInputElement> = (e) => {
     const pastedData = e.clipboardData.getData("text");
     let values: string[] = [];
@@ -179,6 +209,8 @@ function ChipInput({
               {chip}
               <IoCloseCircle
                 className="text-sm cursor-pointer"
+                // Prevent focus loss
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleRemove(index)}
               />
             </span>
@@ -186,6 +218,7 @@ function ChipInput({
         </div>
       )}
       <Input
+        onBlur={handleBlur}
         onPaste={handlePaste}
         onKeyDown={handleKeyDown}
         type="text"

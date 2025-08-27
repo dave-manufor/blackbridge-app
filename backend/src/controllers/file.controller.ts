@@ -7,7 +7,7 @@ import { v4 as uuid_v4 } from 'uuid';
 import uploadConfig from '../config/upload.config';
 import db, { useSerializableTransaction } from '../services/db';
 import { completeMultiPartUpload, getPresignedUrl, initiateMultiPartUpload } from '../services/aws';
-import { FILE_STATUS, Prisma, TRANSFER_STATUS, TRANSFER_TYPE } from '@prisma/client';
+import { FILE_STATUS, FileBlocks, Prisma, TRANSFER_STATUS, TRANSFER_TYPE } from '@prisma/client';
 import { bodyValidator } from '../middlewares/validation.middleware';
 import pLimit from 'p-limit';
 
@@ -98,35 +98,33 @@ class FileController {
         });
       }
 
-      let file: Prisma.FilesGetPayload<{}>;
-      let blocks: Prisma.FileBlocksGetPayload<{}>[] = [];
-
-      await useSerializableTransaction(async (tx) => {
-        // Create pending file and file blocks
-        file = await tx.files.create({
-          data: {
-            transfer_id: transfer_id,
-            user_id: userId,
-            name,
-            content_type,
-            size: size,
-            metadata: metadata ? JSON.parse(metadata) : null,
+      // Create pending file and file blocks
+      const file = await db.files.create({
+        data: {
+          transfer_id: transfer_id,
+          user_id: userId,
+          name,
+          content_type,
+          size: size,
+          metadata: metadata ? JSON.parse(metadata) : null,
+          blocks: {
+            create: blocksArr.map((block) => ({
+              index: block.index,
+              path: block.path,
+              size: block.size,
+            })),
           },
-        });
-
-        blocks = await tx.fileBlocks.createManyAndReturn({
-          data: blocksArr.map((block) => ({
-            ...block,
-            file_id: file.id,
-          })),
-        });
+        },
+        include: {
+          blocks: true,
+        },
       });
 
       res.status(StatusCodesConfig.OK).json({
         message: 'Upload request successful',
         data: {
           file_id: file.id,
-          blocks: blocks.map((block) => ({
+          blocks: file.blocks.map((block) => ({
             id: block.id,
             index: block.index,
             path: block.path,
@@ -194,39 +192,38 @@ class FileController {
       // Determine and return parts
       const numberOfParts = Math.ceil(block.size / uploadConfig.MAX_PART_SIZE);
 
-      // TODO: Refactor to run presignedURL fetch concurrently
-      const parts: UploadPart[] = [];
-
-      for (let i = 0; i < numberOfParts; i++) {
-        let partSize: number;
-        if (i === numberOfParts - 1) {
-          // Last part
-          if (block.size % uploadConfig.MAX_PART_SIZE === 0) {
-            // No remainder means that the last part is the same size as the max part size
-            partSize = uploadConfig.MAX_PART_SIZE;
+      const parts: UploadPart[] = await Promise.all(
+        Array.from({ length: numberOfParts }).map(async (_, i) => {
+          let partSize: number;
+          if (i === numberOfParts - 1) {
+            // Last part
+            if (block.size % uploadConfig.MAX_PART_SIZE === 0) {
+              // No remainder means that the last part is the same size as the max part size
+              partSize = uploadConfig.MAX_PART_SIZE;
+            } else {
+              partSize = block.size % uploadConfig.MAX_PART_SIZE;
+            }
           } else {
-            partSize = block.size % uploadConfig.MAX_PART_SIZE;
+            partSize = uploadConfig.MAX_PART_SIZE;
           }
-        } else {
-          partSize = uploadConfig.MAX_PART_SIZE;
-        }
 
-        const presignedUrl = await getPresignedUrl(block.path, {
-          type: 'upload',
-          isMultiPart: true,
-          uploadId: block.upload_id,
-          partNumber: i + 1,
-        });
+          const presignedUrl = await getPresignedUrl(block.path, {
+            type: 'upload',
+            isMultiPart: true,
+            uploadId: block.upload_id,
+            partNumber: i + 1,
+          });
 
-        const part: UploadPart = {
-          block_id: block.id,
-          part_index: i + 1,
-          part_size: partSize,
-          presigned_url: presignedUrl,
-        };
+          const part: UploadPart = {
+            block_id: block.id,
+            part_index: i + 1,
+            part_size: partSize,
+            presigned_url: presignedUrl,
+          };
 
-        parts.push(part);
-      }
+          return part;
+        }),
+      );
 
       res.status(StatusCodesConfig.OK).json({
         message: 'Upload announce successful',
@@ -268,7 +265,7 @@ class FileController {
         return;
       }
 
-      const limit = pLimit(10);
+      const limit = pLimit(20);
       const getNewParts = failed_parts.map((part) => {
         return limit(async () => {
           const presignedUrl = await getPresignedUrl(block.path, {
@@ -377,51 +374,53 @@ class FileController {
     const { file_id } = req.body as BodyTypeToShape<'finalizeFile'>;
 
     try {
-      // Check if file exists
-      const file = await db.files.findUnique({
-        where: {
-          id: file_id,
-        },
-      });
+      await db.$transaction(async (tx) => {
+        // 1. Get file inside the transaction
+        const file = await tx.files.findUnique({
+          where: { id: file_id },
+        });
 
-      if (!file) {
-        res.status(StatusCodesConfig.NOT_FOUND).json({ message: 'File not found' });
-        return;
-      }
-      // Check user has permissions to file
-      if (file.user_id !== userId) {
-        res.status(StatusCodesConfig.FORBIDDEN).json({ message: 'You do not have permission to access this file' });
-      }
-      // Check if all blacks are uploaded
-      const pendingBlocks = await db.fileBlocks.findMany({
-        where: {
-          file_id,
-          NOT: {
-            status: FILE_STATUS.UPLOADED,
-          },
-        },
-      });
-      if (pendingBlocks.length > 0) {
-        res.status(StatusCodesConfig.BAD_REQUEST).json({
-          message: 'Pending block uploads',
-          details: {
-            blocks: pendingBlocks,
+        if (!file) {
+          throw { status: StatusCodesConfig.NOT_FOUND, message: 'File not found' };
+        }
+
+        // 2. Permission check
+        if (file.user_id !== userId) {
+          throw { status: StatusCodesConfig.FORBIDDEN, message: 'You do not have permission to access this file' };
+        }
+
+        // 3. Ensure all blocks are uploaded
+        const pendingBlocks = await tx.fileBlocks.findMany({
+          where: {
+            file_id,
+            NOT: { status: FILE_STATUS.UPLOADED },
           },
         });
-        return;
-      }
-      // Set file status to uploaded
-      await db.files.update({
-        where: {
-          id: file_id,
-        },
-        data: {
-          status: FILE_STATUS.UPLOADED,
-        },
+
+        if (pendingBlocks.length > 0) {
+          throw {
+            status: StatusCodesConfig.BAD_REQUEST,
+            message: 'Pending block uploads',
+            details: { blocks: pendingBlocks },
+          };
+        }
+
+        // 4. Update file status
+        await tx.files.update({
+          where: { id: file_id, status: FILE_STATUS.PENDING },
+          data: { status: FILE_STATUS.UPLOADED },
+        });
       });
 
+      // Only send response if transaction succeeded
       res.status(StatusCodesConfig.ACCEPTED).json({ message: 'File upload finalized' });
-    } catch (error) {
+    } catch (error: any) {
+      // Handle "business logic" errors thrown inside transaction
+      if (error?.status) {
+        res.status(error.status).json({ message: error.message, ...(error.details && { details: error.details }) });
+        return;
+      }
+
       this.fileLogger.error(error, 'Error finalizing file upload');
       res.status(StatusCodesConfig.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }

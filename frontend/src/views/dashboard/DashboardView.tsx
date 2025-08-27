@@ -31,7 +31,7 @@ import {
   SelectValue,
   SelectContent,
 } from "@/components/ui/select";
-import TRANSFER_DURATIONS from "@/config/constants/transferDurations";
+import { TRANSFER_DURATIONS } from "@/config/constants/transfers";
 import { Card } from "@/components/ui/card";
 import { FaEllipsis, FaRegBell, FaRegEye } from "react-icons/fa6";
 import {
@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { z } from "zod";
-import useInitiateTransfer from "@/hooks/useInitiateTransfer";
+import useInitiateTransfer from "@/hooks/mutations/useInitiateTransfer";
 import toast from "react-hot-toast";
 import { devOnly } from "@/utils/dev";
 import { Progress } from "@/components/ui/progress";

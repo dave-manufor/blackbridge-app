@@ -10,6 +10,8 @@ import logger, { httpLogger } from './lib/logger';
 import { HomeController, AuthController, UserController, FileController, TransferController } from './controllers';
 import { initDB } from './services/db';
 import AWS from 'aws-sdk';
+import { parse } from 'path';
+import nocache from 'nocache';
 
 const port = Number(process.env.PORT) || 3000;
 const crossOrigin = process.env.CROSS_ORIGIN || 'http://localhost:5174';
@@ -23,6 +25,11 @@ AWS.config.update({
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   region: process.env.AWS_REGION,
 });
+
+// Global BigInt to JSON serialization
+(BigInt.prototype as any).toJSON = function () {
+  return parseInt(this.toString());
+};
 
 let app: App;
 
@@ -39,6 +46,7 @@ let app: App;
         express.json(),
         express.urlencoded({ extended: true }),
         helmet(),
+        nocache(),
         cors(corsOptions),
         cookieParser(),
         useragent.express(),

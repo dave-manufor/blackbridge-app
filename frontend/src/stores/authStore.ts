@@ -16,6 +16,7 @@ import {
   getLocalSessionKey,
   putLocalSessionKey,
 } from "@/api/services/authService";
+import queryClient from "@/lib/queryClient";
 
 const cryptoBridge = CryptoBridge.getInstance();
 
@@ -139,6 +140,7 @@ export const useAuthStore = create<AuthStore>()(
           if (user) {
             await cryptoBridge.terminate(user.id);
           }
+          queryClient.clear();
           set({
             authenticated: false,
             user: null,
@@ -155,6 +157,7 @@ export const useAuthStore = create<AuthStore>()(
         devOnly(() => console.log("Signing up with", email));
         set({ authLoading: true });
         try {
+          await cryptoBridge.spawn();
           const credentials = await generateSRPCredentials(email, password);
           const {
             publicKey,
@@ -179,7 +182,7 @@ export const useAuthStore = create<AuthStore>()(
             });
           } else {
             devOnly(() => console.error(error));
-            set({ authError: "Sign-in failed. Please try again." });
+            set({ authError: "Sign-up failed. Please try again." });
           }
         } finally {
           set({ authLoading: false });

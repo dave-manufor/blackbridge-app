@@ -14,10 +14,10 @@ import { JWTAuthPayload, JWTOtpPayload, OtpActionType, OtpRequest } from 'custom
 import { verifyToken } from '../middlewares/auth.middleware';
 import { bodyValidator } from '../middlewares/validation.middleware';
 import bcrypt from 'bcrypt';
-import { hashOTP, hashRefreshToken, verifyOTPHash } from '../utils/hashing';
+import { hashOTP, hashRefreshToken, verifyOTPHash } from '../utils/hashing.utils';
 import { otpVerificationLimiter } from 'middlewares/rateLimiter.middleware';
 import cacheConfig from 'config/cache.config';
-import { generateOTP } from 'utils/otp';
+import { generateOTP } from 'utils/otp.utils';
 
 class AuthController {
   public path = '/auth';
@@ -50,8 +50,8 @@ class AuthController {
     );
     this.router.get('/sessions', verifyToken(), this.getSessions);
     this.router.get('/sessions/:id/revoke', verifyToken(), this.revokeSession);
-    this.router.put('/sessions/local/key', verifyToken(), this.validateBody('putSessionKey'), this.putLocalSessionKey);
-    this.router.get('/sessions/local/key', verifyToken(), this.getLocalSessionKey);
+    this.router.put('/sessions/local/key', verifyToken({ bypassVerification: true }), this.validateBody('putSessionKey'), this.putLocalSessionKey);
+    this.router.get('/sessions/local/key', verifyToken({ bypassVerification: true }), this.getLocalSessionKey);
   }
 
   private register = async (req: Request, res: Response) => {
@@ -363,8 +363,6 @@ class AuthController {
         message: 'Sign in successful',
         data: {
           serverProof: serverProofBase64,
-          accessToken,
-          exp: accessPayload.exp,
         },
       });
     } catch (error) {
@@ -399,7 +397,7 @@ class AuthController {
     try {
       const now = new Date();
 
-      const session = await db.sessions.findUnique({
+      const session = await db.sessions.findFirst({
         where: { id: payload.sessionId, expires_at: { gte: now }, revoked: false },
       });
 
@@ -452,10 +450,6 @@ class AuthController {
       // Send new access token to client
       res.status(StatusCodesConfig.OK).json({
         message: 'Access token refreshed successfully',
-        data: {
-          accessToken,
-          exp: accessPayload.exp,
-        },
       });
     } catch (error) {
       this.authLogger.error(error, 'Error refreshing token');
@@ -544,7 +538,7 @@ class AuthController {
     const { userId, sessionId } = req.session;
 
     try {
-      const session = await db.sessions.findUnique({
+      const session = await db.sessions.findFirst({
         where: { user_id: userId, id: sessionId },
       });
 

@@ -32,6 +32,7 @@ export class CryptoBridge implements CryptoBridgeInterface {
   private static instance: CryptoBridge;
   private workerPool: CryptoWorkerPool = CryptoWorkerPool.getInstance();
   private initialized: boolean = false;
+  private spawned: boolean = false;
 
   private assertInitialized() {
     if (!this.initialized) {
@@ -44,6 +45,14 @@ export class CryptoBridge implements CryptoBridgeInterface {
       CryptoBridge.instance = new CryptoBridge();
     }
     return CryptoBridge.instance;
+  }
+
+  public async spawn() {
+    if (this.spawned) return;
+
+    await this.workerPool.spawn();
+
+    this.spawned = true;
   }
 
   public async initialize(
@@ -117,6 +126,8 @@ export class CryptoBridge implements CryptoBridgeInterface {
     await this.workerPool.clearWorkers();
     // Delete local key
     await KeyStore.getInstance().deleteWrappedKey(userId);
+    // Mark spawned as false
+    this.spawned = false;
     // Marked as initialized
     this.initialized = false;
   }
