@@ -52,6 +52,7 @@ const transfer = async (
           duration: TRANSFER_DURATIONS[data.duration],
           isLink: true,
           is_password_protected: data.isPasswordProtected,
+          access_control: data.access_control,
         }
       : {
           title: data.title,

@@ -13,9 +13,14 @@ type InitializeTransferPayload = {
   duration: number;
   isLink: boolean;
   is_password_protected?: boolean;
+  access_control?: (typeof LINK_TRANSFER_ACCESS_CONTROL)[keyof typeof LINK_TRANSFER_ACCESS_CONTROL];
   recipients?: string[];
 } & (
-  | { isLink: true; is_password_protected: boolean }
+  | {
+      isLink: true;
+      is_password_protected: boolean;
+      access_control: (typeof LINK_TRANSFER_ACCESS_CONTROL)[keyof typeof LINK_TRANSFER_ACCESS_CONTROL];
+    }
   | { isLink: false; recipients: string[] }
 );
 export async function initializeTransfer(
