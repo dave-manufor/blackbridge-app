@@ -6,8 +6,8 @@ import useAppHeader from "@/hooks/context/useAppHeader";
 import { useGetTransferDetailsQuery } from "@/hooks/queries";
 import { AxiosError } from "axios";
 import { Fragment, useEffect, useState } from "react";
-import { FaArrowLeft, FaArrowRight, FaSpinner, FaUser } from "react-icons/fa6";
-import { Link, useNavigate, useParams } from "react-router";
+import { FaArrowLeft, FaArrowRight, FaUser } from "react-icons/fa6";
+import { useNavigate, useParams } from "react-router";
 import { formatDistance } from "date-fns";
 import { TransferStatusBadge, TransferTypeBadge } from "@/components/ui/badge";
 import { Avatar } from "@radix-ui/react-avatar";
@@ -23,6 +23,7 @@ import { BASE_SHAREABLE_URL } from "@/config/constants/transfers";
 import { CryptoBridge } from "@/lib/crypto/workers/CryptoBridge";
 import QRCode from "react-qr-code";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useMarkTransferAsViewedMutation } from "@/hooks/mutations";
 
 const TransferDetailsView = () => {
   const cryptoBridge = CryptoBridge.getInstance();
@@ -33,6 +34,7 @@ const TransferDetailsView = () => {
   const { setHeaderTitle } = useAppHeader();
   const { transferID } = useParams();
   const user = useAuthStore((state) => state.user);
+  const { mutate: markTransferAsViewed } = useMarkTransferAsViewedMutation();
 
   const {
     data: transferDetails,
@@ -71,16 +73,22 @@ const TransferDetailsView = () => {
     }
   }, [transferDetails, cryptoBridge]);
 
+  useEffect(() => {
+    if (transferDetails) {
+      markTransferAsViewed({ transfer_id: transferDetails.id });
+    }
+  }, [transferDetails, markTransferAsViewed]);
+
   return (
     <>
       <GridSection>
         <div className="col-span-full pb-4 mb-8 border-b border-neutral-200">
-          <Link
-            to="/transfers"
-            className="flex text-sm items-center gap-2 hover:underline"
+          <span
+            onClick={() => navigate(-1)}
+            className="flex text-sm items-center gap-2 hover:underline cursor-pointer"
           >
-            <FaArrowLeft /> Back to Transfers
-          </Link>
+            <FaArrowLeft /> Back
+          </span>
         </div>
         {!isPending && isError && isNotFoundError && (
           <GenericErrorState

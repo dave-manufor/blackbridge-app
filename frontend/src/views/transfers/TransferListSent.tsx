@@ -14,12 +14,13 @@ const TransferListSent = () => {
   const { search, limit } = useTransferListContext();
   const { page, dispatch: pageDispatch } = usePageReducer();
   const DIRECTION = TRANSFER_DIRECTION.SENT;
-  const { isPending, isError, data } = useGetTransfersQuery({
+  const query = {
     direction: DIRECTION,
     search,
     limit,
     page,
-  });
+  };
+  const { isPending, isError, data } = useGetTransfersQuery(query);
   return (
     <GridSection>
       {isError && <GenericErrorState className={transferStyles.state} />}
@@ -42,6 +43,7 @@ const TransferListSent = () => {
             className={transferStyles.transfer_card}
             key={transfer.id}
             id={transfer.id}
+            is_viewed={transfer.is_viewed}
             is_owner={transfer.is_owner}
             recommended_title={transfer.recommended_title}
             files={transfer.files}

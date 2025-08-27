@@ -26,6 +26,9 @@ export default {
   },
   transfer: {
     getTransfers: "transfers",
+    getUnviewedTransfersCount: "transfers/unviewed/count",
+    markTransfersAsViewed: ({ transfer_id }: { transfer_id: string }) =>
+      `transfers/emails/${transfer_id}/viewed`,
     getTransferDetails: ({ transferId }: { transferId: string }) =>
       `transfers/${transferId}`,
     initiateEmailTransfer: "transfers/emails/initiate",

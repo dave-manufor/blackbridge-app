@@ -7,10 +7,8 @@ import {
 } from "@/api/services/transferService";
 
 const useGetTransfersQuery = (query: GetTransfersQuery) => {
-  console.log(queryKeys.transfers.list(query));
-  const queryKey = queryKeys.transfers.list(query);
   return useQuery<GetTransfersResponse>({
-    queryKey,
+    queryKey: queryKeys.transfers.list(query),
     queryFn: ({ signal }) => getTransfers(query, signal),
     placeholderData: keepPreviousData,
     staleTime: 3 * 60 * 1000, // 3 minutes

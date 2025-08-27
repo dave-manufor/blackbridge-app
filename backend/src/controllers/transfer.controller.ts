@@ -27,7 +27,7 @@ class TransferController {
     this.router.get('/', verifyToken(), this.getTransfers);
     this.router.get('/:id', verifyToken(), this.getTransferDetails);
     this.router.post('/emails/:id/viewed', verifyToken(), this.markEmailTransferAsViewed);
-    this.router.get('/emails/unviewed/count', verifyToken(), this.getUnviewedEmailTransfersCount);
+    this.router.get('/unviewed/count', verifyToken(), this.getUnviewedEmailTransfersCount);
     // POST /initiate - Start a transfer
     this.router.post('/links/initiate', verifyToken(), this.validateBody('initiateLinkTransfer'), this.initiateLinkTransfer);
     this.router.post('/emails/initiate', verifyToken(), this.validateBody('initiateEmailTransfer'), this.initiateEmailTransfer);

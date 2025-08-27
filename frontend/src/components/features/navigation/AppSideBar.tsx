@@ -45,11 +45,13 @@ import {
 import { DropdownMenu } from "@radix-ui/react-dropdown-menu";
 import useActivePath from "@/hooks/utils/useActivePath";
 import { Fragment } from "react";
+import { useGetUnviewedTransferCountQuery } from "@/hooks/queries";
 
 interface MenuItemBase {
   label: string;
   defaultIcon: React.ComponentType;
   activeIcon: React.ComponentType;
+  badge?: string | number;
   children?: MenuItem[];
 }
 
@@ -69,101 +71,107 @@ type FooterItem =
       separator: boolean;
     });
 
-const items: {
-  main: MenuItem[];
-  footer: FooterItem[];
-} = {
-  main: [
-    {
-      label: "Dashboard",
-      defaultIcon: GoHome,
-      activeIcon: GoHomeFill,
-      url: "/",
-    },
-    {
-      label: "Transfer History",
-      defaultIcon: FaRegFolderOpen,
-      activeIcon: FaFolderOpen,
-      url: "/transfers",
-      children: [
-        {
-          label: "Sent Files",
-          defaultIcon: IoCaretUpCircleOutline,
-          activeIcon: IoCaretUpCircle,
-          url: "/transfers/sent",
-        },
-        {
-          label: "Received Files",
-          defaultIcon: IoCaretDownCircleOutline,
-          activeIcon: IoCaretDownCircle,
-          url: "/transfers/received",
-        },
-        // {
-        //   label: "Deleted Files",
-        //   defaultIcon: FaRegCircleXmark,
-        //   activeIcon: FaCircleXmark,
-        //   url: "/history/deleted",
-        // },
-      ],
-    },
-    {
-      label: "File Requests",
-      defaultIcon: IoFileTrayOutline,
-      activeIcon: IoFileTray,
-      url: "/requests",
-    },
-    {
-      label: "Branding Settings",
-      defaultIcon: MdOutlineDashboardCustomize,
-      activeIcon: MdDashboardCustomize,
-      url: "/branding",
-    },
-  ],
-  footer: [
-    {
-      label: "Upgrade plan",
-      defaultIcon: FaStar,
-      activeIcon: FaStar,
-      isAction: false,
-      url: "/",
-      separator: true,
-    },
-    {
-      label: "My Account",
-      defaultIcon: FaRegCheckCircle,
-      activeIcon: FaRegCheckCircle,
-      isAction: false,
-      url: "/",
-      separator: false,
-    },
-    {
-      label: "Billing",
-      defaultIcon: FaRegCreditCard,
-      activeIcon: FaRegCreditCard,
-      isAction: false,
-      url: "/",
-      separator: false,
-    },
-    {
-      label: "Notifications",
-      defaultIcon: FaRegBell,
-      activeIcon: FaRegBell,
-      isAction: false,
-      url: "/",
-      separator: true,
-    },
-    {
-      label: "Log out",
-      defaultIcon: MdLogout,
-      activeIcon: MdLogout,
-      isAction: true,
-      onClick: () => useAuthStore.getState().signOut(),
-      separator: false,
-    },
-  ],
-};
-
 const AppSideBar = () => {
+  const { data: unviewedTransfersCount } = useGetUnviewedTransferCountQuery();
+  const items: {
+    main: MenuItem[];
+    footer: FooterItem[];
+  } = {
+    main: [
+      {
+        label: "Dashboard",
+        defaultIcon: GoHome,
+        activeIcon: GoHomeFill,
+        url: "/",
+      },
+      {
+        label: "Transfer History",
+        defaultIcon: FaRegFolderOpen,
+        activeIcon: FaFolderOpen,
+        url: "/transfers",
+        children: [
+          {
+            label: "Sent Files",
+            defaultIcon: IoCaretUpCircleOutline,
+            activeIcon: IoCaretUpCircle,
+            url: "/transfers/sent",
+          },
+          {
+            label: "Received Files",
+            defaultIcon: IoCaretDownCircleOutline,
+            activeIcon: IoCaretDownCircle,
+            url: "/transfers/received",
+            badge:
+              unviewedTransfersCount && unviewedTransfersCount > 0
+                ? unviewedTransfersCount > 99
+                  ? "99+"
+                  : unviewedTransfersCount
+                : undefined,
+          },
+          // {
+          //   label: "Deleted Files",
+          //   defaultIcon: FaRegCircleXmark,
+          //   activeIcon: FaCircleXmark,
+          //   url: "/history/deleted",
+          // },
+        ],
+      },
+      {
+        label: "File Requests",
+        defaultIcon: IoFileTrayOutline,
+        activeIcon: IoFileTray,
+        url: "/requests",
+      },
+      {
+        label: "Branding Settings",
+        defaultIcon: MdOutlineDashboardCustomize,
+        activeIcon: MdDashboardCustomize,
+        url: "/branding",
+      },
+    ],
+    footer: [
+      {
+        label: "Upgrade plan",
+        defaultIcon: FaStar,
+        activeIcon: FaStar,
+        isAction: false,
+        url: "/",
+        separator: true,
+      },
+      {
+        label: "My Account",
+        defaultIcon: FaRegCheckCircle,
+        activeIcon: FaRegCheckCircle,
+        isAction: false,
+        url: "/",
+        separator: false,
+      },
+      {
+        label: "Billing",
+        defaultIcon: FaRegCreditCard,
+        activeIcon: FaRegCreditCard,
+        isAction: false,
+        url: "/",
+        separator: false,
+      },
+      {
+        label: "Notifications",
+        defaultIcon: FaRegBell,
+        activeIcon: FaRegBell,
+        isAction: false,
+        url: "/",
+        separator: true,
+      },
+      {
+        label: "Log out",
+        defaultIcon: MdLogout,
+        activeIcon: MdLogout,
+        isAction: true,
+        onClick: () => useAuthStore.getState().signOut(),
+        separator: false,
+      },
+    ],
+  };
   const { isActive } = useActivePath();
   return (
     <Sidebar collapsible="offcanvas">
@@ -195,6 +203,11 @@ const AppSideBar = () => {
                         )}
                       </span>
                       <span className="text-[16px]">{item.label}</span>
+                      {item.badge && (
+                        <div className="ml-auto size-6 rounded-full bg-red-400 text-[10px] text-white font-medium flex items-center justify-center">
+                          {item.badge}
+                        </div>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                   {item.children && (
@@ -215,6 +228,11 @@ const AppSideBar = () => {
                                 )}
                               </span>
                               <span className="text-[14px]">{child.label}</span>
+                              {child.badge && (
+                                <div className="ml-auto size-5 rounded-full bg-red-400 text-[10px] text-white font-medium flex items-center justify-center">
+                                  {child.badge}
+                                </div>
+                              )}
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>

@@ -15,7 +15,9 @@ const TransferSummaryCard = ({
   status,
   transfer_type,
   is_owner,
+  is_viewed,
   className,
+  onClick,
 }: {
   id: string;
   recommended_title: string;
@@ -24,16 +26,24 @@ const TransferSummaryCard = ({
   status: string;
   transfer_type: string;
   is_owner: boolean;
+  is_viewed: boolean;
   className?: string;
+  onClick?: () => void;
 }) => {
-  console.log(files);
+  const handleCardClick = () => {
+    onClick?.();
+    navigate(`/transfers/${id}`);
+  };
   const navigate = useNavigate();
   return (
     <Card
       key={id}
-      className={cn("p-4 gap-0 hover:bg-neutral-50", className)}
-      onClick={() => navigate(`/transfers/${id}`)}
+      className={cn("p-4 gap-0 hover:bg-neutral-50 relative", className)}
+      onClick={handleCardClick}
     >
+      {!is_viewed && (
+        <div className="absolute size-4 rounded-full bg-red-400 top-0 right-0 translate-x-1/2 -translate-y-1/2" />
+      )}
       <div className="w-full overflow-hidden text-ellipsis font-medium mb-6 flex gap-4">
         <span className="grow truncate text-base">{recommended_title}</span>
         {is_owner ? (

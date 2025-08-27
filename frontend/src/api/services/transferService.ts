@@ -109,6 +109,7 @@ export type TransferData = {
   total_files_size_bytes: number;
   is_owner: boolean;
   is_expired: boolean;
+  is_viewed: boolean;
 };
 
 export type GetTransfersResponse = PaginatedResponse<TransferData>;
@@ -182,6 +183,7 @@ export type TransferDetailsData = {
   total_files_size_bytes: number;
   is_owner: boolean;
   is_expired: boolean;
+  is_viewed: boolean;
 };
 
 export async function getTransferDetails(
@@ -193,4 +195,24 @@ export async function getTransferDetails(
   });
   const response = await API.get(endpoint, { signal });
   return response.data?.data as TransferDetailsData;
+}
+
+export async function getUnviewedTransfersCount(
+  signal?: AbortSignal
+): Promise<number> {
+  const response = await API.get(ApiRoutes.transfer.getUnviewedTransfersCount, {
+    signal,
+  });
+  return response.data?.data.count as number;
+}
+
+export async function markTransfersAsViewed(
+  transfer_id: string,
+  signal?: AbortSignal
+): Promise<void> {
+  await API.post(
+    ApiRoutes.transfer.markTransfersAsViewed({ transfer_id }),
+    {},
+    { signal }
+  );
 }

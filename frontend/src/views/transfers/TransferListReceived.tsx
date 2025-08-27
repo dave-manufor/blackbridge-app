@@ -14,12 +14,13 @@ const TransferListReceived = () => {
   const { search, limit } = useTransferListContext();
   const { page, dispatch: pageDispatch } = usePageReducer();
   const DIRECTION = TRANSFER_DIRECTION.RECEIVED;
-  const { isPending, isError, data } = useGetTransfersQuery({
+  const query = {
     direction: DIRECTION,
     search,
     limit,
     page,
-  });
+  };
+  const { isPending, isError, data } = useGetTransfersQuery(query);
   return (
     <GridSection>
       {!isPending && isError && (
@@ -41,6 +42,7 @@ const TransferListReceived = () => {
         data.data.length > 0 &&
         data.data.map((transfer) => (
           <TransferSummaryCard
+            is_viewed={transfer.is_viewed}
             className={transferStyles.transfer_card}
             key={transfer.id}
             id={transfer.id}
