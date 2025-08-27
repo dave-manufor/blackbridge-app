@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import Error from "@assets/img/warning-illustration.svg";
+import WarningIllustration from "@assets/img/warning-illustration.svg";
 import { ReactNode } from "react";
 
 type GenericErrorStateProps = {
@@ -38,7 +38,7 @@ const GenericErrorState = ({
       )}
     >
       <img
-        src={Error}
+        src={WarningIllustration}
         alt="No Transfers"
         className="w-48 max-w-3/4 h-48 mb-4"
       />

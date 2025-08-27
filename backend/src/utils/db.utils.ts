@@ -12,16 +12,40 @@ type PrismaOperations<ModelName extends ModelNames> = Prisma.TypeMap['model'][Mo
 type PrismaFindManyArgs<ModelName extends ModelNames> = PrismaOperations<ModelName>['findMany']['args'];
 
 // Define a type for pagination options, including model name, query filters, and pagination parameters
-type PaginationOptions<ModelName extends ModelNames> = {
+type PaginationBase<ModelName extends ModelNames> = {
   modelName: ModelName; // Name of the model to paginate
   page: number; // Page number for pagination
   limit: number; // Number of items per page for pagination
   where?: PrismaFindManyArgs<ModelName>['where']; // Filtering conditions for the query
   orderBy?: PrismaFindManyArgs<ModelName>['orderBy']; // Sorting criteria for the query
-  include?: PrismaFindManyArgs<ModelName>['include']; // Related models to include in the query
-  omit?: PrismaFindManyArgs<ModelName>['omit']; // Fields to exclude from the query
-  select?: PrismaFindManyArgs<ModelName>['select']; // Fields to select in the query
 };
+
+// Branch 1: select only
+type PaginationWithSelect<ModelName extends ModelNames> = PaginationBase<ModelName> & {
+  select: PrismaFindManyArgs<ModelName>['select'];
+  include?: never;
+  omit?: never;
+};
+
+// Branch 2: include (+ optional omit)
+type PaginationWithInclude<ModelName extends ModelNames> = PaginationBase<ModelName> & {
+  include: PrismaFindManyArgs<ModelName>['include'];
+  omit?: PrismaFindManyArgs<ModelName>['omit'];
+  select?: never;
+};
+
+// Branch 3: neither select nor include (but maybe omit)
+type PaginationMinimal<ModelName extends ModelNames> = PaginationBase<ModelName> & {
+  omit?: PrismaFindManyArgs<ModelName>['omit'];
+  select?: never;
+  include?: never;
+};
+
+// Final union
+type PaginationOptions<ModelName extends ModelNames> =
+  | PaginationWithSelect<ModelName>
+  | PaginationWithInclude<ModelName>
+  | PaginationMinimal<ModelName>;
 
 export async function getPaginationResult<T extends ModelNames>(
   options: PaginationOptions<T>,

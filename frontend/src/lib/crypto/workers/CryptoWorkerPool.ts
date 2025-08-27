@@ -4,9 +4,11 @@ import { devOnly } from "@/utils/dev";
 
 // Determine optimal pool size based on the user's CPU capabilities,
 // defaulting to 4 if navigator.hardwareConcurrency is unavailable.
-const poolSize = navigator.hardwareConcurrency
-  ? Math.min(navigator.hardwareConcurrency, 4)
-  : 4;
+const poolSize =
+  typeof navigator !== "undefined" &&
+  typeof navigator.hardwareConcurrency === "number"
+    ? Math.min(navigator.hardwareConcurrency, 4)
+    : 4;
 
 /**
  * Singleton class that manages a pool of Web Workers for cryptographic operations.

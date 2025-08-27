@@ -202,8 +202,11 @@ class TransferController {
           };
         }
 
+        // Extract valid recipient updates
+        const validRecipientUpdates = [...keysByEmail.entries()].filter(([email]) => emailToUserId.has(email));
+
         // 4) Update recipient keys in parallel
-        const recipientUpdates = [...keysByEmail.entries()].map(([email, file_key]) => {
+        const recipientUpdates = validRecipientUpdates.map(([email, file_key]) => {
           const recipient_user_id = emailToUserId.get(email)!; // exists due to 'missing' check above
           return tx.emailTransfers.update({
             where: {

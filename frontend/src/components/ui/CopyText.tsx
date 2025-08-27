@@ -11,10 +11,17 @@ const CopyText = ({
 }) => {
   const [isCopied, setIsCopied] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text);
-    setIsCopied(true);
-    toast.success("Copied!");
+  const handleCopy = async () => {
+    try {
+      if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(text);
+      setIsCopied(true);
+      toast.success("Copied!");
+    } catch {
+      toast.error("Failed to copy");
+    }
   };
 
   useEffect(() => {

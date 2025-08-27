@@ -56,21 +56,38 @@ const TransferDetailsView = () => {
   }, [isError, error]);
 
   useEffect(() => {
+    let isMounted = true;
+
     if (transferDetails && transferDetails.transfer_type === "LINK") {
       setIsDecryptingFragment(true);
+
       (async () => {
         if (transferDetails.link_transfer?.encrypted_fragment) {
-          const fragment = await cryptoBridge.decryptFragment(
-            transferDetails.link_transfer?.encrypted_fragment
-          );
-          setSharableUrl(
-            `${BASE_SHAREABLE_URL}${transferDetails.link_transfer?.slug}#${fragment}`
-          );
+          try {
+            const fragment = await cryptoBridge.decryptFragment(
+              transferDetails.link_transfer.encrypted_fragment
+            );
+
+            if (isMounted) {
+              setSharableUrl(
+                `${BASE_SHAREABLE_URL}${transferDetails.link_transfer.slug}#${fragment}`
+              );
+            }
+          } catch (error) {
+            console.error("Failed to decrypt fragment:", error);
+            // TODO: display a user-friendly error message or fallback UI
+          }
         }
       })().finally(() => {
-        setIsDecryptingFragment(false);
+        if (isMounted) {
+          setIsDecryptingFragment(false);
+        }
       });
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [transferDetails, cryptoBridge]);
 
   useEffect(() => {

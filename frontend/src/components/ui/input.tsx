@@ -209,6 +209,8 @@ function ChipInput({
               {chip}
               <IoCloseCircle
                 className="text-sm cursor-pointer"
+                // Prevent focus loss
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleRemove(index)}
               />
             </span>

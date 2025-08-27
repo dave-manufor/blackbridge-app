@@ -16,10 +16,8 @@ const useMarkTransferAsViewedMutation = () => {
       // Replace is_viewed flag for transfer details
       queryClient.setQueryData(
         queryKeys.transfers.details(variables.transfer_id),
-        (oldData: TransferDetailsData | undefined) => ({
-          ...oldData,
-          is_viewed: true,
-        })
+        (oldData: TransferDetailsData | undefined) =>
+          oldData ? { ...oldData, is_viewed: true } : oldData
       );
       // Replace is_viewed flag for transfer lists
       queryClient.setQueriesData(

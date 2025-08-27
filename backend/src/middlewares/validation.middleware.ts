@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 import { ZodError, ZodTypeAny } from 'zod';
 import StatusCodesConfig from '../config/StatusCodes.config';
 import logger from '../lib/logger';
-import { prettyZodErrors } from 'utils/zod.utils';
+import { prettyZodErrors } from '../utils/zod.utils';
 
 export const bodyValidator = <T>(resolveSchema: (type: T) => ZodTypeAny) => {
   return (type: T) => {

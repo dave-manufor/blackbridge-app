@@ -10,6 +10,6 @@ export default {
       "list",
       ...Object.values(query),
     ],
-    details: (id: string) => [`/transfers/${id}`],
+    details: (id: string) => ["/transfers", "details", id],
   },
 };
