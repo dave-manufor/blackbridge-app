@@ -3,6 +3,12 @@ export const TRANSFER_TYPES = {
   LINK: "LINK",
 };
 
+export const LINK_TRANSFER_ACCESS_CONTROL = {
+  PUBLIC: "PUBLIC",
+  REQUIRE_AUTH: "REQUIRE_AUTH",
+  PRIVATE: "PRIVATE",
+};
+
 export const TRANSFER_STATUS = {
   PENDING: "PENDING",
   ACTIVE: "ACTIVE",

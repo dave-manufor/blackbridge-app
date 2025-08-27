@@ -1,4 +1,5 @@
 import {
+  LINK_TRANSFER_ACCESS_CONTROL,
   TRANSFER_DIRECTION,
   TRANSFER_STATUS,
   TRANSFER_TYPES,
@@ -87,10 +88,10 @@ export type GetTransfersQuery = {
 export type TransferData = {
   id: string;
   owner_user_id: string;
-  transfer_type: "EMAIL" | "LINK";
+  transfer_type: (typeof TRANSFER_TYPES)[keyof typeof TRANSFER_TYPES];
   title: string | null;
   description: string | null;
-  status: string;
+  status: (typeof TRANSFER_STATUS)[keyof typeof TRANSFER_STATUS];
   expiration_date: string;
   created_at: string;
   updated_at: string;
@@ -131,10 +132,10 @@ export async function getTransfers(
 export type TransferDetailsData = {
   id: string;
   owner_user_id: string;
-  transfer_type: "EMAIL" | "LINK";
+  transfer_type: (typeof TRANSFER_TYPES)[keyof typeof TRANSFER_TYPES];
   title: string | null;
   description: string | null;
-  status: string;
+  status: (typeof TRANSFER_STATUS)[keyof typeof TRANSFER_STATUS];
   expiration_date: string;
   created_at: string;
   updated_at: string;
@@ -159,6 +160,7 @@ export type TransferDetailsData = {
     transfer_id: string;
     file_key: string;
     encrypted_fragment: string;
+    access_control: (typeof LINK_TRANSFER_ACCESS_CONTROL)[keyof typeof LINK_TRANSFER_ACCESS_CONTROL];
     is_password_protected: boolean;
     download_limit: number | null;
     download_count: number;

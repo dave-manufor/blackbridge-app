@@ -157,12 +157,19 @@ model EmailTransfers{
   @@unique([recipient_user_id, transfer_id], name: "unique_recipient_per_transfer")
 }
 
+enum LINK_ACCESS_CONTROL {
+  PUBLIC
+  REQUIRE_AUTH
+  PRIVATE
+}
+
 model LinkTransfers{
   id String @db.Uuid @id @default(uuid()) @unique
   slug String @unique
   transfer_id String @db.Uuid @unique
   file_key String?
   encrypted_fragment String?
+  access_control LINK_ACCESS_CONTROL @default(PUBLIC)
   is_password_protected Boolean @default(false)
   download_limit Int?
   download_count Int @default(0)
@@ -171,5 +178,7 @@ model LinkTransfers{
   updated_at DateTime @updatedAt
   transfer Transfers @relation(fields: [transfer_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   @@index([transfer_id], name: "idx_link_transfer_id")
+  @@index([access_control], name: "idx_link_access_control")
+  @@index([transfer_id, access_control], name: "idx_link_transfer_access")
   @@index([download_count, download_limit], name: "idx_link_download_count_limit")
 }
