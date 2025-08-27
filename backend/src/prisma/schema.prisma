@@ -144,12 +144,16 @@ model EmailTransfers{
   id String @db.Uuid @id @default(uuid()) @unique
   transfer_id String @db.Uuid
   recipient_user_id String @db.Uuid
+  viewed Boolean @default(false)
+  viewed_at DateTime?
   file_key String?
   created_at DateTime @default(now())
   transfer Transfers @relation(fields: [transfer_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   recipient_user Users @relation(fields: [recipient_user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   @@index([recipient_user_id], name: "idx_user_transfers_recipient_user_id")
   @@index([transfer_id], name: "idx_user_transfer_id")
+  @@index([viewed], name: "idx_user_transfers_viewed")
+  @@index([viewed, recipient_user_id], name: "idx_user_transfers_viewed_recipient")
   @@unique([recipient_user_id, transfer_id], name: "unique_recipient_per_transfer")
 }
 

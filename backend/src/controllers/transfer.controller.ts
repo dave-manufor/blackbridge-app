@@ -26,6 +26,8 @@ class TransferController {
     // TODO: Implement the following routes
     this.router.get('/', verifyToken(), this.getTransfers);
     this.router.get('/:id', verifyToken(), this.getTransferDetails);
+    this.router.post('/emails/:id/viewed', verifyToken(), this.markEmailTransferAsViewed);
+    this.router.get('/emails/unviewed/count', verifyToken(), this.getUnviewedEmailTransfersCount);
     // POST /initiate - Start a transfer
     this.router.post('/links/initiate', verifyToken(), this.validateBody('initiateLinkTransfer'), this.initiateLinkTransfer);
     this.router.post('/emails/initiate', verifyToken(), this.validateBody('initiateEmailTransfer'), this.initiateEmailTransfer);
@@ -86,7 +88,7 @@ class TransferController {
       return;
     }
   };
-  private async initiateEmailTransfer(req: Request, res: Response) {
+  private initiateEmailTransfer = async (req: Request, res: Response) => {
     const { recipients, title, description, duration } = req.body as BodyTypeToShape<'initiateEmailTransfer'>;
     const { userId } = req.session;
     try {
@@ -133,9 +135,9 @@ class TransferController {
       this.transferLogger.error({ error }, 'Failed to initiate email transfer');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
-  }
+  };
 
-  private async commitEmailTransfer(req: Request, res: Response) {
+  private commitEmailTransfer = async (req: Request, res: Response) => {
     const { owner_key, recipient_keys } = req.body as BodyTypeToShape<'commitEmailTransfer'>;
     const { userId } = req.session;
     const { id } = req.params;
@@ -258,9 +260,9 @@ class TransferController {
       this.transferLogger.error({ error }, 'Failed to commit email transfer');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
-  }
+  };
 
-  private async commitLinkTransfer(req: Request, res: Response) {
+  private commitLinkTransfer = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { userId } = req.session;
     const { owner_key, link_key, fragment } = req.body as BodyTypeToShape<'commitLinkTransfer'>;
@@ -324,9 +326,9 @@ class TransferController {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
       return;
     }
-  }
+  };
 
-  private async getTransfers(req: Request, res: Response) {
+  private getTransfers = async (req: Request, res: Response) => {
     const { userId } = req.session;
     const query = req.query;
 
@@ -393,6 +395,17 @@ class TransferController {
             profile_picture: true,
           },
         },
+        email_transfers: {
+          select: {
+            id: true,
+            viewed: true,
+            recipient_user: {
+              select: {
+                id: true,
+              },
+            },
+          },
+        },
         files: {
           select: {
             name: true,
@@ -418,15 +431,20 @@ class TransferController {
         },
       });
 
-      // Add derived meta
-      const enrichedTransfers = transfers.map((transfer) => ({
-        ...transfer,
-        recommended_title: transfer.title || transfer.files[0]?.name || 'Untitled',
-        total_files_count: transfer.files.length,
-        total_files_size_bytes: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
-        is_owner: transfer.owner_user_id === userId,
-        is_expired: transfer.status === 'EXPIRED' || Date.now() > new Date(String(transfer.expiration_date)).getTime(),
-      }));
+      // Add derived meta and remove other email transfers if not owner requesting
+      const enrichedTransfers = transfers.map((transfer) => {
+        const enrichedTransfer = {
+          ...transfer,
+          recommended_title: transfer.title || transfer.files[0]?.name || 'Untitled',
+          total_files_count: transfer.files.length,
+          total_files_size_bytes: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
+          is_owner: transfer.owner_user_id === userId,
+          is_expired: transfer.status === 'EXPIRED' || Date.now() > new Date(String(transfer.expiration_date)).getTime(),
+          is_viewed: transfer.owner_user_id === userId ? true : transfer.email_transfers.some((et) => et.recipient_user.id === userId && et.viewed),
+        };
+        delete enrichedTransfer.email_transfers;
+        return enrichedTransfer;
+      });
 
       // return filtered transfers
       res.status(StatusCodes.OK).json({ message: 'Transfers fetched successfully', data: enrichedTransfers, pagination: paginationDetails });
@@ -435,9 +453,9 @@ class TransferController {
       console.error(error);
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
-  }
+  };
 
-  private async getTransferDetails(req: Request, res: Response) {
+  private getTransferDetails = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { userId } = req.session;
 
@@ -459,6 +477,8 @@ class TransferController {
               id: true,
               file_key: true,
               created_at: true,
+              viewed: true,
+              viewed_at: true,
               recipient_user: {
                 select: {
                   id: true,
@@ -517,13 +537,76 @@ class TransferController {
           total_files_size_bytes: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
           is_owner: transfer.owner_user_id === userId,
           is_expired: transfer.status === 'EXPIRED' || Date.now() > new Date(String(transfer.expiration_date)).getTime(),
+          is_viewed: transfer.owner_user_id === userId ? true : transfer.email_transfers.some((et) => et.recipient_user.id === userId && et.viewed),
         },
       });
     } catch (error) {
       console.error(error);
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
-  }
+  };
+
+  private markEmailTransferAsViewed = async (req: Request, res: Response) => {
+    const { userId } = req.session;
+    const { id } = req.params;
+    try {
+      const emailTransfer = await db.emailTransfers.findUnique({
+        where: {
+          unique_recipient_per_transfer: {
+            transfer_id: id,
+            recipient_user_id: userId,
+          },
+        },
+      });
+
+      // Check if email transfer exists
+      if (!emailTransfer) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Email transfer not found' });
+        return;
+      }
+
+      // Check if email transfer is already viewed
+      if (emailTransfer.viewed) {
+        res.status(StatusCodes.OK).json({ message: 'Email transfer already marked as viewed' });
+        return;
+      }
+
+      await db.emailTransfers.update({
+        where: {
+          id: emailTransfer.id,
+        },
+        data: {
+          viewed: true,
+          viewed_at: new Date(),
+        },
+      });
+
+      res.status(StatusCodes.OK).json({ message: 'Email transfer marked as viewed' });
+    } catch (error) {
+      console.error(error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  };
+
+  private getUnviewedEmailTransfersCount = async (req: Request, res: Response) => {
+    const { userId } = req.session;
+    try {
+      const count = await db.emailTransfers.count({
+        where: {
+          recipient_user_id: userId,
+          viewed: false,
+        },
+      });
+
+      res.status(StatusCodes.OK).json({
+        message: 'Unopened email transfers count fetched successfully',
+        data: { count },
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  };
 
   private getValidationSchema = <T extends BodyType>(type: T): SchemaMap[T] => {
     return schemas[type];
