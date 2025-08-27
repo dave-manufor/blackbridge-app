@@ -31,7 +31,7 @@ import {
   SelectValue,
   SelectContent,
 } from "@/components/ui/select";
-import TRANSFER_DURATIONS from "@/config/constants/transferDurations";
+import { TRANSFER_DURATIONS } from "@/config/constants/transfers";
 import { Card } from "@/components/ui/card";
 import { FaEllipsis, FaRegBell, FaRegEye } from "react-icons/fa6";
 import {

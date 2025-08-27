@@ -2,7 +2,7 @@ import { AxiosProgressEvent } from "axios";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { transferSchema } from "@/lib/validators";
-import TRANSFER_DURATIONS from "@/config/constants/transferDurations";
+import { TRANSFER_DURATIONS } from "@/config/constants/transfers";
 import { CryptoBridge } from "@/lib/crypto/workers/CryptoBridge";
 import {
   commitTransfer,

@@ -6,7 +6,7 @@ import useAppHeader from "@/hooks/context/useAppHeader";
 import { useGetTransferDetailsQuery } from "@/hooks/queries";
 import { AxiosError } from "axios";
 import { Fragment, useEffect, useState } from "react";
-import { FaArrowLeft, FaArrowRight, FaUser } from "react-icons/fa6";
+import { FaArrowLeft, FaArrowRight, FaSpinner, FaUser } from "react-icons/fa6";
 import { Link, useNavigate, useParams } from "react-router";
 import { formatDistance } from "date-fns";
 import { TransferStatusBadge, TransferTypeBadge } from "@/components/ui/badge";
@@ -18,10 +18,18 @@ import { MdOutlineFileDownload } from "react-icons/md";
 import { TransferDetailsData } from "@/api/services/transferService";
 import { defaultStyles, FileIcon } from "react-file-icon";
 import { IoCloseCircleOutline } from "react-icons/io5";
+import CopyText from "@/components/ui/CopyText";
+import { BASE_SHAREABLE_URL } from "@/config/constants/transfers";
+import { CryptoBridge } from "@/lib/crypto/workers/CryptoBridge";
+import QRCode from "react-qr-code";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const TransferDetailsView = () => {
+  const cryptoBridge = CryptoBridge.getInstance();
   const navigate = useNavigate();
   const [isNotFoundError, setIsNotFoundError] = useState(false);
+  const [sharableUrl, setSharableUrl] = useState("");
+  const [isDecryptingFragment, setIsDecryptingFragment] = useState(false);
   const { setHeaderTitle } = useAppHeader();
   const { transferID } = useParams();
   const user = useAuthStore((state) => state.user);
@@ -45,169 +53,265 @@ const TransferDetailsView = () => {
     }
   }, [isError, error]);
 
+  useEffect(() => {
+    if (transferDetails && transferDetails.transfer_type === "LINK") {
+      setIsDecryptingFragment(true);
+      (async () => {
+        if (transferDetails.link_transfer?.encrypted_fragment) {
+          const fragment = await cryptoBridge.decryptFragment(
+            transferDetails.link_transfer?.encrypted_fragment
+          );
+          setSharableUrl(
+            `${BASE_SHAREABLE_URL}${transferDetails.link_transfer?.slug}#${fragment}`
+          );
+        }
+      })().finally(() => {
+        setIsDecryptingFragment(false);
+      });
+    }
+  }, [transferDetails, cryptoBridge]);
+
   return (
-    <GridSection>
-      <div className="col-span-full pb-4 mb-8 border-b border-neutral-200">
-        <Link
-          to="/transfers"
-          className="flex text-sm items-center gap-2 hover:underline"
-        >
-          <FaArrowLeft /> Back to Transfers
-        </Link>
-      </div>
-      {!isPending && isError && isNotFoundError && (
-        <GenericErrorState
-          className={transferStyles.state}
-          title="We couldn't find that transfer"
-          body="It looks like this transfer doesn't exist anymore. Double-check the link, or reach out to the sender if you think this is a mistake."
-          primaryAction={() => navigate("/transfers")}
-          primaryActionLabel={
-            <Fragment>
-              View all transfers <FaArrowRight />
-            </Fragment>
-          }
-        />
-      )}
-      {!isPending && isError && !isNotFoundError && (
-        <GenericErrorState
-          className={transferStyles.state}
-          title="Error fetching transfer details"
-          body="There was an error fetching the transfer details. Please try again later."
-          primaryAction={() => navigate("/transfers")}
-          primaryActionLabel={
-            <Fragment>
-              View all transfers <FaArrowRight />
-            </Fragment>
-          }
-        />
-      )}
+    <>
+      <GridSection>
+        <div className="col-span-full pb-4 mb-8 border-b border-neutral-200">
+          <Link
+            to="/transfers"
+            className="flex text-sm items-center gap-2 hover:underline"
+          >
+            <FaArrowLeft /> Back to Transfers
+          </Link>
+        </div>
+        {!isPending && isError && isNotFoundError && (
+          <GenericErrorState
+            className={transferStyles.state}
+            title="We couldn't find this transfer"
+            body="It looks like this transfer doesn't exist anymore. Double-check the link, or reach out to the sender if you think this is a mistake."
+            primaryAction={() => navigate("/transfers")}
+            primaryActionLabel={
+              <Fragment>
+                View all transfers <FaArrowRight />
+              </Fragment>
+            }
+          />
+        )}
+        {!isPending && isError && !isNotFoundError && (
+          <GenericErrorState
+            className={transferStyles.state}
+            title="Error fetching transfer details"
+            body="There was an error fetching the transfer details. Please try again later."
+            primaryAction={() => navigate("/transfers")}
+            primaryActionLabel={
+              <Fragment>
+                View all transfers <FaArrowRight />
+              </Fragment>
+            }
+          />
+        )}
+      </GridSection>
+      {isPending && <SkeletonUi />}
       {!isPending && transferDetails && (
         <>
-          {/* Header */}
-          <section className={styles.header_section}>
-            <div className={styles.header_info}>
-              <span className={styles.header_title}>
-                {transferDetails.recommended_title}
-              </span>
-              <span className={styles.header_meta}>
-                {`${transferDetails.is_owner ? "Sent" : "Received"} `}
-                {formatDistance(
-                  new Date(transferDetails.created_at),
-                  new Date(),
-                  { addSuffix: true }
-                )}
-              </span>
-            </div>
-            <div className={styles.header_badges}>
-              <TransferStatusBadge
-                size={"lg"}
-                status={transferDetails.status}
-              />
-              <TransferTypeBadge
-                size={"lg"}
-                type={transferDetails.transfer_type}
-              />
-            </div>
-          </section>
-          {/* Details */}
-          <section className={styles.details_section}>
-            <ul className={styles.details_list}>
-              <li className={styles.detail}>
-                <span className={styles.detail_name}>Owner</span>
-                <div className="flex items-center gap-4">
-                  <Avatar className="rounded-md w-10 h-10">
-                    <AvatarImage
-                      src={transferDetails.owner.profile_picture || ""}
-                    />
-                    <AvatarFallback className="bg-gray-200 text-gray-600 rounded-md">
-                      <FaUser />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col items-start">
-                    <span>
-                      {transferDetails.owner.email}
-                      {transferDetails.is_owner && " (You)"}
-                    </span>
-                  </div>
-                </div>
-              </li>
-              <li className={styles.detail}>
-                <span className={`mb-auto ${styles.detail_name}`}>
-                  Description
+          <GridSection>
+            {/* Header */}
+            <section className={styles.header_section}>
+              <div className={styles.header_info}>
+                <span className={styles.header_title}>
+                  {transferDetails.recommended_title}
                 </span>
-                <p className="!text-black">{transferDetails.description}</p>
-              </li>
-              <li className={styles.detail}>
-                <span className={`mb-auto ${styles.detail_name}`}>
-                  Shared with
-                </span>
-                <div
-                  className={`${styles.email_chips} scrollbar-always-visible`}
-                >
-                  {transferDetails.email_transfers.map((transfer) => {
-                    const label = `${transfer.recipient_user.email}${
-                      transfer.recipient_user.id === user?.id ? " (You)" : ""
-                    }`;
-
-                    return (
-                      <EmailChip
-                        key={transfer.id}
-                        email={label}
-                        showDeleteButton={
-                          transferDetails.is_owner &&
-                          transfer.recipient_user.id !== user?.id
-                        }
-                        onDelete={() => {}}
-                      />
-                    );
-                  })}
-                </div>
-              </li>
-              <li className={styles.detail}>
-                <span className={styles.detail_name}>
-                  {transferDetails.is_expired ? "Expired " : "Expires in"}
-                </span>
-                <span>
+                <span className={styles.header_meta}>
+                  {`${
+                    transferDetails.transfer_type === "LINK"
+                      ? "Created"
+                      : transferDetails.is_owner
+                      ? "Sent"
+                      : "Received"
+                  } `}
                   {formatDistance(
-                    new Date(transferDetails.expiration_date),
+                    new Date(transferDetails.created_at),
                     new Date(),
-                    { addSuffix: transferDetails.is_expired }
+                    { addSuffix: true }
                   )}
                 </span>
-              </li>
-            </ul>
-          </section>
-          {/* Files list */}
-          <section className={styles.files_section}>
-            <div className={styles.files_header}>
-              <h3 className={styles.files_title}>Files</h3>
-              <div className={styles.files_info}>
-                <div className={styles.files_summary}>
-                  <span>
-                    {transferDetails.total_files_count}{" "}
-                    {`file${
-                      transferDetails.total_files_count !== 1 ? "s" : ""
-                    }`}
+              </div>
+              <div className={styles.header_badges}>
+                <TransferStatusBadge
+                  size={"lg"}
+                  status={transferDetails.status}
+                />
+                <TransferTypeBadge
+                  size={"lg"}
+                  type={transferDetails.transfer_type}
+                />
+              </div>
+            </section>
+          </GridSection>
+
+          {/* Details */}
+          <GridSection>
+            <section className={styles.details_section}>
+              <ul className={styles.details_list}>
+                <li className={styles.detail}>
+                  <span className={styles.detail_name}>Owner</span>
+                  <div className="flex items-center gap-4">
+                    <Avatar className="rounded-md w-10 h-10">
+                      <AvatarImage
+                        src={transferDetails.owner.profile_picture || ""}
+                      />
+                      <AvatarFallback className="bg-gray-200 text-gray-600 rounded-md">
+                        <FaUser />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col items-start">
+                      <span>
+                        {transferDetails.owner.email}
+                        {transferDetails.is_owner && " (You)"}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+                <li className={styles.detail}>
+                  <span className={`mb-auto ${styles.detail_name}`}>
+                    Description
                   </span>
-                  |
-                  <span>
-                    {formatFileSize(transferDetails.total_files_size_bytes)}
+                  <p className="!text-black">{transferDetails.description}</p>
+                </li>
+                {transferDetails.transfer_type === "EMAIL" && (
+                  <li className={styles.detail}>
+                    <span className={`mb-auto ${styles.detail_name}`}>
+                      Shared with
+                    </span>
+                    <div
+                      className={`${styles.email_chips} scrollbar-always-visible`}
+                    >
+                      {transferDetails.email_transfers.map((transfer) => {
+                        const label = `${transfer.recipient_user.email}${
+                          transfer.recipient_user.id === user?.id
+                            ? " (You)"
+                            : ""
+                        }`;
+
+                        return (
+                          <EmailChip
+                            key={transfer.id}
+                            email={label}
+                            showDeleteButton={
+                              transferDetails.is_owner &&
+                              transfer.recipient_user.id !== user?.id
+                            }
+                            onDelete={() => {}}
+                          />
+                        );
+                      })}
+                    </div>
+                  </li>
+                )}
+                <li className={styles.detail}>
+                  <span className={styles.detail_name}>
+                    {transferDetails.is_expired ? "Expired " : "Expires in"}
                   </span>
-                </div>
-                <div className={styles.files_download_icon}>
-                  <MdOutlineFileDownload />
+                  <span>
+                    {formatDistance(
+                      new Date(transferDetails.expiration_date),
+                      new Date(),
+                      { addSuffix: transferDetails.is_expired }
+                    )}
+                  </span>
+                </li>
+              </ul>
+            </section>
+            {/* Files list */}
+            <section className={styles.files_section}>
+              <div className={styles.files_header}>
+                <h3 className={styles.files_title}>Files</h3>
+                <div className={styles.files_info}>
+                  <div className={styles.files_summary}>
+                    <span>
+                      {transferDetails.total_files_count}{" "}
+                      {`file${
+                        transferDetails.total_files_count !== 1 ? "s" : ""
+                      }`}
+                    </span>
+                    |
+                    <span>
+                      {formatFileSize(transferDetails.total_files_size_bytes)}
+                    </span>
+                  </div>
+                  <div className={styles.files_download_icon}>
+                    <MdOutlineFileDownload />
+                  </div>
                 </div>
               </div>
-            </div>
-            <ul className={styles.files_list}>
-              {transferDetails.files.map((file) => (
-                <FileCard key={file.id} file={file} />
-              ))}
-            </ul>
-          </section>
+              <ul className={styles.files_list}>
+                {transferDetails.files.map((file) => (
+                  <FileCard key={file.id} file={file} />
+                ))}
+              </ul>
+            </section>
+            {/* Link Details */}
+            {transferDetails.transfer_type === "LINK" &&
+              transferDetails.link_transfer && (
+                <section className={styles.link_section}>
+                  <div className={styles.link_header}>
+                    <span className={styles.link_title}>Link Details</span>
+                  </div>
+                  <div className={styles.link_container}>
+                    <div className={styles.qr_code}>
+                      {isDecryptingFragment ? (
+                        <Skeleton className="w-full aspect-square" />
+                      ) : (
+                        <QRCode
+                          value={sharableUrl || ""}
+                          style={{
+                            height: "auto",
+                            width: "100%",
+                            maxWidth: "100%",
+                          }}
+                        />
+                      )}
+                    </div>
+                    <div className={styles.link_details}>
+                      {isDecryptingFragment ? (
+                        <Skeleton className="h-8 w-full" />
+                      ) : (
+                        <CopyText
+                          text={sharableUrl || ""}
+                          className={styles.copy_link}
+                        />
+                      )}
+                      <div className={styles.link_meta}>
+                        <div className={styles.link_detail}>
+                          <span>Access Control:</span>
+                          <span>Anyone</span>
+                        </div>
+                        <div className={styles.link_detail}>
+                          <span>Downloads:</span>
+                          <span>
+                            {transferDetails.link_transfer.download_count}
+                          </span>
+                        </div>
+                        <div className={styles.link_detail}>
+                          <span>Last Accessed:</span>
+                          <span>
+                            {transferDetails.link_transfer.last_accessed
+                              ? formatDistance(
+                                  new Date(
+                                    transferDetails.link_transfer.last_accessed
+                                  ),
+                                  new Date()
+                                )
+                              : "Never"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              )}
+          </GridSection>
         </>
       )}
-    </GridSection>
+    </>
   );
 };
 
@@ -256,6 +360,135 @@ const FileCard = ({ file }: { file: TransferDetailsData["files"][0] }) => {
         <MdOutlineFileDownload />
       </div>
     </li>
+  );
+};
+const FileCardSkeleton = () => {
+  return (
+    <li className={styles.file_item}>
+      <div className={styles.file_info}>
+        <Skeleton className="size-8" />
+        <div className={styles.file_details}>
+          <span className={styles.file_name}>
+            <Skeleton className="h-4 w-48 mb-2" />
+          </span>
+          <span className={styles.file_meta}>
+            <Skeleton className="h-4 w-32" />
+          </span>
+        </div>
+      </div>
+      <Skeleton className="size-8" />
+    </li>
+  );
+};
+
+const SkeletonUi = () => {
+  return (
+    <>
+      <GridSection>
+        {/* Header */}
+        <section className={styles.header_section}>
+          <div className={styles.header_info}>
+            <span className={styles.header_title}>
+              <Skeleton className="h-8 w-96" />
+            </span>
+            <span className={styles.header_meta}>
+              <Skeleton className="h-4 w-48" />
+            </span>
+          </div>
+          <div className={styles.header_badges}>
+            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-24" />
+          </div>
+        </section>
+      </GridSection>
+
+      {/* Details */}
+      <GridSection>
+        <section className={styles.details_section}>
+          <ul className={styles.details_list}>
+            <li className={styles.detail}>
+              <span className={`mb-auto ${styles.detail_name}`}>
+                <Skeleton className="h-4 w-32" />
+              </span>
+              <p className="!text-black">
+                <Skeleton className="h-4 w-48" />
+              </p>
+            </li>
+            <li className={styles.detail}>
+              <span className={`mb-auto ${styles.detail_name}`}>
+                <Skeleton className="h-4 w-32" />
+              </span>
+              <p className="!text-black">
+                <Skeleton className="h-4 w-48" />
+              </p>
+            </li>
+            <li className={styles.detail}>
+              <span className={`mb-auto ${styles.detail_name}`}>
+                <Skeleton className="h-4 w-32" />
+              </span>
+              <p className="!text-black">
+                <Skeleton className="h-4 w-48" />
+              </p>
+            </li>
+          </ul>
+        </section>
+        {/* Files list */}
+        <section className={styles.files_section}>
+          <div className={styles.files_header}>
+            <h3 className={styles.files_title}>
+              <Skeleton className="h-6 w-24 mb-2" />
+            </h3>
+            <div className={styles.files_info}>
+              <div className={styles.files_summary}>
+                <span>
+                  <Skeleton className="h-4 w-20" />
+                </span>
+                |
+                <span>
+                  <Skeleton className="h-4 w-20" />
+                </span>
+              </div>
+              <Skeleton className="size-8" />
+            </div>
+          </div>
+          <ul className={styles.files_list}>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <FileCardSkeleton key={index} />
+            ))}
+          </ul>
+        </section>
+        {/* Link Details */}
+        <section className={styles.link_section}>
+          <div className={styles.link_header}>
+            <span className={styles.link_title}>
+              <Skeleton className="h-6 w-32" />
+            </span>
+          </div>
+          <div className={styles.link_container}>
+            <div className={styles.qr_code}>
+              <Skeleton className="w-full aspect-square" />
+            </div>
+            <div className={styles.link_details}>
+              <Skeleton className="h-8 w-full" />
+              <div className={styles.link_meta}>
+                <div className={styles.link_detail}>
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+                <div className={styles.link_detail}>
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+                <div className={styles.link_detail}>
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </GridSection>
+    </>
   );
 };
 

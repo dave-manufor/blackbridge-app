@@ -6,7 +6,7 @@ const SideBarLayout = () => {
   return (
     <>
       <AppSideBar />
-      <main className="flex-1 flex flex-col p-4">
+      <main className="flex-1 flex flex-col py-4 px-6">
         <AppHeader />
         <Outlet />
       </main>

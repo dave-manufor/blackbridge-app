@@ -21,7 +21,7 @@
 }
 
 .details_section {
-  @apply col-span-6 flex flex-col gap-6;
+  @apply col-span-6 row-span-1 flex flex-col gap-6 mb-16;
 }
 
 .details_list {
@@ -37,7 +37,7 @@
 }
 
 .files_section {
-  @apply col-span-4 -col-end-1;
+  @apply col-span-4 -col-end-1 row-span-3 -mt-4;
 }
 
 .files_header {
@@ -122,4 +122,75 @@
 
 .email_delete_button {
   @apply p-1 hover:bg-gray-200 rounded-md cursor-pointer;
+}
+
+.link_section {
+  @apply col-span-6 flex flex-col gap-4;
+}
+
+.link_header {
+  @apply w-full flex flex-col items-start border-b border-neutral-200 pb-2 mb-2;
+}
+
+.link_title {
+  @apply text-lg font-semibold;
+}
+
+.link_info {
+  @apply flex flex-col gap-4;
+}
+
+.link_subtitle {
+  @apply text-sm font-semibold;
+}
+
+.link_container {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.link_container .qr_code {
+  width: 200px;
+  min-width: 200px;
+  height: auto;
+  padding: 12px;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: 8px;
+}
+
+.link_container .link_details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-grow: 1;
+}
+
+.link_container .copy_link {
+  max-width: 100%;
+}
+
+.link_container .link_meta {
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.link_meta .link_detail {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+  width: 100%;
+  border-top: 1px solid var(--color-neutral-200);
+  padding: 12px 8px;
+}
+
+.link_detail span:first-child {
+  color: var(--color-neutral-400);
+}
+
+.link_meta .link_detail span:last-child {
+  color: var(--color-black);
 }

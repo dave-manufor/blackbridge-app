@@ -155,6 +155,7 @@ model EmailTransfers{
 
 model LinkTransfers{
   id String @db.Uuid @id @default(uuid()) @unique
+  slug String @unique
   transfer_id String @db.Uuid @unique
   file_key String?
   encrypted_fragment String?

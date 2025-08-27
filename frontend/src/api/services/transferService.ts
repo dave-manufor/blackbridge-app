@@ -87,7 +87,7 @@ export type GetTransfersQuery = {
 export type TransferData = {
   id: string;
   owner_user_id: string;
-  transfer_type: string;
+  transfer_type: "EMAIL" | "LINK";
   title: string | null;
   description: string | null;
   status: string;
@@ -130,7 +130,7 @@ export async function getTransfers(
 export type TransferDetailsData = {
   id: string;
   owner_user_id: string;
-  transfer_type: string;
+  transfer_type: "EMAIL" | "LINK";
   title: string | null;
   description: string | null;
   status: string;
@@ -154,6 +154,7 @@ export type TransferDetailsData = {
   }[];
   link_transfer: {
     id: string;
+    slug: string;
     transfer_id: string;
     file_key: string;
     encrypted_fragment: string;

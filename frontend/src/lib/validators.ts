@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { passwordRegex } from "./regex";
-import TRANSFER_DURATIONS from "@/config/constants/transferDurations";
+import { TRANSFER_DURATIONS } from "@/config/constants/transfers";
 
 export const signUpSchema = z
   .object({

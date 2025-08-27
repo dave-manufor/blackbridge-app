@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { prettyZodErrors } from 'utils/zod.utils';
 import { PaginationDetails } from 'custom';
 import { getPaginationResult } from 'utils/db.utils';
+import { generateRandomSlug } from 'utils/slug.utils';
 
 class TransferController {
   public path = '/transfers';
@@ -41,13 +42,19 @@ class TransferController {
     // DELETE /link/:id - Revoke a secure link share
   }
 
-  private async initiateLinkTransfer(req: Request, res: Response) {
+  private initiateLinkTransfer = async (req: Request, res: Response) => {
     const { title, description, duration, is_password_protected } = req.body as BodyTypeToShape<'initiateLinkTransfer'>;
     const { userId } = req.session;
 
     // Create a new link transfer
     try {
       const expiration_date = new Date(Date.now() + duration * 1000);
+      let slug: string;
+      let exists;
+      do {
+        slug = generateRandomSlug(12);
+        exists = await db.linkTransfers.findUnique({ where: { slug } });
+      } while (exists);
       const transfer = await db.transfers.create({
         data: {
           transfer_type: TRANSFER_TYPE.LINK,
@@ -61,6 +68,7 @@ class TransferController {
           link_transfer: {
             create: {
               is_password_protected,
+              slug,
             },
           },
         },
@@ -77,7 +85,7 @@ class TransferController {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
       return;
     }
-  }
+  };
   private async initiateEmailTransfer(req: Request, res: Response) {
     const { recipients, title, description, duration } = req.body as BodyTypeToShape<'initiateEmailTransfer'>;
     const { userId } = req.session;
