@@ -5,7 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import GridSection from "@/components/ui/GridSection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LuMail, LuLink } from "react-icons/lu";
-import { formatFileSize } from "@/utils/format";
+import { formatFileSize, prettierLinkAccessControl } from "@/utils/format";
 import { defaultStyles, FileIcon } from "react-file-icon";
 import { IoCloseCircleOutline } from "react-icons/io5";
 import { Button } from "@/components/ui/button";
@@ -422,7 +422,9 @@ const DashboardView = () => {
                                           }
                                         >
                                           <span className="flex items-center gap-2">
-                                            Public{" "}
+                                            {prettierLinkAccessControl(
+                                              LINK_TRANSFER_ACCESS_CONTROL.PUBLIC
+                                            )}{" "}
                                             {access_control ===
                                               LINK_TRANSFER_ACCESS_CONTROL.PUBLIC && (
                                               <FaCheck className="text-xs" />
@@ -444,7 +446,9 @@ const DashboardView = () => {
                                           }
                                         >
                                           <span className="flex items-center gap-2">
-                                            Require Authentication{" "}
+                                            {prettierLinkAccessControl(
+                                              LINK_TRANSFER_ACCESS_CONTROL.REQUIRE_AUTH
+                                            )}{" "}
                                             {access_control ===
                                               LINK_TRANSFER_ACCESS_CONTROL.REQUIRE_AUTH && (
                                               <FaCheck className="text-xs" />
