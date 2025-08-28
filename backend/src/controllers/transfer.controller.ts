@@ -608,7 +608,50 @@ class TransferController {
   };
 
   private getLinkTransfer = async (req: Request, res: Response) => {
-    throw new Error('Method not implemented.');
+    const { slug } = req.params;
+
+    const linkTransfer = await db.linkTransfers.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        slug: true,
+        file_key: true,
+        is_password_protected: true,
+        transfer: {
+          select: {
+            id: true,
+            owner: {
+              select: {
+                email: true,
+                profile_picture: true,
+              },
+            },
+            title: true,
+            description: true,
+            files: {
+              select: {
+                id: true,
+                name: true,
+                size: true,
+                content_type: true,
+                metadata: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!linkTransfer) {
+      res.status(StatusCodes.NOT_FOUND).json({ message: 'Link transfer not found' });
+      return;
+    }
+
+    if (linkTransfer.transfer)
+      res.status(StatusCodes.OK).json({
+        message: 'Link transfer fetched successfully',
+        data: linkTransfer,
+      });
   };
 
   private getValidationSchema = <T extends BodyType>(type: T): SchemaMap[T] => {

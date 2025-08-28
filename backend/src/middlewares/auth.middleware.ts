@@ -4,7 +4,7 @@ import cache from '../services/cache';
 import { JWTAuthPayload, JWTOtpPayload, OtpActionType } from 'custom';
 import { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { LINK_ACCESS_CONTROL, Sessions } from '@prisma/client';
+import { LINK_ACCESS_CONTROL, Sessions, TRANSFER_STATUS } from '@prisma/client';
 import db from '../services/db';
 import jwtConfig from '../config/jwt.config';
 import otpConfig from 'config/otp.config';
@@ -134,10 +134,15 @@ export const verifyLinkAccess = () => {
 
     // Check if user has access to the link
     db.linkTransfers
-      .findUnique({ where: { slug }, include: { link_accesses: true, transfer: { select: { id: true, owner_user_id: true } } } })
+      .findUnique({ where: { slug }, include: { link_accesses: true, transfer: { select: { id: true, owner_user_id: true, status: true } } } })
       .then((linkTransfer) => {
         if (!linkTransfer) {
           return res.status(StatusCodes.NOT_FOUND).json({ message: 'Link not found' });
+        }
+
+        // Check if link transfer is active
+        if (linkTransfer.transfer.status !== TRANSFER_STATUS.ACTIVE) {
+          return res.status(StatusCodes.FORBIDDEN).json({ message: 'Link transfer is not active' });
         }
 
         // No checks needed for public links
