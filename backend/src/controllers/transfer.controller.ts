@@ -609,9 +609,14 @@ class TransferController {
 
   private getLinkTransfer = async (req: Request, res: Response) => {
     const { slug } = req.params;
+    // Verify link access middleware might not return session
+    const { userId } = req.session || {};
 
-    const linkTransfer = await db.linkTransfers.findUnique({
+    const linkTransfer = await db.linkTransfers.update({
       where: { slug },
+      data: {
+        last_accessed: new Date(),
+      },
       select: {
         id: true,
         slug: true,
@@ -620,6 +625,7 @@ class TransferController {
         transfer: {
           select: {
             id: true,
+            owner_user_id: true,
             owner: {
               select: {
                 email: true,
@@ -647,11 +653,21 @@ class TransferController {
       return;
     }
 
-    if (linkTransfer.transfer)
-      res.status(StatusCodes.OK).json({
-        message: 'Link transfer fetched successfully',
-        data: linkTransfer,
-      });
+    res.status(StatusCodes.OK).json({
+      message: 'Link transfer fetched successfully',
+      data: {
+        ...linkTransfer,
+        recommended_title: linkTransfer.transfer.title || linkTransfer.transfer.files[0]?.name || 'Untitled',
+        total_files_count: linkTransfer.transfer.files.length,
+        total_files_size_bytes: linkTransfer.transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
+        is_owner: userId ? linkTransfer.transfer.owner_user_id === userId : false,
+      },
+    });
+
+    res.status(StatusCodes.OK).json({
+      message: 'Link transfer fetched successfully',
+      data: linkTransfer,
+    });
   };
 
   private getValidationSchema = <T extends BodyType>(type: T): SchemaMap[T] => {
