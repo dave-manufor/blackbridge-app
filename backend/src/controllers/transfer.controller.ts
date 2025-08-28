@@ -2,7 +2,7 @@ import StatusCodes from '../config/StatusCodes.config';
 import logger from '../lib/logger';
 import { verifyToken } from '../middlewares/auth.middleware';
 import { bodyValidator } from '../middlewares/validation.middleware';
-import { FILE_STATUS, TRANSFER_STATUS, TRANSFER_TYPE, Prisma } from '@prisma/client';
+import { FILE_STATUS, TRANSFER_STATUS, TRANSFER_TYPE, Prisma, LINK_ACCESS_CONTROL } from '@prisma/client';
 import db, { useSerializableTransaction } from '../services/db';
 import { PGPValidator } from '../utils/PGPValidator.utils';
 import { Request, Response, Router } from 'express';
@@ -45,7 +45,7 @@ class TransferController {
   }
 
   private initiateLinkTransfer = async (req: Request, res: Response) => {
-    const { title, description, duration, is_password_protected } = req.body as BodyTypeToShape<'initiateLinkTransfer'>;
+    const { title, description, duration, is_password_protected, access_control } = req.body as BodyTypeToShape<'initiateLinkTransfer'>;
     const { userId } = req.session;
 
     // Create a new link transfer
@@ -69,6 +69,7 @@ class TransferController {
           },
           link_transfer: {
             create: {
+              access_control: access_control as LINK_ACCESS_CONTROL,
               is_password_protected,
               slug,
             },
@@ -629,6 +630,7 @@ const initiateLinkTransferSchema = z.object({
   description: z.string().max(500).optional(),
   duration: z.number().min(1),
   is_password_protected: z.boolean().default(false),
+  access_control: z.enum(Object.values(LINK_ACCESS_CONTROL) as [string, ...string[]]).default(LINK_ACCESS_CONTROL.PUBLIC),
 });
 
 const commitEmailTransferSchema = z.object({

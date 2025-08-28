@@ -13,7 +13,7 @@ import { TransferStatusBadge, TransferTypeBadge } from "@/components/ui/badge";
 import { Avatar } from "@radix-ui/react-avatar";
 import { AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuthStore } from "@/stores/authStore";
-import { formatFileSize } from "@/utils/format";
+import { formatFileSize, prettierLinkAccessControl } from "@/utils/format";
 import { MdOutlineFileDownload } from "react-icons/md";
 import { TransferDetailsData } from "@/api/services/transferService";
 import { defaultStyles, FileIcon } from "react-file-icon";
@@ -309,7 +309,11 @@ const TransferDetailsView = () => {
                       <div className={styles.link_meta}>
                         <div className={styles.link_detail}>
                           <span>Access Control:</span>
-                          <span>Anyone</span>
+                          <span>
+                            {prettierLinkAccessControl(
+                              transferDetails.link_transfer.access_control
+                            )}
+                          </span>
                         </div>
                         <div className={styles.link_detail}>
                           <span>Downloads:</span>
