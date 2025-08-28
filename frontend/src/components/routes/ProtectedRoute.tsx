@@ -1,6 +1,8 @@
+import storageKeys from "@/config/constants/storageKeys";
+import { SessionStorageService } from "@/lib/WebStorageService";
 import { useAuthStore } from "@/stores/authStore";
 import { ReactNode } from "react";
-import { Navigate, Outlet } from "react-router";
+import { Navigate, Outlet, useLocation } from "react-router";
 import { useShallow } from "zustand/react/shallow";
 
 const ProtectedRoute = ({
@@ -12,6 +14,11 @@ const ProtectedRoute = ({
   asChild?: boolean;
   bypassVerification?: boolean;
 }) => {
+  const storage = new SessionStorageService();
+  const { pathname, search, hash } = useLocation();
+  const redirectPath = `${pathname}${search ? `?${search}` : ""}${
+    hash ? `#${hash}` : ""
+  }`;
   const { authenticated, user } = useAuthStore(
     useShallow((state) => ({
       authenticated: state.authenticated,
@@ -20,10 +27,12 @@ const ProtectedRoute = ({
   );
 
   if (!authenticated) {
+    storage.setItem(storageKeys.AUTH.REDIRECT, redirectPath);
     return <Navigate to="/sign-in" replace />;
   }
 
   if (!bypassVerification && !user?.verified) {
+    storage.setItem(storageKeys.AUTH.REDIRECT, redirectPath);
     return <Navigate to="/verification" replace />;
   }
 

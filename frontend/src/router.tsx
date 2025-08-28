@@ -9,9 +9,9 @@ import TransferListAll from "./views/transfers/TransferListAll";
 import TransferListSent from "./views/transfers/TransferListSent";
 import TransferListReceived from "./views/transfers/TransferListReceived";
 import { TransferListProvider } from "./contexts/TransferListContext";
+import PublicLinkView from "./views/public/PublicLinkView";
 
 const router = createBrowserRouter([
-  // Auth Routes
   {
     path: "/",
     element: <Root />,
@@ -43,34 +43,50 @@ const router = createBrowserRouter([
         ),
         children: [
           {
-            path: "/",
+            index: true,
             element: <DashboardView />,
           },
           {
-            path: "/transfers",
-            element: (
-              <TransferListProvider>
-                <TransferHistoryView />
-              </TransferListProvider>
-            ),
+            path: "transfers",
             children: [
               {
-                index: true,
-                element: <TransferListAll />,
+                // Lists
+                path: "",
+                element: (
+                  <TransferListProvider>
+                    <TransferHistoryView />
+                  </TransferListProvider>
+                ),
+                children: [
+                  {
+                    index: true,
+                    element: <TransferListAll />,
+                  },
+                  {
+                    path: "sent",
+                    element: <TransferListSent />,
+                  },
+                  {
+                    path: "received",
+                    element: <TransferListReceived />,
+                  },
+                ],
               },
               {
-                path: "/transfers/sent",
-                element: <TransferListSent />,
-              },
-              {
-                path: "/transfers/received",
-                element: <TransferListReceived />,
+                path: ":transferID",
+                element: <TransferDetailsView />,
               },
             ],
           },
+        ],
+      },
+      // Public Routes
+      {
+        path: "p",
+        children: [
           {
-            path: "/transfers/:transferID",
-            element: <TransferDetailsView />,
+            path: "shares/:slug",
+            element: <PublicLinkView />,
           },
         ],
       },

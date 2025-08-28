@@ -11,5 +11,6 @@ export default {
       ...Object.values(query),
     ],
     details: (id: string) => ["/transfers", "details", id],
+    publicLinkDetails: (slug: string) => ["/transfers", "public_link", slug],
   },
 };

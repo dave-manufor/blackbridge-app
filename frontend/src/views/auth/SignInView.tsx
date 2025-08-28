@@ -26,8 +26,11 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { Link } from "react-router";
+import { SessionStorageService } from "@/lib/WebStorageService";
+import storageKeys from "@/config/constants/storageKeys";
 
 const SignIn = () => {
+  const storage = new SessionStorageService();
   const { authenticated, authLoading, authError, clearAuthError, signIn } =
     useAuthStore(
       useShallow((state) => ({
@@ -59,7 +62,8 @@ const SignIn = () => {
   };
 
   if (authenticated) {
-    return <Navigate to="/" replace />;
+    const redirect = storage.getItem<string>(storageKeys.AUTH.REDIRECT);
+    return <Navigate to={redirect || "/"} replace />;
   }
 
   return (
