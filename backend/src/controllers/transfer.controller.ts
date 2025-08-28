@@ -1,6 +1,6 @@
 import StatusCodes from '../config/StatusCodes.config';
 import logger from '../lib/logger';
-import { verifyToken } from '../middlewares/auth.middleware';
+import { verifyLinkAccess, verifyToken } from '../middlewares/auth.middleware';
 import { bodyValidator } from '../middlewares/validation.middleware';
 import { FILE_STATUS, TRANSFER_STATUS, TRANSFER_TYPE, Prisma, LINK_ACCESS_CONTROL } from '@prisma/client';
 import db, { useSerializableTransaction } from '../services/db';
@@ -23,17 +23,15 @@ class TransferController {
   }
 
   private initializeRoutes() {
-    // TODO: Implement the following routes
     this.router.get('/', verifyToken(), this.getTransfers);
     this.router.get('/:id', verifyToken(), this.getTransferDetails);
     this.router.post('/emails/:id/viewed', verifyToken(), this.markEmailTransferAsViewed);
     this.router.get('/unviewed/count', verifyToken(), this.getUnviewedEmailTransfersCount);
-    // POST /initiate - Start a transfer
     this.router.post('/links/initiate', verifyToken(), this.validateBody('initiateLinkTransfer'), this.initiateLinkTransfer);
     this.router.post('/emails/initiate', verifyToken(), this.validateBody('initiateEmailTransfer'), this.initiateEmailTransfer);
-    // POST /commit - Finalize and commit transfer
     this.router.post('/links/commit/:id', verifyToken(), this.validateBody('commitLinkTransfer'), this.commitLinkTransfer);
     this.router.post('/emails/commit/:id', verifyToken(), this.validateBody('commitEmailTransfer'), this.commitEmailTransfer);
+    this.router.get('/links/:slug', verifyLinkAccess(), this.getLinkTransfer);
     // GET /received/:id/download-request - Request to download a shared file (pre-sign)
     // GET /sent - Get all files shared by the user (both user-to-user and links)
     // DELETE /user/:id - Revoke access to a shared file (user-to-user)
@@ -607,6 +605,10 @@ class TransferController {
       console.error(error);
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
+  };
+
+  private getLinkTransfer = async (req: Request, res: Response) => {
+    throw new Error('Method not implemented.');
   };
 
   private getValidationSchema = <T extends BodyType>(type: T): SchemaMap[T] => {
