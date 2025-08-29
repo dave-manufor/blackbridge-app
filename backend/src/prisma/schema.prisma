@@ -20,6 +20,7 @@ model Users{
   files Files[]
   transfers Transfers[]
   transfers_received EmailTransfers[]
+  link_accesses LinkAccess[]
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   @@index([email], name: "idx_user_email")
@@ -177,8 +178,21 @@ model LinkTransfers{
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   transfer Transfers @relation(fields: [transfer_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  link_accesses LinkAccess[]
   @@index([transfer_id], name: "idx_link_transfer_id")
   @@index([access_control], name: "idx_link_access_control")
   @@index([transfer_id, access_control], name: "idx_link_transfer_access")
   @@index([download_count, download_limit], name: "idx_link_download_count_limit")
+}
+
+model LinkAccess {
+  id String @db.Uuid @id @default(uuid()) @unique
+  link_transfer_id String @db.Uuid
+  user_id String @db.Uuid
+  created_at DateTime @default(now())
+  link_transfer LinkTransfers @relation(fields: [link_transfer_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user Users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  @@unique([link_transfer_id, user_id], name: "unique_link_user_access")
+  @@index([user_id], name: "idx_link_access_user_id")
+  @@index([link_transfer_id], name: "idx_link_access_link_transfer_id")
 }

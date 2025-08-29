@@ -4,7 +4,7 @@ import cache from '../services/cache';
 import { JWTAuthPayload, JWTOtpPayload, OtpActionType } from 'custom';
 import { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { Sessions } from '@prisma/client';
+import { LINK_ACCESS_CONTROL, Sessions, TRANSFER_STATUS } from '@prisma/client';
 import db from '../services/db';
 import jwtConfig from '../config/jwt.config';
 import otpConfig from 'config/otp.config';
@@ -125,5 +125,62 @@ export const requireOtp = (expected: OtpActionType) => {
       authMiddlewareLogger.error(error, 'Error checking session status');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error' });
     }
+  };
+};
+
+export const verifyLinkAccess = () => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const { slug } = req.params;
+
+    // Check if user has access to the link
+    db.linkTransfers
+      .findUnique({ where: { slug }, include: { link_accesses: true, transfer: { select: { id: true, owner_user_id: true, status: true } } } })
+      .then((linkTransfer) => {
+        if (!linkTransfer) {
+          return res.status(StatusCodes.NOT_FOUND).json({ message: 'Link not found' });
+        }
+
+        // Check if link transfer is active
+        if (linkTransfer.transfer.status !== TRANSFER_STATUS.ACTIVE) {
+          return res.status(StatusCodes.FORBIDDEN).json({ message: 'Link transfer is not active' });
+        }
+
+        // No checks needed for public links
+        if (linkTransfer.access_control === LINK_ACCESS_CONTROL.PUBLIC) {
+          next();
+          return;
+        }
+
+        verifyToken()(req, res, () => {
+          // If link only requires authentication, proceed
+          if (linkTransfer.access_control === LINK_ACCESS_CONTROL.REQUIRE_AUTH) {
+            next();
+            return;
+          }
+
+          if (linkTransfer.access_control === LINK_ACCESS_CONTROL.PRIVATE) {
+            const userId = req.session.userId;
+
+            // Allow if user is the owner of the transfer
+            if (linkTransfer.transfer.owner_user_id === userId) {
+              next();
+              return;
+            }
+
+            // Check if user is in the allowed access list
+            const hasAccess = linkTransfer.link_accesses.some((access) => access.user_id === userId);
+            if (hasAccess) {
+              next();
+              return;
+            } else {
+              return res.status(StatusCodes.FORBIDDEN).json({ message: 'Access to this link is restricted' });
+            }
+          }
+        });
+      })
+      .catch((error) => {
+        authMiddlewareLogger.error(error, 'Error verifying link access');
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error' });
+      });
   };
 };

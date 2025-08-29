@@ -24,8 +24,11 @@ import {
   useVerifyAccountMutation,
 } from "@hooks/mutations";
 import { toast } from "react-hot-toast";
+import { SessionStorageService } from "@/lib/WebStorageService";
+import storageKeys from "@/config/constants/storageKeys";
 
 const VerificationView = () => {
+  const storage = new SessionStorageService();
   const { user, logout } = useAuthStore(
     useShallow((state) => ({
       user: state.user,
@@ -137,7 +140,10 @@ const VerificationView = () => {
   };
 
   if (user?.verified) {
-    return <Navigate to="/" replace />;
+    const raw = storage.getItem<string>(storageKeys.AUTH.REDIRECT);
+    storage.removeItem(storageKeys.AUTH.REDIRECT);
+    const redirect = typeof raw === "string" && raw.startsWith("/") ? raw : "/";
+    return <Navigate to={redirect} replace />;
   }
 
   const isVerifying = confirmVerificationMutation.isPending;

@@ -36,6 +36,7 @@
     "@prisma/client": "^6.6.0",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.8",
+    "@types/cors": "^2.8.19",
     "@types/express-useragent": "^1.0.5",
     "@types/jsonwebtoken": "^9.0.9",
     "aws-sdk": "^2.1692.0",

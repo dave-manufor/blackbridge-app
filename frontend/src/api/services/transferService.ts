@@ -6,6 +6,7 @@ import {
 } from "@/config/constants/transfers";
 import { API, ApiRoutes } from "..";
 import { PaginatedResponse } from "@/custom";
+import PUBLIC_API from "../PUBLIC_API";
 
 type InitializeTransferPayload = {
   title?: string;
@@ -222,4 +223,40 @@ export async function markTransfersAsViewed(
     {},
     { signal }
   );
+}
+
+export type LinkTransferData = {
+  id: string;
+  slug: string;
+  file_key: string;
+  is_password_protected: boolean;
+  transfer: {
+    id: string;
+    owner: {
+      email: string;
+      profile_picture: string | null;
+    };
+    title: string | null;
+    description: string | null;
+    files: {
+      id: string;
+      name: string;
+      size: number;
+      content_type: string;
+      metadata: object | null;
+    }[];
+  };
+  recommended_title: string;
+  total_files_count: number;
+  total_files_size_bytes: number;
+  created_at: string;
+};
+
+export async function getLinkTransfer(
+  slug: string,
+  signal?: AbortSignal
+): Promise<LinkTransferData> {
+  const endpoint = ApiRoutes.transfer.getLinkTransfer({ slug });
+  const response = await PUBLIC_API.get(endpoint, { signal });
+  return response.data?.data as LinkTransferData;
 }

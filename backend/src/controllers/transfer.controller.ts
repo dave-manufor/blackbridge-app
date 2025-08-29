@@ -1,6 +1,6 @@
 import StatusCodes from '../config/StatusCodes.config';
 import logger from '../lib/logger';
-import { verifyToken } from '../middlewares/auth.middleware';
+import { verifyLinkAccess, verifyToken } from '../middlewares/auth.middleware';
 import { bodyValidator } from '../middlewares/validation.middleware';
 import { FILE_STATUS, TRANSFER_STATUS, TRANSFER_TYPE, Prisma, LINK_ACCESS_CONTROL } from '@prisma/client';
 import db, { useSerializableTransaction } from '../services/db';
@@ -23,17 +23,15 @@ class TransferController {
   }
 
   private initializeRoutes() {
-    // TODO: Implement the following routes
     this.router.get('/', verifyToken(), this.getTransfers);
     this.router.get('/:id', verifyToken(), this.getTransferDetails);
     this.router.post('/emails/:id/viewed', verifyToken(), this.markEmailTransferAsViewed);
     this.router.get('/unviewed/count', verifyToken(), this.getUnviewedEmailTransfersCount);
-    // POST /initiate - Start a transfer
     this.router.post('/links/initiate', verifyToken(), this.validateBody('initiateLinkTransfer'), this.initiateLinkTransfer);
     this.router.post('/emails/initiate', verifyToken(), this.validateBody('initiateEmailTransfer'), this.initiateEmailTransfer);
-    // POST /commit - Finalize and commit transfer
     this.router.post('/links/commit/:id', verifyToken(), this.validateBody('commitLinkTransfer'), this.commitLinkTransfer);
     this.router.post('/emails/commit/:id', verifyToken(), this.validateBody('commitEmailTransfer'), this.commitEmailTransfer);
+    this.router.get('/links/:slug', verifyLinkAccess(), this.getLinkTransfer);
     // GET /received/:id/download-request - Request to download a shared file (pre-sign)
     // GET /sent - Get all files shared by the user (both user-to-user and links)
     // DELETE /user/:id - Revoke access to a shared file (user-to-user)
@@ -261,7 +259,7 @@ class TransferController {
         res.status(error.status).json({ message: error.message, ...(error.details && { details: error.details }) });
         return;
       }
-      this.transferLogger.error({ error }, 'Failed to commit email transfer');
+      this.transferLogger.error(error, 'Failed to commit email transfer');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   };
@@ -326,7 +324,7 @@ class TransferController {
       // Respond with success
       res.status(StatusCodes.ACCEPTED).json({ message: 'Link transfer committed successfully' });
     } catch (error) {
-      this.transferLogger.error({ error }, 'Failed to commit link transfer');
+      this.transferLogger.error(error, 'Failed to commit link transfer');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
       return;
     }
@@ -450,8 +448,7 @@ class TransferController {
       // return filtered transfers
       res.status(StatusCodes.OK).json({ message: 'Transfers fetched successfully', data: enrichedTransfers, pagination: paginationDetails });
     } catch (error) {
-      // this.transferLogger.error({ error }, 'Failed to get transfers');
-      console.error(error);
+      this.transferLogger.error(error, 'Failed to get transfers');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   };
@@ -542,7 +539,7 @@ class TransferController {
         },
       });
     } catch (error) {
-      console.error(error);
+      this.transferLogger.error(error, 'Failed to get transfer details');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   };
@@ -584,7 +581,7 @@ class TransferController {
 
       res.status(StatusCodes.OK).json({ message: 'Email transfer marked as viewed' });
     } catch (error) {
-      console.error(error);
+      this.transferLogger.error(error, 'Failed to mark email transfer as viewed');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   };
@@ -594,6 +591,7 @@ class TransferController {
     try {
       const count = await db.emailTransfers.count({
         where: {
+          transfer: { status: { notIn: [TRANSFER_STATUS.PENDING, TRANSFER_STATUS.REVOKED] } },
           recipient_user_id: userId,
           viewed: false,
         },
@@ -604,7 +602,69 @@ class TransferController {
         data: { count },
       });
     } catch (error) {
-      console.error(error);
+      this.transferLogger.error(error, 'Failed to get unviewed email transfers count');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  };
+
+  private getLinkTransfer = async (req: Request, res: Response) => {
+    const { slug } = req.params;
+    // Verify link access middleware might not return session
+    const { userId } = req.session || {};
+
+    try {
+      const linkTransfer = await db.linkTransfers.update({
+        where: { slug, transfer: { expiration_date: { gt: new Date() } } },
+        data: {
+          last_accessed: new Date(),
+        },
+        select: {
+          id: true,
+          slug: true,
+          file_key: true,
+          is_password_protected: true,
+          transfer: {
+            select: {
+              id: true,
+              owner: {
+                select: {
+                  email: true,
+                  profile_picture: true,
+                },
+              },
+              title: true,
+              description: true,
+              files: {
+                select: {
+                  id: true,
+                  name: true,
+                  size: true,
+                  content_type: true,
+                  metadata: true,
+                },
+              },
+            },
+          },
+          created_at: true,
+        },
+      });
+
+      if (!linkTransfer) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Link transfer not found' });
+        return;
+      }
+
+      res.status(StatusCodes.OK).json({
+        message: 'Link transfer fetched successfully',
+        data: {
+          ...linkTransfer,
+          recommended_title: linkTransfer.transfer.title || linkTransfer.transfer.files[0]?.name || 'Untitled',
+          total_files_count: linkTransfer.transfer.files.length,
+          total_files_size_bytes: linkTransfer.transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
+        },
+      });
+    } catch (error) {
+      this.transferLogger.error(error, 'Failed to get link transfer');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   };

@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router";
 import Root from "./Root";
 import { SignInView, SignUpView, VerificationView } from "./views/auth";
-import ProtectedRoute from "./components/routes/ProtectedRoute";
+import ProtectedRoute from "./components/features/navigation/ProtectedRoute";
 import DashboardView from "./views/dashboard/DashboardView";
 import SideBarLayout from "./layouts/SideBarLayout";
 import { TransferDetailsView, TransferHistoryView } from "./views/transfers";
@@ -9,9 +9,10 @@ import TransferListAll from "./views/transfers/TransferListAll";
 import TransferListSent from "./views/transfers/TransferListSent";
 import TransferListReceived from "./views/transfers/TransferListReceived";
 import { TransferListProvider } from "./contexts/TransferListContext";
+import PublicLinkView from "./views/public/PublicLinkView";
+import PublicLayout from "./layouts/PublicLayout";
 
 const router = createBrowserRouter([
-  // Auth Routes
   {
     path: "/",
     element: <Root />,
@@ -43,34 +44,51 @@ const router = createBrowserRouter([
         ),
         children: [
           {
-            path: "/",
+            index: true,
             element: <DashboardView />,
           },
           {
-            path: "/transfers",
-            element: (
-              <TransferListProvider>
-                <TransferHistoryView />
-              </TransferListProvider>
-            ),
+            path: "transfers",
             children: [
               {
-                index: true,
-                element: <TransferListAll />,
+                // Lists
+                path: "",
+                element: (
+                  <TransferListProvider>
+                    <TransferHistoryView />
+                  </TransferListProvider>
+                ),
+                children: [
+                  {
+                    index: true,
+                    element: <TransferListAll />,
+                  },
+                  {
+                    path: "sent",
+                    element: <TransferListSent />,
+                  },
+                  {
+                    path: "received",
+                    element: <TransferListReceived />,
+                  },
+                ],
               },
               {
-                path: "/transfers/sent",
-                element: <TransferListSent />,
-              },
-              {
-                path: "/transfers/received",
-                element: <TransferListReceived />,
+                path: ":transferID",
+                element: <TransferDetailsView />,
               },
             ],
           },
+        ],
+      },
+      // Public Routes
+      {
+        path: "p",
+        element: <PublicLayout />,
+        children: [
           {
-            path: "/transfers/:transferID",
-            element: <TransferDetailsView />,
+            path: "shares/:slug",
+            element: <PublicLinkView />,
           },
         ],
       },

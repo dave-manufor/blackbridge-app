@@ -63,14 +63,13 @@ API.interceptors.response.use(
             withCredentials: true,
           }
         );
-        console.log("Access token refreshed successfully");
+        devOnly(() => console.log("Access token refreshed successfully"));
         processQueue(null);
         return API(originalRequest);
       } catch (err) {
         const { signOut } = useAuthStore.getState();
-        console.error("Token refresh failed:", err);
+        devOnly(() => console.error("Token refresh failed:", err));
         signOut();
-
         processQueue(err as Error);
         return Promise.reject(err);
       } finally {
