@@ -34,7 +34,11 @@ export class CryptoBridge implements CryptoBridgeInterface {
   private initialized: boolean = false;
   private spawned: boolean = false;
 
-  private assertInitialized() {
+  private assertInitialized({ loose }: { loose?: boolean } = {}) {
+    // If loose mode is enabled and the bridge is spawned, skip initialization check, operation does not need private key
+    if (loose && this.spawned) {
+      return;
+    }
     if (!this.initialized) {
       throw new Error("CryptoBridge is not initialized");
     }
@@ -143,14 +147,14 @@ export class CryptoBridge implements CryptoBridgeInterface {
       specialCharacters?: boolean;
     }
   ): Promise<string> {
-    this.assertInitialized();
+    this.assertInitialized({ loose: true });
     return (await this.workerPool
       .getWorker()
       .generateRandomFragment(length, options)) as string;
   }
 
   async encryptFragment(fragment: string, public_key: string): Promise<string> {
-    this.assertInitialized();
+    this.assertInitialized({ loose: true });
     return (await this.workerPool
       .getWorker()
       .encryptFragment(fragment, public_key)) as string;
@@ -166,7 +170,7 @@ export class CryptoBridge implements CryptoBridgeInterface {
   async generateSessionKey(
     algorithm: "aes128" | "aes256" = "aes256"
   ): Promise<openpgp.SessionKey> {
-    this.assertInitialized();
+    this.assertInitialized({ loose: true });
     return (await this.workerPool
       .getWorker()
       .generateSessionKey(algorithm)) as openpgp.SessionKey;
@@ -176,7 +180,7 @@ export class CryptoBridge implements CryptoBridgeInterface {
     sessionKey: openpgp.SessionKey,
     options: EncryptSessionKeyOptions<T>
   ): Promise<string[]> {
-    this.assertInitialized();
+    this.assertInitialized({ loose: true });
     return (await this.workerPool
       .getWorker()
       .encryptSessionKeys(sessionKey, options)) as string[];
@@ -186,7 +190,8 @@ export class CryptoBridge implements CryptoBridgeInterface {
     sessionKeyArmored: string,
     options: DecryptSessionKeyOptions
   ): Promise<openpgp.SessionKey> {
-    this.assertInitialized();
+    const loose = options.decryptWith === "passphrase";
+    this.assertInitialized({ loose });
     return (await this.workerPool
       .getWorker()
       .decryptSessionKey(sessionKeyArmored, options)) as openpgp.SessionKey;
@@ -200,6 +205,7 @@ export class CryptoBridge implements CryptoBridgeInterface {
     publicKey: string;
     salt: string;
   }> {
+    this.assertInitialized({ loose: true });
     return (await this.workerPool
       .getWorker()
       .generateKeyPair(password, email)) as {
@@ -213,7 +219,7 @@ export class CryptoBridge implements CryptoBridgeInterface {
     data: Uint8Array | string,
     options: EncryptDataOptions<T>
   ): Promise<EncryptedDataOutput<T>> {
-    this.assertInitialized();
+    this.assertInitialized({ loose: true });
     return (await this.workerPool
       .getWorker()
       .encrypt(data, options)) as EncryptedDataOutput<T>;
@@ -223,7 +229,7 @@ export class CryptoBridge implements CryptoBridgeInterface {
     data: Uint8Array | string,
     options: DecryptDataOptions<T>
   ): Promise<DecryptedDataOutput<T>> {
-    this.assertInitialized();
+    this.assertInitialized({ loose: true });
     return (await this.workerPool
       .getWorker()
       .decrypt(data, options)) as DecryptedDataOutput<T>;
@@ -243,7 +249,7 @@ export class CryptoBridge implements CryptoBridgeInterface {
     data: Uint8Array | string,
     options: DecryptDataOptions<T>
   ): Promise<DecryptAndVerifyOutput<T>> {
-    this.assertInitialized();
+    this.assertInitialized({ loose: true });
     return (await this.workerPool
       .getWorker()
       .decryptAndVerify(data, options)) as DecryptAndVerifyOutput<T>;
