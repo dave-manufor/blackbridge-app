@@ -1,7 +1,7 @@
 import express from 'express';
 import { Application } from 'express';
 import logger from './lib/logger';
-import StatusCodes from 'config/StatusCodes.config';
+import StatusCodes from './config/StatusCodes.config';
 
 class App {
   public app: Application;

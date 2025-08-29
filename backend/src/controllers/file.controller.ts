@@ -5,9 +5,9 @@ import { z } from 'zod';
 import StatusCodesConfig from '../config/StatusCodes.config';
 import { v4 as uuid_v4 } from 'uuid';
 import uploadConfig from '../config/upload.config';
-import db, { useSerializableTransaction } from '../services/db';
+import db from '../services/db';
 import { completeMultiPartUpload, getPresignedUrl, initiateMultiPartUpload } from '../services/aws';
-import { FILE_STATUS, FileBlocks, Prisma, TRANSFER_STATUS, TRANSFER_TYPE } from '@prisma/client';
+import { FILE_STATUS, TRANSFER_STATUS } from '@prisma/client';
 import { bodyValidator } from '../middlewares/validation.middleware';
 import pLimit from 'p-limit';
 

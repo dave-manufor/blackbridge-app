@@ -39,6 +39,7 @@
     "@types/cors": "^2.8.19",
     "@types/express-useragent": "^1.0.5",
     "@types/jsonwebtoken": "^9.0.9",
+    "@types/otp-generator": "^4.0.2",
     "aws-sdk": "^2.1692.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",

@@ -10,7 +10,6 @@ import logger, { httpLogger } from './lib/logger';
 import { HomeController, AuthController, UserController, FileController, TransferController } from './controllers';
 import { initDB } from './services/db';
 import AWS from 'aws-sdk';
-import { parse } from 'path';
 import nocache from 'nocache';
 
 const port = Number(process.env.PORT) || 3000;

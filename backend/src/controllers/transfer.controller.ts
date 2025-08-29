@@ -7,10 +7,9 @@ import db, { useSerializableTransaction } from '../services/db';
 import { PGPValidator } from '../utils/PGPValidator.utils';
 import { Request, Response, Router } from 'express';
 import { z } from 'zod';
-import { prettyZodErrors } from 'utils/zod.utils';
-import { PaginationDetails } from 'custom';
-import { getPaginationResult } from 'utils/db.utils';
-import { generateRandomSlug } from 'utils/slug.utils';
+import { prettyZodErrors } from '../utils/zod.utils';
+import { getPaginationResult } from '../utils/db.utils';
+import { generateRandomSlug } from '../utils/slug.utils';
 
 class TransferController {
   public path = '/transfers';
