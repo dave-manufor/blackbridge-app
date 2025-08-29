@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { PaginationDetails } from 'custom';
-import db from 'services/db';
+import db from '../services/db';
 
 // Define a union type of all model names available in Prisma
 export type ModelNames = (typeof Prisma.ModelName)[keyof typeof Prisma.ModelName];

@@ -10,7 +10,7 @@ import cache from '../services/cache';
 import jwt from 'jsonwebtoken';
 import jwtConfig from '../config/jwt.config';
 import otpConfig from '../config/otp.config';
-import { JWTAuthPayload, JWTOtpPayload, OtpActionType, OtpRequest } from 'custom';
+import { JWTAuthPayload, JWTOtpPayload, OtpRequest } from 'custom';
 import { verifyToken } from '../middlewares/auth.middleware';
 import { bodyValidator } from '../middlewares/validation.middleware';
 import bcrypt from 'bcrypt';
