@@ -1,4 +1,4 @@
-import otpConfig from 'config/otp.config';
+import otpConfig from '../config/otp.config';
 import otpGenerator from 'otp-generator';
 
 export const generateOTP = () => {
