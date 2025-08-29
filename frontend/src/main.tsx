@@ -8,8 +8,20 @@ import { SidebarProvider } from "./components/ui/sidebar";
 import { AppHeaderProvider } from "@contexts/AppHeaderContext";
 import queryClient from "./lib/queryClient";
 import BaseModal from "react-modal";
+import { devOnly } from "./utils/dev";
+import { CryptoBridge } from "./lib/crypto/workers/CryptoBridge";
+import { useAuthStore } from "./stores/authStore";
 
 BaseModal.setAppElement("#root");
+
+// Spawn crypto workers as easily as possible (non-blocking)
+CryptoBridge.getInstance()
+  .spawn()
+  .then(() => devOnly(() => console.log("CryptoBridge spawned")))
+  .catch((err) => {
+    devOnly(() => console.error("Failed to spawn CryptoBridge", err));
+    useAuthStore.getState().signOut();
+  });
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
