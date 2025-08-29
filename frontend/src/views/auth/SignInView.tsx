@@ -62,10 +62,10 @@ const SignIn = () => {
   };
 
   if (authenticated) {
-    const redirect = storage.getItem<string>(storageKeys.AUTH.REDIRECT);
+    const raw = storage.getItem<string>(storageKeys.AUTH.REDIRECT);
     storage.removeItem(storageKeys.AUTH.REDIRECT);
-    console.log("Redirecting to:", redirect);
-    return <Navigate to={redirect || "/"} replace />;
+    const redirect = typeof raw === "string" && raw.startsWith("/") ? raw : "/";
+    return <Navigate to={redirect} replace />;
   }
 
   return (

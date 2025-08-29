@@ -16,9 +16,7 @@ const ProtectedRoute = ({
 }) => {
   const storage = new SessionStorageService();
   const { pathname, search, hash } = useLocation();
-  const redirectPath = `${pathname}${search ? `?${search}` : ""}${
-    hash ? `#${hash}` : ""
-  }`;
+  const redirectPath = `${pathname}${search ?? ""}${hash ?? ""}`;
   const { authenticated, user } = useAuthStore(
     useShallow((state) => ({
       authenticated: state.authenticated,

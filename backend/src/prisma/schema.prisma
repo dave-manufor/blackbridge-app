@@ -183,7 +183,6 @@ model LinkTransfers{
   @@index([access_control], name: "idx_link_access_control")
   @@index([transfer_id, access_control], name: "idx_link_transfer_access")
   @@index([download_count, download_limit], name: "idx_link_download_count_limit")
-  @@index([slug], name: "idx_link_slug")
 }
 
 model LinkAccess {

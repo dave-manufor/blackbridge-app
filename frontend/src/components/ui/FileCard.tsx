@@ -24,8 +24,7 @@ const FileCard = ({
         <div className={styles.file_details}>
           <span className={styles.file_name}>{name}</span>
           <span className={styles.file_meta}>
-            {size ? formatFileSize(size) : "Unknown size"} |{" "}
-            {contentType || "Unknown type"}
+            {formatFileSize(size)} | {contentType || "Unknown type"}
           </span>
         </div>
       </div>

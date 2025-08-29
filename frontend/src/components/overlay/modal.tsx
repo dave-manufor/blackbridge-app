@@ -2,12 +2,7 @@ import { cn } from "@/lib/utils";
 import { IoMdClose } from "react-icons/io";
 import BaseModal from "react-modal";
 import { Button } from "../ui/button";
-import {
-  ComponentProps,
-  ComponentPropsWithoutRef,
-  createContext,
-  useContext,
-} from "react";
+import { ComponentPropsWithoutRef, createContext, useContext } from "react";
 
 interface ModalContextType {
   canClose: boolean;
@@ -56,7 +51,7 @@ const ModalContent = ({
   className?: string;
   children: React.ReactNode;
 }) => {
-  const { isOpen, onClose } = useModal();
+  const { isOpen, onClose, canClose } = useModal();
   return (
     <BaseModal
       overlayClassName="fixed inset-0 bg-neutral-900/20 backdrop-blur-xs flex items-center justify-center"
@@ -66,6 +61,8 @@ const ModalContent = ({
       )}
       isOpen={isOpen}
       onRequestClose={onClose}
+      shouldCloseOnEsc={canClose}
+      shouldCloseOnOverlayClick={canClose}
     >
       {children}
     </BaseModal>

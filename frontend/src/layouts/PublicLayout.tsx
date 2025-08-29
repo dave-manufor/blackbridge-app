@@ -5,8 +5,8 @@ import LogoWhite from "@/assets/img/blackbridge-logo.svg";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router";
 import ProfileSummary from "@/components/ui/ProfileSummary";
-import { DropdownMenu } from "@radix-ui/react-dropdown-menu";
 import {
+  DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,

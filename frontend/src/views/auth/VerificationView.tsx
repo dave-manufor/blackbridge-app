@@ -140,9 +140,10 @@ const VerificationView = () => {
   };
 
   if (user?.verified) {
-    const redirect = storage.getItem<string>(storageKeys.AUTH.REDIRECT);
+    const raw = storage.getItem<string>(storageKeys.AUTH.REDIRECT);
     storage.removeItem(storageKeys.AUTH.REDIRECT);
-    return <Navigate to={redirect || "/"} replace />;
+    const redirect = typeof raw === "string" && raw.startsWith("/") ? raw : "/";
+    return <Navigate to={redirect} replace />;
   }
 
   const isVerifying = confirmVerificationMutation.isPending;

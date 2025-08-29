@@ -29,7 +29,16 @@ class WebStorageService {
   }
 
   clear(): void {
-    this.storage.clear();
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < this.storage.length; i++) {
+        const k = this.storage.key(i);
+        if (k && k.startsWith(this.prefix)) keysToRemove.push(k);
+      }
+      keysToRemove.forEach((k) => this.storage.removeItem(k));
+    } catch (err) {
+      console.error("Error clearing namespaced storage", err);
+    }
   }
 }
 

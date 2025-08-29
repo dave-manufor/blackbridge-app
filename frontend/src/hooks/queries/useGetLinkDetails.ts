@@ -1,10 +1,10 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import queryKeys from "./queryKeys";
 import { getLinkTransfer } from "@/api/services/transferService";
-import { AxiosError } from "axios";
+import { isAxiosError } from "axios";
 
 const useGetLinkDetails = ({ slug }: { slug: string }) => {
-  return useQuery({
+  return useQuery<Awaited<ReturnType<typeof getLinkTransfer>>>({
     queryKey: queryKeys.transfers.publicLinkDetails(slug),
     queryFn: ({ signal }) => getLinkTransfer(slug, signal),
     placeholderData: keepPreviousData,
@@ -13,7 +13,7 @@ const useGetLinkDetails = ({ slug }: { slug: string }) => {
     refetchOnReconnect: false,
     refetchInterval: Infinity,
     retry: (failCount, error) => {
-      if (error && error instanceof AxiosError) {
+      if (error && isAxiosError(error)) {
         // Don't retry on 401 (Unauthorized), component should redirect to sign in
         // Don't retry on 403 (Forbidden), user has insufficient permissions
         // Don't retry on 404 (Not Found), link may be invalid
