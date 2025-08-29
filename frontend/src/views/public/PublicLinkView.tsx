@@ -27,6 +27,7 @@ import {
 import GenericErrorState from "@/components/ui/GenericErrorState";
 import { PasswordInput } from "@/components/ui/input";
 import { CryptoBridge } from "@/lib/crypto/workers/CryptoBridge";
+import { devOnly } from "@/utils/dev";
 
 const PublicLinkView = () => {
   const cryptoBridge = useMemo(() => CryptoBridge.getInstance(), []);
@@ -91,7 +92,8 @@ const PublicLinkView = () => {
           passphrase,
         });
         return true;
-      } catch {
+      } catch (error) {
+        devOnly(() => console.error("Failed to decrypt session key", error));
         return false;
       }
     },
