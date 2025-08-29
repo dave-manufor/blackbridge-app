@@ -259,7 +259,7 @@ class TransferController {
         res.status(error.status).json({ message: error.message, ...(error.details && { details: error.details }) });
         return;
       }
-      this.transferLogger.error({ error }, 'Failed to commit email transfer');
+      this.transferLogger.error(error, 'Failed to commit email transfer');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   };
@@ -324,7 +324,7 @@ class TransferController {
       // Respond with success
       res.status(StatusCodes.ACCEPTED).json({ message: 'Link transfer committed successfully' });
     } catch (error) {
-      this.transferLogger.error({ error }, 'Failed to commit link transfer');
+      this.transferLogger.error(error, 'Failed to commit link transfer');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
       return;
     }
@@ -448,8 +448,7 @@ class TransferController {
       // return filtered transfers
       res.status(StatusCodes.OK).json({ message: 'Transfers fetched successfully', data: enrichedTransfers, pagination: paginationDetails });
     } catch (error) {
-      // this.transferLogger.error({ error }, 'Failed to get transfers');
-      console.error(error);
+      this.transferLogger.error(error, 'Failed to get transfers');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   };
@@ -540,7 +539,7 @@ class TransferController {
         },
       });
     } catch (error) {
-      console.error(error);
+      this.transferLogger.error(error, 'Failed to get transfer details');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   };
@@ -582,7 +581,7 @@ class TransferController {
 
       res.status(StatusCodes.OK).json({ message: 'Email transfer marked as viewed' });
     } catch (error) {
-      console.error(error);
+      this.transferLogger.error(error, 'Failed to mark email transfer as viewed');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   };
@@ -592,6 +591,7 @@ class TransferController {
     try {
       const count = await db.emailTransfers.count({
         where: {
+          transfer: { status: { notIn: [TRANSFER_STATUS.PENDING, TRANSFER_STATUS.REVOKED] } },
           recipient_user_id: userId,
           viewed: false,
         },
@@ -602,7 +602,7 @@ class TransferController {
         data: { count },
       });
     } catch (error) {
-      console.error(error);
+      this.transferLogger.error(error, 'Failed to get unviewed email transfers count');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   };
@@ -612,61 +612,61 @@ class TransferController {
     // Verify link access middleware might not return session
     const { userId } = req.session || {};
 
-    const linkTransfer = await db.linkTransfers.update({
-      where: { slug },
-      data: {
-        last_accessed: new Date(),
-      },
-      select: {
-        id: true,
-        slug: true,
-        file_key: true,
-        is_password_protected: true,
-        transfer: {
-          select: {
-            id: true,
-            owner: {
-              select: {
-                email: true,
-                profile_picture: true,
+    try {
+      const linkTransfer = await db.linkTransfers.update({
+        where: { slug, transfer: { expiration_date: { gt: new Date() } } },
+        data: {
+          last_accessed: new Date(),
+        },
+        select: {
+          id: true,
+          slug: true,
+          file_key: true,
+          is_password_protected: true,
+          transfer: {
+            select: {
+              id: true,
+              owner: {
+                select: {
+                  email: true,
+                  profile_picture: true,
+                },
               },
-            },
-            title: true,
-            description: true,
-            files: {
-              select: {
-                id: true,
-                name: true,
-                size: true,
-                content_type: true,
-                metadata: true,
+              title: true,
+              description: true,
+              files: {
+                select: {
+                  id: true,
+                  name: true,
+                  size: true,
+                  content_type: true,
+                  metadata: true,
+                },
               },
             },
           },
+          created_at: true,
         },
-        created_at: true,
-      },
-    });
+      });
 
-    if (!linkTransfer) {
-      res.status(StatusCodes.NOT_FOUND).json({ message: 'Link transfer not found' });
-      return;
+      if (!linkTransfer) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Link transfer not found' });
+        return;
+      }
+
+      res.status(StatusCodes.OK).json({
+        message: 'Link transfer fetched successfully',
+        data: {
+          ...linkTransfer,
+          recommended_title: linkTransfer.transfer.title || linkTransfer.transfer.files[0]?.name || 'Untitled',
+          total_files_count: linkTransfer.transfer.files.length,
+          total_files_size_bytes: linkTransfer.transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
+        },
+      });
+    } catch (error) {
+      this.transferLogger.error(error, 'Failed to get link transfer');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
-
-    res.status(StatusCodes.OK).json({
-      message: 'Link transfer fetched successfully',
-      data: {
-        ...linkTransfer,
-        recommended_title: linkTransfer.transfer.title || linkTransfer.transfer.files[0]?.name || 'Untitled',
-        total_files_count: linkTransfer.transfer.files.length,
-        total_files_size_bytes: linkTransfer.transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
-      },
-    });
-
-    res.status(StatusCodes.OK).json({
-      message: 'Link transfer fetched successfully',
-      data: linkTransfer,
-    });
   };
 
   private getValidationSchema = <T extends BodyType>(type: T): SchemaMap[T] => {

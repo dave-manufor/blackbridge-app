@@ -14,7 +14,7 @@ import { parse } from 'path';
 import nocache from 'nocache';
 
 const port = Number(process.env.PORT) || 3000;
-const crossOrigin = process.env.CROSS_ORIGIN || 'http://localhost:5174';
+const crossOrigin = process.env.CROSS_ORIGIN ? process.env.CROSS_ORIGIN.split(',') : ['http://localhost:5174'];
 const corsOptions = {
   origin: crossOrigin,
   credentials: true,

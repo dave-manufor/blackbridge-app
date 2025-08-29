@@ -8,18 +8,43 @@ import { SessionStorageService } from "@/lib/WebStorageService";
 import { formatFileSize } from "@/utils/format";
 import { AxiosError } from "axios";
 import { formatDistance } from "date-fns";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MdOutlineFileDownload } from "react-icons/md";
-import { Navigate, useLocation, useParams } from "react-router";
+import { Navigate, useLocation, useNavigate, useParams } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { FaUser } from "react-icons/fa6";
+import { FaSpinner, FaUser } from "react-icons/fa6";
 import { Skeleton } from "@/components/ui/skeleton";
 import FileCardSkeleton from "@/components/ui/FileCardSkeleton";
+import {
+  Modal,
+  ModalBody,
+  ModalClose,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalPrimaryAction,
+} from "@/components/overlay/modal";
+import GenericErrorState from "@/components/ui/GenericErrorState";
+import { PasswordInput } from "@/components/ui/input";
+import { CryptoBridge } from "@/lib/crypto/workers/CryptoBridge";
 
 const PublicLinkView = () => {
+  const cryptoBridge = useMemo(() => CryptoBridge.getInstance(), []);
+  const navigate = useNavigate();
+  const [isNotFoundError, setIsNotFoundError] = useState(false);
+  const [isServerError, setIsServerError] = useState(false);
+  // const [readyToView, setReadyToView] = useState(false);
+  const [isAuthError, setIsAuthError] = useState(false);
+  const [password, setPassword] = useState("");
+  const [isKeyDecrypting, setIsKeyDecrypting] = useState(false);
+  const [isKeyDecryptFailed, setIsKeyDecryptFailed] = useState(false);
   const [isKeyDecrypted, setIsKeyDecrypted] = useState(false);
   const storage = useMemo(() => new SessionStorageService(), []);
   const { pathname, search, hash } = useLocation();
+  const fragment = useMemo(() => {
+    const _fragment = hash.split("#").pop();
+    return _fragment;
+  }, [hash]);
   const { slug } = useParams<{ slug: string }>();
   const {
     data: linkData,
@@ -30,20 +55,131 @@ const PublicLinkView = () => {
     slug: slug || "",
   });
 
-  if (isError && error instanceof AxiosError) {
-    if (error.response?.status === 401) {
-      // Link access requires authentication
+  const resetErrors = () => {
+    setIsNotFoundError(false);
+    setIsServerError(false);
+    setIsAuthError(false);
+  };
 
-      // Save redirect path to session storage
-      const redirectPath = `${pathname}${search ? `?${search}` : ""}${
-        hash ? `#${hash}` : ""
-      }`;
-      storage.setItem(storageKeys.AUTH.REDIRECT, redirectPath);
+  const handleAuthRedirect = () => {
+    // Save redirect path to session storage
+    const redirectPath = `${pathname}${search ? `?${search}` : ""}${
+      hash ? `${hash}` : ""
+    }`;
+    storage.setItem(storageKeys.AUTH.REDIRECT, redirectPath);
 
-      //redirect to login
-      return <Navigate to="/sign-in" replace />;
+    //redirect to login
+    navigate("/sign-in");
+  };
+
+  const checkKey = useCallback(
+    async ({
+      sessionKey,
+      password,
+    }: {
+      sessionKey: string;
+      password?: string;
+    }): Promise<boolean> => {
+      if (!fragment) return false;
+      let passphrase = fragment;
+      if (password) {
+        passphrase += password;
+      }
+      try {
+        await cryptoBridge.decryptSessionKey(sessionKey, {
+          decryptWith: "passphrase",
+          passphrase,
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [cryptoBridge, fragment]
+  );
+
+  const handlePasswordSubmit = async () => {
+    if (!linkData || !password) return;
+    setIsKeyDecrypting(true);
+    setIsKeyDecryptFailed(false);
+    const isValid = await checkKey({
+      sessionKey: linkData.file_key,
+      password,
+    });
+    // Check if key decryption was successful and update state
+    if (isValid) {
+      setIsKeyDecrypted(true);
+      // setReadyToView(true);
+    } else {
+      setIsKeyDecryptFailed(true);
     }
-  }
+    setIsKeyDecrypting(false);
+  };
+
+  useEffect(() => {
+    resetErrors();
+    // Check link access
+    if (isError) {
+      if (error instanceof AxiosError) {
+        if (error.response?.status === 401) {
+          // Link access requires authentication
+          setIsAuthError(true);
+          return;
+        }
+        if (error.response?.status === 403) {
+          // User has insufficient permissions
+          // Show permissions denied modal
+          return;
+        }
+        if (error.response?.status === 404) {
+          // Link not found
+          setIsNotFoundError(true);
+          return;
+        }
+      }
+      // If we reached here, it means it's a server error or some other error
+      setIsServerError(true);
+      return;
+    }
+
+    // Link Data loaded
+    if (linkData) {
+      // If link is password protected, skip. The check will be done handlePasswordSubmit
+      if (linkData.is_password_protected) {
+        return;
+      }
+
+      // Attempt key decryption with fragment only
+      (async () => {
+        // Set loading state
+        setIsKeyDecrypting(true);
+        // Attempt to decrypt file key
+        const isValid = await checkKey({
+          sessionKey: linkData.file_key,
+        });
+        // Check if key decryption was successful and update state
+        if (isValid) {
+          setIsKeyDecrypted(true);
+        } else {
+          setIsKeyDecryptFailed(true);
+        }
+      })().finally(() => {
+        // Reset loading state
+        setIsKeyDecrypting(false);
+      });
+    }
+  }, [
+    linkData,
+    isKeyDecrypted,
+    isPending,
+    isError,
+    error,
+    // setReadyToView,
+    checkKey,
+  ]);
+
+  const readyToView =
+    !isPending && !isError && !isKeyDecryptFailed && isKeyDecrypted && linkData;
 
   if (!slug) {
     return <Navigate to="/" replace />;
@@ -51,8 +187,97 @@ const PublicLinkView = () => {
 
   return (
     <>
-      {(isPending && !isError) || (!isKeyDecrypted && <SkeletonUI />)}
-      {!isPending && !isError && linkData && isKeyDecrypted && (
+      {/* Skeleton loading UI - Show while data is still fetching or key is yet to be decrypted without error*/}
+      {(isPending || !isKeyDecrypted) && !isError && !isKeyDecryptFailed && (
+        <SkeletonUI />
+      )}
+      {/* Server error UI - Show when there is a server error */}
+      {!isPending && isServerError && <GenericErrorState />}
+      {/* Not found error UI - Show when link is not found */}
+      {!isPending && isNotFoundError && (
+        <GenericErrorState
+          title="We couldn’t find this transfer"
+          body="The link may be incorrect, or the transfer might have been deleted or expired. Double-check the link and reach out to the owner if you think this is a mistake."
+        />
+      )}
+      {/* Auth required UI - Show when link requires authentication */}
+      {isAuthError && (
+        <Modal isOpen={isAuthError} canClose={false}>
+          <ModalContent>
+            <ModalHeader>Sign in to view this transfer</ModalHeader>
+            <ModalBody>
+              The owner has protected this link so only authenticated viewers
+              can access it. Please sign in to continue and securely view the
+              transfer.
+            </ModalBody>
+            <ModalFooter>
+              <ModalPrimaryAction onClick={handleAuthRedirect}>
+                Sign in to continue
+              </ModalPrimaryAction>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      )}
+      {/* Key decryption failed UI - Show when key decryption fails without password */}
+      {!isError &&
+        !isPending &&
+        linkData &&
+        !linkData.is_password_protected &&
+        isKeyDecryptFailed && (
+          <GenericErrorState
+            title="We couldn’t decrypt this transfer"
+            body="The link may be incorrect, or the transfer might have been deleted or expired. Double-check the link and reach out to the owner if you think this is a mistake."
+          />
+        )}
+      {/* Password required UI - Show when link is password protected and key is yet to be decrypted */}
+      {!isError &&
+        !isPending &&
+        linkData &&
+        linkData.is_password_protected &&
+        !isKeyDecrypted && (
+          <Modal isOpen={true} onClose={() => navigate("/")}>
+            <ModalContent>
+              <ModalHeader>
+                Password required{" "}
+                {isKeyDecrypting && <FaSpinner className="animate-spin" />}
+              </ModalHeader>
+              <ModalBody>
+                <p className="mb-4">
+                  To open this transfer, you&apos;ll need the password set by
+                  the owner. Enter it below to proceed.
+                </p>
+                <PasswordInput
+                  className="text-black mb-2"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && password && !isKeyDecrypting) {
+                      handlePasswordSubmit();
+                    }
+                  }}
+                />
+                {isKeyDecryptFailed && (
+                  <span className="text-sm text-red-400 w-full">
+                    Password seems to be incorrect. Ensure you are using the
+                    right link and try again.
+                  </span>
+                )}
+              </ModalBody>
+              <ModalFooter>
+                <ModalClose />
+                <ModalPrimaryAction
+                  disabled={!password || isKeyDecrypting}
+                  onClick={handlePasswordSubmit}
+                >
+                  Unlock Transfer
+                </ModalPrimaryAction>
+              </ModalFooter>
+            </ModalContent>
+          </Modal>
+        )}
+      {/* Ready to view UI - Show when all conditions are met and data is loaded*/}
+      {readyToView && linkData && (
         <>
           <GridSection>
             <div className={styles.header}>
@@ -162,11 +387,11 @@ const SkeletonUI = () => {
           <h4 className={styles.description_title}>
             <Skeleton className="h-6 w-24 mx-auto" />
           </h4>
-          <p className={styles.description_text}>
+          <div className={styles.description_text}>
             <Skeleton className="h-4 w-full mx-auto mb-2" />
             <Skeleton className="h-4 w-2/3 mx-auto mb-2" />
             <Skeleton className="h-4 w-1/2 mx-auto" />
-          </p>
+          </div>
         </div>
         <div className={styles.files_section}>
           <div className={styles.files_header}>

@@ -170,7 +170,7 @@ export class CryptoWorker implements CryptoWorkerInterface {
 
       const [sessionKey] = await openpgp.decryptSessionKeys({
         message,
-        decryptionKeys: this.privateKey,
+        decryptionKeys: [this.privateKey],
       });
 
       if (!sessionKey) {
@@ -185,7 +185,7 @@ export class CryptoWorker implements CryptoWorkerInterface {
     if (options.decryptWith === "passphrase") {
       const [sessionKey] = await openpgp.decryptSessionKeys({
         message,
-        passwords: options.passphrase,
+        passwords: [options.passphrase],
       });
 
       if (!sessionKey) {
