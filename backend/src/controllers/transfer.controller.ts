@@ -625,7 +625,6 @@ class TransferController {
         transfer: {
           select: {
             id: true,
-            owner_user_id: true,
             owner: {
               select: {
                 email: true,
@@ -645,6 +644,7 @@ class TransferController {
             },
           },
         },
+        created_at: true,
       },
     });
 
@@ -660,7 +660,6 @@ class TransferController {
         recommended_title: linkTransfer.transfer.title || linkTransfer.transfer.files[0]?.name || 'Untitled',
         total_files_count: linkTransfer.transfer.files.length,
         total_files_size_bytes: linkTransfer.transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
-        is_owner: userId ? linkTransfer.transfer.owner_user_id === userId : false,
       },
     });
 

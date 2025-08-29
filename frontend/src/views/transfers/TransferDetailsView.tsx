@@ -15,8 +15,6 @@ import { AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuthStore } from "@/stores/authStore";
 import { formatFileSize, prettierLinkAccessControl } from "@/utils/format";
 import { MdOutlineFileDownload } from "react-icons/md";
-import { TransferDetailsData } from "@/api/services/transferService";
-import { defaultStyles, FileIcon } from "react-file-icon";
 import { IoCloseCircleOutline } from "react-icons/io5";
 import CopyText from "@/components/ui/CopyText";
 import { BASE_SHAREABLE_URL } from "@/config/constants/transfers";
@@ -24,6 +22,8 @@ import { CryptoBridge } from "@/lib/crypto/workers/CryptoBridge";
 import QRCode from "react-qr-code";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMarkTransferAsViewedMutation } from "@/hooks/mutations";
+import FileCard from "@/components/ui/FileCard";
+import FileCardSkeleton from "@/components/ui/FileCardSkeleton";
 
 const TransferDetailsView = () => {
   const cryptoBridge = CryptoBridge.getInstance();
@@ -134,8 +134,8 @@ const TransferDetailsView = () => {
           />
         )}
       </GridSection>
-      {isPending && <SkeletonUi />}
-      {!isPending && transferDetails && (
+      {isPending && !isError && <SkeletonUi />}
+      {!isPending && !isError && transferDetails && (
         <>
           <GridSection>
             {/* Header */}
@@ -269,11 +269,17 @@ const TransferDetailsView = () => {
                   </div>
                 </div>
               </div>
-              <ul className={styles.files_list}>
+              <div className={styles.files_list}>
                 {transferDetails.files.map((file) => (
-                  <FileCard key={file.id} file={file} />
+                  <FileCard
+                    key={file.id}
+                    name={file.name}
+                    contentType={file.content_type}
+                    size={file.size}
+                    onDownload={() => {}}
+                  />
                 ))}
-              </ul>
+              </div>
             </section>
             {/* Link Details */}
             {transferDetails.transfer_type === "LINK" &&
@@ -371,48 +377,6 @@ const EmailChip = ({
   );
 };
 
-const FileCard = ({ file }: { file: TransferDetailsData["files"][0] }) => {
-  const iconStyle =
-    defaultStyles[file.content_type as keyof typeof defaultStyles];
-  return (
-    <li className={styles.file_item}>
-      <div className={styles.file_info}>
-        <div className={styles.file_icon}>
-          <FileIcon extension={file.name.split(".").pop()} {...iconStyle} />
-        </div>
-        <div className={styles.file_details}>
-          <span className={styles.file_name}>{file.name}</span>
-          <span className={styles.file_meta}>
-            {file.size ? formatFileSize(file.size) : "Unknown size"} |{" "}
-            {file.content_type || "Unknown type"}
-          </span>
-        </div>
-      </div>
-      <div className={styles.files_download_icon}>
-        <MdOutlineFileDownload />
-      </div>
-    </li>
-  );
-};
-const FileCardSkeleton = () => {
-  return (
-    <li className={styles.file_item}>
-      <div className={styles.file_info}>
-        <Skeleton className="size-8" />
-        <div className={styles.file_details}>
-          <span className={styles.file_name}>
-            <Skeleton className="h-4 w-48 mb-2" />
-          </span>
-          <span className={styles.file_meta}>
-            <Skeleton className="h-4 w-32" />
-          </span>
-        </div>
-      </div>
-      <Skeleton className="size-8" />
-    </li>
-  );
-};
-
 const SkeletonUi = () => {
   return (
     <>
@@ -477,11 +441,11 @@ const SkeletonUi = () => {
               <Skeleton className="size-8" />
             </div>
           </div>
-          <ul className={styles.files_list}>
+          <div className={styles.files_list}>
             {Array.from({ length: 4 }).map((_, index) => (
               <FileCardSkeleton key={index} />
             ))}
-          </ul>
+          </div>
         </section>
         {/* Link Details */}
         <section className={styles.link_section}>

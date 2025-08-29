@@ -141,6 +141,7 @@ const VerificationView = () => {
 
   if (user?.verified) {
     const redirect = storage.getItem<string>(storageKeys.AUTH.REDIRECT);
+    storage.removeItem(storageKeys.AUTH.REDIRECT);
     return <Navigate to={redirect || "/"} replace />;
   }
 

@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router";
 import Root from "./Root";
 import { SignInView, SignUpView, VerificationView } from "./views/auth";
-import ProtectedRoute from "./components/routes/ProtectedRoute";
+import ProtectedRoute from "./components/features/navigation/ProtectedRoute";
 import DashboardView from "./views/dashboard/DashboardView";
 import SideBarLayout from "./layouts/SideBarLayout";
 import { TransferDetailsView, TransferHistoryView } from "./views/transfers";
@@ -10,6 +10,7 @@ import TransferListSent from "./views/transfers/TransferListSent";
 import TransferListReceived from "./views/transfers/TransferListReceived";
 import { TransferListProvider } from "./contexts/TransferListContext";
 import PublicLinkView from "./views/public/PublicLinkView";
+import PublicLayout from "./layouts/PublicLayout";
 
 const router = createBrowserRouter([
   {
@@ -83,6 +84,7 @@ const router = createBrowserRouter([
       // Public Routes
       {
         path: "p",
+        element: <PublicLayout />,
         children: [
           {
             path: "shares/:slug",

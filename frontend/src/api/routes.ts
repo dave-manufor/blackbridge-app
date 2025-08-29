@@ -1,5 +1,3 @@
-import { getLinkTransfer } from "./services/transferService";
-
 export default {
   auth: {
     signIn: "/auth",

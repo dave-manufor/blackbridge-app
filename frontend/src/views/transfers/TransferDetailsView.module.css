@@ -64,50 +64,6 @@
   @apply w-full flex flex-col gap-2;
 }
 
-.file_item {
-  max-width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px;
-}
-
-.file_info {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  max-width: calc(100% - 60px); /* leave room for the "Remove" button */
-}
-
-.file_icon {
-  width: 24px;
-  height: auto;
-}
-
-.file_details {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  width: 100%;
-  max-width: 100%;
-  overflow: hidden;
-}
-
-.file_name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text);
-  display: block;
-  width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.file_meta {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
 .email_chips {
   @apply max-h-[130px] overflow-y-scroll flex flex-wrap gap-2;
 }

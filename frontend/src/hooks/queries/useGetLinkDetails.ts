@@ -9,12 +9,15 @@ const useGetLinkDetails = ({ slug }: { slug: string }) => {
     queryFn: ({ signal }) => getLinkTransfer(slug, signal),
     placeholderData: keepPreviousData,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: (_, error) => {
+    retry: (failCount, error) => {
       if (error && error instanceof AxiosError) {
         // Don't retry on 401 (Unauthorized), component should redirect to sign in
         if (error.response?.status === 401) {
           return false;
         }
+      }
+      if (failCount > 3) {
+        return false;
       }
       return true;
     },

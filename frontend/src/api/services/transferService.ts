@@ -246,6 +246,10 @@ export type LinkTransferData = {
       metadata: object | null;
     }[];
   };
+  recommended_title: string;
+  total_files_count: number;
+  total_files_size_bytes: number;
+  created_at: string;
 };
 
 export async function getLinkTransfer(
