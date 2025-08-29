@@ -350,11 +350,13 @@ class AuthController {
       });
 
       res.cookie(jwtConfig.refreshToken.name, refreshToken, {
+        domain: process.env.COOKIE_DOMAIN,
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         maxAge: jwtConfig.refreshToken.duration,
       });
       res.cookie(jwtConfig.accessToken.name, accessToken, {
+        domain: process.env.COOKIE_DOMAIN,
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         maxAge: jwtConfig.accessToken.duration,
@@ -440,11 +442,13 @@ class AuthController {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         maxAge: jwtConfig.refreshToken.duration,
+        domain: process.env.COOKIE_DOMAIN,
       });
       res.cookie(jwtConfig.accessToken.name, accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         maxAge: jwtConfig.accessToken.duration,
+        domain: process.env.COOKIE_DOMAIN,
       });
 
       // Send new access token to client
