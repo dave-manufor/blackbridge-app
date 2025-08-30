@@ -67,9 +67,13 @@ class FileController {
         return;
       }
 
+      // Generate file ID
+      const fileId = uuid_v4();
+
       // Set up blocks
       const numberOfBlocks = Math.ceil(size / uploadConfig.MAX_BLOCK_SIZE);
       const blocksArr: {
+        id: string;
         index: number;
         path: string;
         size: number;
@@ -89,11 +93,13 @@ class FileController {
           blockSize = uploadConfig.MAX_BLOCK_SIZE;
         }
 
-        const blockKey = uuid_v4();
+        const blockId = uuid_v4();
+        const blockPath = `transfers/${transfer_id}/files/${fileId}/blocks/${blockId}`;
 
         blocksArr.push({
+          id: blockId,
           index: i + 1,
-          path: blockKey,
+          path: blockPath,
           size: blockSize,
         });
       }
@@ -101,6 +107,7 @@ class FileController {
       // Create pending file and file blocks
       const file = await db.files.create({
         data: {
+          id: fileId,
           transfer_id: transfer_id,
           user_id: userId,
           name,
@@ -109,6 +116,7 @@ class FileController {
           metadata: metadata ? JSON.parse(metadata) : null,
           blocks: {
             create: blocksArr.map((block) => ({
+              id: block.id,
               index: block.index,
               path: block.path,
               size: block.size,
