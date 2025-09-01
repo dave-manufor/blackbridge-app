@@ -8,6 +8,13 @@ resource "aws_s3_bucket" "upload_bucket" {
   }
 }
 
+resource "aws_s3_bucket_accelerate_configuration" "upload_bucket_accel" {
+  bucket = aws_s3_bucket.upload_bucket.id
+
+  accelerate_status = "Enabled"
+}
+
+
 resource "aws_s3_bucket_public_access_block" "block_public" {
   bucket = aws_s3_bucket.upload_bucket.id
 
