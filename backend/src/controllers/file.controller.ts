@@ -1,10 +1,10 @@
 import logger from '../lib/logger';
-import { verifyToken } from '../middlewares/auth.middleware';
+import { verifyToken, verifyDownloadToken } from '../middlewares/auth.middleware';
 import { Request, Response, Router } from 'express';
 import { z } from 'zod';
-import StatusCodesConfig from '../config/StatusCodes.config';
+import StatusCodes from '../config/StatusCodes.config';
 import { v4 as uuid_v4 } from 'uuid';
-import uploadConfig from '../config/upload.config';
+import bucketConfig from '../config/bucket.config';
 import db from '../services/db';
 import { completeMultiPartUpload, getPresignedUrl, initiateMultiPartUpload } from '../services/aws';
 import { FILE_STATUS, TRANSFER_STATUS } from '@prisma/client';
@@ -22,16 +22,12 @@ class FileController {
   }
 
   private initializeRoutes() {
-    // TODO: Implement the following routes
-    // GET / - Get all files uploaded by the user
-    // GET /:id - Get file by ID
     this.router.post('/upload/request', verifyToken(), this.validateBody('requestUpload'), this.requestUpload);
     this.router.post('/upload/announce', verifyToken(), this.validateBody('announceUpload'), this.announceUpload);
     this.router.post('/upload/retry', verifyToken(), this.validateBody('retryUpload'), this.retryUpload);
     this.router.post('/upload/finalize/block', verifyToken(), this.validateBody('finalizeBlock'), this.finalizeBlock);
     this.router.post('/upload/finalize', verifyToken(), this.validateBody('finalizeFile'), this.finalizeFile);
-    // POST /:id/download-request - Request to download a file (pre-sign)
-    // DELETE /:id - Delete a file by ID
+    this.router.get('/:fileId/download-urls', verifyDownloadToken(), this.getFileDownloadUrls);
   }
 
   private requestUpload = async (req: Request, res: Response) => {
@@ -45,7 +41,7 @@ class FileController {
       });
 
       if (!existingTransfer) {
-        res.status(StatusCodesConfig.NOT_FOUND).json({
+        res.status(StatusCodes.NOT_FOUND).json({
           message: 'Transfer not found',
         });
         return;
@@ -53,7 +49,7 @@ class FileController {
 
       // Check if user has permission
       if (existingTransfer.owner_user_id !== userId) {
-        res.status(StatusCodesConfig.FORBIDDEN).json({
+        res.status(StatusCodes.FORBIDDEN).json({
           message: 'User does not have permission to access this transfer',
         });
         return;
@@ -61,7 +57,7 @@ class FileController {
 
       // Check if transfer has not been committed
       if (existingTransfer.status !== TRANSFER_STATUS.PENDING) {
-        res.status(StatusCodesConfig.BAD_REQUEST).json({
+        res.status(StatusCodes.BAD_REQUEST).json({
           message: 'Transfer has already been processed',
         });
         return;
@@ -71,7 +67,7 @@ class FileController {
       const fileId = uuid_v4();
 
       // Set up blocks
-      const numberOfBlocks = Math.ceil(size / uploadConfig.MAX_BLOCK_SIZE);
+      const numberOfBlocks = Math.ceil(size / bucketConfig.MAX_BLOCK_SIZE);
       const blocksArr: {
         id: string;
         index: number;
@@ -83,14 +79,14 @@ class FileController {
         let blockSize: number;
         if (i === numberOfBlocks - 1) {
           // Last part
-          if (size % uploadConfig.MAX_BLOCK_SIZE === 0) {
+          if (size % bucketConfig.MAX_BLOCK_SIZE === 0) {
             // No remainder means that the last block is the same size as the max block size
-            blockSize = uploadConfig.MAX_BLOCK_SIZE;
+            blockSize = bucketConfig.MAX_BLOCK_SIZE;
           } else {
-            blockSize = size % uploadConfig.MAX_BLOCK_SIZE;
+            blockSize = size % bucketConfig.MAX_BLOCK_SIZE;
           }
         } else {
-          blockSize = uploadConfig.MAX_BLOCK_SIZE;
+          blockSize = bucketConfig.MAX_BLOCK_SIZE;
         }
 
         const blockId = uuid_v4();
@@ -128,7 +124,7 @@ class FileController {
         },
       });
 
-      res.status(StatusCodesConfig.OK).json({
+      res.status(StatusCodes.OK).json({
         message: 'Upload request successful',
         data: {
           file_id: file.id,
@@ -144,7 +140,7 @@ class FileController {
     } catch (error) {
       this.fileLogger.error(error, 'Error requesting upload');
       console.error(error);
-      res.status(StatusCodesConfig.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
       return;
     }
   };
@@ -164,7 +160,7 @@ class FileController {
 
     // Check if block exists
     if (!_block) {
-      res.status(StatusCodesConfig.NOT_FOUND).json({
+      res.status(StatusCodes.NOT_FOUND).json({
         message: 'Block not found',
       });
       return;
@@ -172,7 +168,7 @@ class FileController {
 
     // Check if user has permission to block
     if (_block.file.user_id !== userId) {
-      res.status(StatusCodesConfig.FORBIDDEN).json({
+      res.status(StatusCodes.FORBIDDEN).json({
         message: 'You do not have permission to access this block',
       });
       return;
@@ -194,25 +190,25 @@ class FileController {
       });
 
       if (!block) {
-        res.status(StatusCodesConfig.NOT_FOUND).json({ message: 'Block already processed' });
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Block already processed' });
         return;
       }
       // Determine and return parts
-      const numberOfParts = Math.ceil(block.size / uploadConfig.MAX_PART_SIZE);
+      const numberOfParts = Math.ceil(block.size / bucketConfig.MAX_PART_SIZE);
 
       const parts: UploadPart[] = await Promise.all(
         Array.from({ length: numberOfParts }).map(async (_, i) => {
           let partSize: number;
           if (i === numberOfParts - 1) {
             // Last part
-            if (block.size % uploadConfig.MAX_PART_SIZE === 0) {
+            if (block.size % bucketConfig.MAX_PART_SIZE === 0) {
               // No remainder means that the last part is the same size as the max part size
-              partSize = uploadConfig.MAX_PART_SIZE;
+              partSize = bucketConfig.MAX_PART_SIZE;
             } else {
-              partSize = block.size % uploadConfig.MAX_PART_SIZE;
+              partSize = block.size % bucketConfig.MAX_PART_SIZE;
             }
           } else {
-            partSize = uploadConfig.MAX_PART_SIZE;
+            partSize = bucketConfig.MAX_PART_SIZE;
           }
 
           const presignedUrl = await getPresignedUrl(block.path, {
@@ -233,13 +229,13 @@ class FileController {
         }),
       );
 
-      res.status(StatusCodesConfig.OK).json({
+      res.status(StatusCodes.OK).json({
         message: 'Upload announce successful',
         data: parts,
       });
     } catch (error) {
       this.fileLogger.error(error, 'Error announcing upload');
-      res.status(StatusCodesConfig.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
       return;
     }
   };
@@ -259,17 +255,17 @@ class FileController {
       });
 
       if (!block) {
-        res.status(StatusCodesConfig.NOT_FOUND).json({ message: 'Block not found' });
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Block not found' });
         return;
       }
 
       if (block.file.user_id !== userId) {
-        res.status(StatusCodesConfig.FORBIDDEN).json({ message: 'You do not have permission to access this block' });
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to access this block' });
         return;
       }
 
       if (block.status !== FILE_STATUS.PROCESSING) {
-        res.status(StatusCodesConfig.BAD_REQUEST).json({ message: 'Block is not in processing state' });
+        res.status(StatusCodes.BAD_REQUEST).json({ message: 'Block is not in processing state' });
         return;
       }
 
@@ -292,13 +288,13 @@ class FileController {
 
       const newParts = await Promise.all(getNewParts);
 
-      res.status(StatusCodesConfig.OK).json({
+      res.status(StatusCodes.OK).json({
         message: 'Retry successful',
         data: newParts,
       });
     } catch (error) {
       this.fileLogger.error(error, 'Error retrying upload');
-      res.status(StatusCodesConfig.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
       return;
     }
   };
@@ -318,19 +314,19 @@ class FileController {
 
     // Check if block exists
     if (!block) {
-      res.status(StatusCodesConfig.NOT_FOUND).json({ message: 'Block not found' });
+      res.status(StatusCodes.NOT_FOUND).json({ message: 'Block not found' });
       return;
     }
 
     // Check if user has permission to block
     if (block.file.user_id !== userId) {
-      res.status(StatusCodesConfig.FORBIDDEN).json({ message: 'You do not have permission to access this file' });
+      res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to access this file' });
       return;
     }
 
     // Check if block is in processing state
     if (block.status !== FILE_STATUS.PROCESSING) {
-      res.status(StatusCodesConfig.BAD_REQUEST).json({ message: 'Block is not in processing state' });
+      res.status(StatusCodes.BAD_REQUEST).json({ message: 'Block is not in processing state' });
       return;
     }
 
@@ -354,7 +350,7 @@ class FileController {
             status: FILE_STATUS.FAILED,
           },
         });
-        res.status(StatusCodesConfig.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
         return;
       }
       await db.fileBlocks.update({
@@ -367,12 +363,12 @@ class FileController {
         },
       });
 
-      res.status(StatusCodesConfig.ACCEPTED).json({
+      res.status(StatusCodes.ACCEPTED).json({
         message: 'Upload completed successfully',
       });
     } catch (error) {
       this.fileLogger.error(error, 'Error completing block upload');
-      res.status(StatusCodesConfig.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
       return;
     }
   };
@@ -389,12 +385,12 @@ class FileController {
         });
 
         if (!file) {
-          throw { status: StatusCodesConfig.NOT_FOUND, message: 'File not found' };
+          throw { status: StatusCodes.NOT_FOUND, message: 'File not found' };
         }
 
         // 2. Permission check
         if (file.user_id !== userId) {
-          throw { status: StatusCodesConfig.FORBIDDEN, message: 'You do not have permission to access this file' };
+          throw { status: StatusCodes.FORBIDDEN, message: 'You do not have permission to access this file' };
         }
 
         // 3. Ensure all blocks are uploaded
@@ -407,7 +403,7 @@ class FileController {
 
         if (pendingBlocks.length > 0) {
           throw {
-            status: StatusCodesConfig.BAD_REQUEST,
+            status: StatusCodes.BAD_REQUEST,
             message: 'Pending block uploads',
             details: { blocks: pendingBlocks },
           };
@@ -421,7 +417,7 @@ class FileController {
       });
 
       // Only send response if transaction succeeded
-      res.status(StatusCodesConfig.ACCEPTED).json({ message: 'File upload finalized' });
+      res.status(StatusCodes.ACCEPTED).json({ message: 'File upload finalized' });
     } catch (error: any) {
       // Handle "business logic" errors thrown inside transaction
       if (error?.status) {
@@ -430,7 +426,75 @@ class FileController {
       }
 
       this.fileLogger.error(error, 'Error finalizing file upload');
-      res.status(StatusCodesConfig.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  };
+
+  private getFileDownloadUrls = async (req: Request, res: Response) => {
+    // The downloadRequest is attached by the verifyDownloadToken middleware
+    const { tid: transferId } = req.downloadRequest!;
+    const { fileId } = req.params;
+
+    try {
+      const file = await db.files.findUnique({
+        where: { id: fileId },
+        select: {
+          id: true,
+          transfer_id: true,
+          name: true,
+          blocks: {
+            select: { path: true, index: true },
+          },
+        },
+      });
+
+      // Check if file exists
+      if (!file) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'No files found for this transfer' });
+        return;
+      }
+
+      // Check if blocks exist
+      if (file.blocks.length === 0) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'No blocks found for this file' });
+        return;
+      }
+
+      // Check if transfer IDs match for the download request
+      if (file.transfer_id !== transferId) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to access this file' });
+        return;
+      }
+
+      // Generate URLs for each block
+      const limit = pLimit(20); // Limit concurrency to avoid overwhelming services
+      const presignedUrlPromises = file.blocks.map((block) =>
+        limit(async () => {
+          const objectKey = block.path;
+          if (!objectKey) {
+            this.fileLogger.warn({ fileId: file.id }, 'File found with no blocks to generate URL for.');
+            return null;
+          }
+          const url = await getPresignedUrl(objectKey, { type: 'download' });
+          return {
+            file_id: file.id,
+            file_name: file.name,
+            block_index: block.index,
+            download_url: url,
+          };
+        }),
+      );
+
+      const results = (await Promise.all(presignedUrlPromises)).filter(Boolean);
+
+      res.status(StatusCodes.OK).json({
+        message: 'Download URLs generated successfully',
+        data: results,
+      });
+      return;
+    } catch (error) {
+      this.fileLogger.error(error, 'Error generating download URLs');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   };
 

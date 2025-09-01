@@ -1,14 +1,14 @@
-import uploadConfig from '../config/upload.config';
+import bucketConfig from '../config/bucket.config';
 import { S3 } from 'aws-sdk';
 
 // TODO: S3 Delete Logic
 // Note to self: Use named exports for functions
 
-const bucket = new S3({ apiVersion: '2006-03-01', signatureVersion: 'v4' });
+const bucket = new S3({ apiVersion: '2006-03-01', signatureVersion: 'v4', useAccelerateEndpoint: true });
 
 export const initiateMultiPartUpload = async (key: string, contentType: string) => {
   const params = {
-    Bucket: uploadConfig.BUCKET_NAME,
+    Bucket: bucketConfig.BUCKET_NAME,
     Key: key,
     ContentType: contentType,
   };
@@ -20,7 +20,7 @@ export const initiateMultiPartUpload = async (key: string, contentType: string) 
 
 export const completeMultiPartUpload = async (key: string, uploadId: string, parts: { etag: string; part_index: number }[]) => {
   const params = {
-    Bucket: uploadConfig.BUCKET_NAME,
+    Bucket: bucketConfig.BUCKET_NAME,
     Key: key,
     UploadId: uploadId,
     MultipartUpload: {
@@ -62,9 +62,9 @@ export const getPresignedUrl = async (key: string, options: PresignedUrlOptions)
     UploadId?: string;
     PartNumber?: number;
   } = {
-    Bucket: uploadConfig.BUCKET_NAME,
+    Bucket: bucketConfig.BUCKET_NAME,
     Key: key,
-    Expires: options.expiresIn || uploadConfig.presignedUrl[options.type].EXPIRES_IN,
+    Expires: options.expiresIn || bucketConfig.presignedUrl[options.type].EXPIRES_IN,
   };
 
   if (options.type === 'download') {

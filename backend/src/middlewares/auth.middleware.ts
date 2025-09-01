@@ -1,7 +1,7 @@
 import StatusCodes from '../config/StatusCodes.config';
 import logger from '../lib/logger';
 import cache from '../services/cache';
-import { JWTAuthPayload, JWTOtpPayload, OtpActionType } from 'custom';
+import { JWTAuthPayload, JWTOtpPayload, JWTDownloadRequestPayload, OtpActionType } from 'custom';
 import { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { LINK_ACCESS_CONTROL, Sessions, TRANSFER_STATUS } from '@prisma/client';
@@ -9,6 +9,7 @@ import db from '../services/db';
 import jwtConfig from '../config/jwt.config';
 import otpConfig from '../config/otp.config';
 import cacheConfig from '../config/cache.config';
+import transferConfig from 'config/transfer.config';
 
 const authMiddlewareLogger = logger.child({ module: 'AuthMiddleware' });
 
@@ -73,17 +74,19 @@ export const verifyToken = (options?: { bypassVerification?: boolean }) => {
   };
 };
 const extractOtpToken = (req: Request) => {
-  const header = req.headers[otpConfig.authorizationHeader];
-  if (!header || Array.isArray(header)) return null;
-  const parts = header.split(' ');
-  return parts.length === 2 ? parts[1] : null;
+  const authHeader = req.headers[otpConfig.authorizationHeader];
+  if (typeof authHeader === 'string') {
+    const match = authHeader.match(/^Bearer (.+)$/);
+    return match ? match[1] : null;
+  }
+  return null;
 };
 
 export const requireOtp = (expected: OtpActionType) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     const token = extractOtpToken(req);
     if (!token) {
-      res.status(StatusCodes.UNAUTHORIZED).json({ error: 'Missing OTP token' });
+      res.status(StatusCodes.UNAUTHORIZED).json({ error: 'Missing or malformed OTP token' });
       return;
     }
 
@@ -182,5 +185,56 @@ export const verifyLinkAccess = () => {
         authMiddlewareLogger.error(error, 'Error verifying link access');
         res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error' });
       });
+  };
+};
+
+const extractTransferToken = (req: Request): string | null => {
+  const authHeader = req.headers[transferConfig.downloadAuthorizationHeader];
+  if (typeof authHeader === 'string') {
+    const match = authHeader.match(/^Bearer (.+)$/);
+    return match ? match[1] : null;
+  }
+  return null;
+};
+
+export const verifyDownloadToken = () => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const token = extractTransferToken(req);
+
+      if (!token) {
+        res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Missing or malformed download token' });
+        return;
+      }
+
+      // Verify the token
+      let payload: JWTDownloadRequestPayload;
+
+      try {
+        payload = jwt.verify(token, process.env.TRANSFER_TOKEN_SECRET) as JWTDownloadRequestPayload;
+      } catch {
+        res.status(StatusCodes.UNAUTHORIZED).json({ message: "Couldn't verify download token" });
+        return;
+      }
+
+      if (!payload) {
+        res.status(StatusCodes.UNAUTHORIZED).json({ message: "Couldn't verify download token" });
+        return;
+      }
+
+      const valid = await cache.get(`${cacheConfig.ID_Prefix.Download_Request}${payload.tid}:${payload.id}`);
+
+      // If token has been cleared from cache then it is no longer valid
+      if (!valid) {
+        res.status(StatusCodes.UNAUTHORIZED).json({ message: "Couldn't verify download token" });
+        return;
+      }
+
+      req.downloadRequest = payload;
+      next();
+    } catch (error) {
+      authMiddlewareLogger.error(error, 'Error verifying transfer token');
+      res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Unauthorized' });
+    }
   };
 };

@@ -145,6 +145,8 @@ model EmailTransfers{
   id String @db.Uuid @id @default(uuid()) @unique
   transfer_id String @db.Uuid
   recipient_user_id String @db.Uuid
+  downloaded Boolean @default(false)
+  downloaded_at DateTime?
   viewed Boolean @default(false)
   viewed_at DateTime?
   file_key String?
