@@ -1,12 +1,14 @@
 const cacheConfig = {
   ID_Prefix: {
-    User: 'user_',
-    Session: 'session_',
-    Device: 'device_',
-    Challenge: 'challenge_',
-    OTP_Cooldown: 'otp_cooldown_',
-    OTP_Request: 'otp_request_',
-    OTP_Token: 'otp_token_',
+    User: 'user:',
+    Session: 'session:',
+    Device: 'device:',
+    Challenge: 'challenge:',
+    OTP_Cooldown: 'otp_cooldown:',
+    OTP_Request: 'otp_request:',
+    OTP_Token: 'otp_token:',
+    Download_Request: 'download_request:',
+    File_Download_Url: 'file_download_url:',
   },
 };
 

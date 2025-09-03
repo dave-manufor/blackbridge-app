@@ -1,5 +1,6 @@
 export interface FileBlock {
   id: string;
+  index: number;
   path: string;
   size: number;
 }

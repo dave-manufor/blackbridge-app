@@ -199,7 +199,7 @@ class AuthController {
         jti: uuid_v4(),
         actionType: data.action_type,
         iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() + otpConfig.tokenValidDuration),
+        exp: Math.floor((Date.now() + otpConfig.tokenValidDuration) / 1000),
       };
 
       const token = jwt.sign(tokenPayload, otpConfig.tokenSecret);

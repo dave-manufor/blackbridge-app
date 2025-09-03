@@ -90,66 +90,78 @@ const transfer = async (
       signal
     );
 
+    let previousEnd = 0;
     // Create an array of block processing thunks
-    const blockProcessingTask = blocks.map((block, j) => async () => {
-      // Initialize block-specific state
-      uploadStore.initializeBlockProgressMap(i, j);
-      const start = j * block.size;
-      const end = start + block.size;
-      const fileChunk = new Uint8Array(
-        await file.slice(start, end).arrayBuffer()
-      );
+    const blockProcessingTask = blocks
+      .sort((a, b) => a.index - b.index)
+      .map((block) => async () => {
+        // Initialize block-specific state
+        uploadStore.initializeBlockProgressMap(i, block.index);
+        const start = previousEnd;
+        const end = start + block.size;
+        previousEnd = end;
+        const fileChunk = new Uint8Array(
+          await file.slice(start, end).arrayBuffer()
+        );
+        console.log("Block boundaries:", {
+          index: block.index,
+          suggested_size: block.size,
+          actual_size: fileChunk.byteLength,
+          start,
+          end,
+        });
 
-      // Encrypt the chunk before uploading
-      const encryptedChunk = await cryptoBridge.encrypt(fileChunk, {
-        sessionKey,
-        outputFormat: "binary",
-      });
+        // Encrypt the chunk before uploading
+        const encryptedChunk = await cryptoBridge.encrypt(fileChunk, {
+          sessionKey,
+          outputFormat: "binary",
+        });
 
-      const parts = await announceUpload({ block_id: block.id }, signal);
+        const parts = await announceUpload({ block_id: block.id }, signal);
 
-      // Pre-populate parts with 0 loaded bytes
-      parts.forEach((part) => {
-        uploadStore.setPartProgress(i, j, part.part_index, 0);
-      });
+        // Pre-populate parts with 0 loaded bytes
+        parts.forEach((part) => {
+          uploadStore.setPartProgress(i, block.index, part.part_index, 0);
+        });
 
-      // Guarantees it's a Blob-safe buffer
-      const safeBuffer = encryptedChunk.data.slice().buffer;
+        // Guarantees it's a Blob-safe buffer
+        const safeBuffer = encryptedChunk.data.slice().buffer;
 
-      const uploadedParts = await processBlockUpload(
-        {
-          block: new Blob([safeBuffer]),
-          initialParts: parts,
-          handleProgress: (e: AxiosProgressEvent, partIndex: number) => {
-            // This progress is for the encrypted chunk, so we map it back to original file size for UI
-            const partOriginalSize =
-              parts.find((p) => p.part_index === partIndex)?.part_size ?? 0;
-            if (!e.total || partOriginalSize === 0) return;
+        const uploadedParts = await processBlockUpload(
+          {
+            block: new Blob([safeBuffer]),
+            initialParts: parts,
+            handleProgress: (e: AxiosProgressEvent, partIndex: number) => {
+              // This progress is for the encrypted chunk, so we map it back to original file size for UI
+              const partOriginalSize =
+                parts.find((p) => p.part_index === partIndex)?.part_size ?? 0;
+              if (!e.total || partOriginalSize === 0) return;
 
-            // Map encrypted progress back to the original unencrypted part size
-            const progressRatio = e.loaded / e.total;
-            const loadedForThisPartOriginal = partOriginalSize * progressRatio;
+              // Map encrypted progress back to the original unencrypted part size
+              const progressRatio = e.loaded / e.total;
+              const loadedForThisPartOriginal =
+                partOriginalSize * progressRatio;
 
-            uploadStore.setPartProgress(
-              i,
-              j,
-              partIndex,
-              loadedForThisPartOriginal
-            );
+              uploadStore.setPartProgress(
+                i,
+                block.index,
+                partIndex,
+                loadedForThisPartOriginal
+              );
+            },
           },
-        },
-        signal
-      );
+          signal
+        );
 
-      await finalizeBlock(
-        {
-          block_key: block.path,
-          encrypted_size: encryptedChunk.data.byteLength,
-          parts: uploadedParts,
-        },
-        signal
-      );
-    });
+        await finalizeBlock(
+          {
+            block_key: block.path,
+            encrypted_size: encryptedChunk.data.byteLength,
+            parts: uploadedParts,
+          },
+          signal
+        );
+      });
 
     // Execute all block tasks for the current file in parallel with a limit.
     await runInParallel(blockProcessingTask, CONCURRENCY_LIMIT);

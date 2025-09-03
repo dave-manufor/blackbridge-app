@@ -10,6 +10,12 @@ import { z } from 'zod';
 import { prettyZodErrors } from '../utils/zod.utils';
 import { getPaginationResult } from '../utils/db.utils';
 import { generateRandomSlug } from '../utils/slug.utils';
+import { JWTDownloadRequestPayload } from 'custom';
+import jwt from 'jsonwebtoken';
+import transferConfig from '../config/transfer.config';
+import cacheConfig from '../config/cache.config';
+import cache from '../services/cache';
+import { v4 as uuid_v4 } from 'uuid';
 
 class TransferController {
   public path = '/transfers';
@@ -23,7 +29,9 @@ class TransferController {
 
   private initializeRoutes() {
     this.router.get('/', verifyToken(), this.getTransfers);
-    this.router.get('/:id', verifyToken(), this.getTransferDetails);
+    this.router.get('/:transferId', verifyToken(), this.getTransferDetails);
+    this.router.get('/emails/:transferId/download-request', verifyToken(), this.requestEmailDownload);
+    this.router.get('/links/:slug/download-request', verifyLinkAccess(), this.requestLinkDownload);
     this.router.post('/emails/:id/viewed', verifyToken(), this.markEmailTransferAsViewed);
     this.router.get('/unviewed/count', verifyToken(), this.getUnviewedEmailTransfersCount);
     this.router.post('/links/initiate', verifyToken(), this.validateBody('initiateLinkTransfer'), this.initiateLinkTransfer);
@@ -31,14 +39,6 @@ class TransferController {
     this.router.post('/links/commit/:id', verifyToken(), this.validateBody('commitLinkTransfer'), this.commitLinkTransfer);
     this.router.post('/emails/commit/:id', verifyToken(), this.validateBody('commitEmailTransfer'), this.commitEmailTransfer);
     this.router.get('/links/:slug', verifyLinkAccess(), this.getLinkTransfer);
-    // GET /received/:id/download-request - Request to download a shared file (pre-sign)
-    // GET /sent - Get all files shared by the user (both user-to-user and links)
-    // DELETE /user/:id - Revoke access to a shared file (user-to-user)
-    // POST /link - Create a secure link share for an existing file
-    // GET /link/:id - Get details of a secure link share (No Auth required)
-    // POST /link/:id/download-request - Request to download a file via secure link (pre-sign) (No Auth required)
-    // GET /link/owned - Get all secure link shares created by the user
-    // DELETE /link/:id - Revoke a secure link share
   }
 
   private initiateLinkTransfer = async (req: Request, res: Response) => {
@@ -377,7 +377,7 @@ class TransferController {
       const where = {
         OR: primarySelectors[direction],
         status: { not: TRANSFER_STATUS.PENDING },
-        ...(type && { type: type as TRANSFER_TYPE }),
+        ...(type && { transfer_type: type as TRANSFER_TYPE }),
         ...(status && { status: status as TRANSFER_STATUS }),
         ...(search && {
           OR: [
@@ -428,15 +428,19 @@ class TransferController {
         },
       });
 
+      const is_expired = (transfer: any) =>
+        transfer.status === TRANSFER_STATUS.EXPIRED || Date.now() > new Date(String(transfer.expiration_date)).getTime();
+
       // Add derived meta and remove other email transfers if not owner requesting
       const enrichedTransfers = transfers.map((transfer) => {
         const enrichedTransfer = {
           ...transfer,
+          status: is_expired(transfer) ? TRANSFER_STATUS.EXPIRED : transfer.status,
           recommended_title: transfer.title || transfer.files[0]?.name || 'Untitled',
           total_files_count: transfer.files.length,
           total_files_size_bytes: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
           is_owner: transfer.owner_user_id === userId,
-          is_expired: transfer.status === TRANSFER_STATUS.EXPIRED || Date.now() > new Date(String(transfer.expiration_date)).getTime(),
+          is_expired: is_expired(transfer),
           is_viewed: transfer.owner_user_id === userId ? true : transfer.email_transfers.some((et) => et.recipient_user.id === userId && et.viewed),
         };
         delete enrichedTransfer.email_transfers;
@@ -453,13 +457,13 @@ class TransferController {
   };
 
   private getTransferDetails = async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const { transferId } = req.params;
     const { userId } = req.session;
 
     try {
       const transfer = await db.transfers.findUnique({
         where: {
-          id: id,
+          id: transferId,
         },
         include: {
           owner: {
@@ -525,15 +529,19 @@ class TransferController {
         transfer.email_transfers = transfer.email_transfers.filter((email) => email.recipient_user.id === userId);
       }
 
+      const is_expired = (transfer: any) =>
+        transfer.status === TRANSFER_STATUS.EXPIRED || Date.now() > new Date(String(transfer.expiration_date)).getTime();
+
       res.status(StatusCodes.OK).json({
         message: 'Transfer fetched successfully',
         data: {
           ...transfer,
+          status: is_expired(transfer) ? TRANSFER_STATUS.EXPIRED : transfer.status,
           recommended_title: transfer.title || transfer.files[0]?.name || 'Untitled',
           total_files_count: transfer.files.length,
           total_files_size_bytes: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
           is_owner: transfer.owner_user_id === userId,
-          is_expired: transfer.status === TRANSFER_STATUS.EXPIRED || Date.now() > new Date(String(transfer.expiration_date)).getTime(),
+          is_expired: is_expired(transfer),
           is_viewed: transfer.owner_user_id === userId ? true : transfer.email_transfers.some((et) => et.recipient_user.id === userId && et.viewed),
         },
       });
@@ -612,11 +620,8 @@ class TransferController {
     const { userId } = req.session || {};
 
     try {
-      const linkTransfer = await db.linkTransfers.update({
+      const linkTransfer = await db.linkTransfers.findFirst({
         where: { slug, transfer: { expiration_date: { gt: new Date() } } },
-        data: {
-          last_accessed: new Date(),
-        },
         select: {
           id: true,
           slug: true,
@@ -653,6 +658,11 @@ class TransferController {
         return;
       }
 
+      await db.linkTransfers.update({
+        where: { id: linkTransfer.id },
+        data: { last_accessed: new Date() },
+      });
+
       res.status(StatusCodes.OK).json({
         message: 'Link transfer fetched successfully',
         data: {
@@ -664,6 +674,168 @@ class TransferController {
       });
     } catch (error) {
       this.transferLogger.error(error, 'Failed to get link transfer');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  };
+
+  private requestEmailDownload = async (req: Request, res: Response) => {
+    const { userId } = req.session;
+    const { transferId } = req.params as { transferId: string };
+
+    try {
+      const transfer = await db.transfers.findFirst({
+        where: { id: transferId, transfer_type: TRANSFER_TYPE.EMAIL },
+        select: {
+          id: true,
+          owner_user_id: true,
+          status: true,
+          expiration_date: true,
+          email_transfers: {
+            select: {
+              id: true,
+              recipient_user_id: true,
+              file_key: true,
+            },
+          },
+          files: {
+            select: {
+              id: true,
+              name: true,
+              size: true,
+              content_type: true,
+              metadata: true,
+              blocks: {
+                select: {
+                  id: true,
+                  file_id: true,
+                  index: true,
+                  size: true,
+                  encrypted_size: true,
+                  path: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Check if the transfer exists
+      if (!transfer) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Transfer not found' });
+        return;
+      }
+
+      // Check permissions
+      if (transfer.owner_user_id !== userId && !transfer.email_transfers.some((et) => et.recipient_user_id === userId)) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to access this transfer' });
+        return;
+      }
+      // Check if the transfer is still active
+      if (transfer.status !== TRANSFER_STATUS.ACTIVE || transfer.expiration_date < new Date()) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'Transfer is no longer active' });
+        return;
+      }
+
+      // Remove email transfer from response
+      delete transfer.email_transfers;
+
+      // Generate Token
+      const payloadId = uuid_v4();
+      const payload: JWTDownloadRequestPayload = {
+        id: payloadId,
+        userId: userId ?? null,
+        tid: transfer.id,
+        iat: Date.now(),
+        exp: Date.now() + transferConfig.tokenValidDuration,
+      };
+      // Store token in cache
+      const key = `${cacheConfig.ID_Prefix.Download_Request}${transferId}:${payloadId}`;
+      await cache.setEx(key, transferConfig.tokenValidDuration / 1000, JSON.stringify(payload));
+
+      const token = jwt.sign(payload, process.env.TRANSFER_TOKEN_SECRET as string);
+
+      // Non-blocking update of email transfer
+      db.emailTransfers
+        .updateMany({
+          where: {
+            recipient_user_id: userId,
+            transfer_id: transferId,
+            downloaded: false,
+          },
+          data: { downloaded: true, downloaded_at: new Date() },
+        })
+        .catch((err) => this.transferLogger.warn({ err }, 'Failed to mark email transfer as downloaded'));
+
+      res.status(StatusCodes.OK).json({ message: 'Success', data: { transfer, token } });
+    } catch (error) {
+      this.transferLogger.error(error, 'Error requesting download');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  };
+
+  private requestLinkDownload = async (req: Request, res: Response) => {
+    const { userId } = req.session || {};
+    const { slug } = req.params as { slug: string };
+
+    try {
+      const transfer = await db.transfers.findFirst({
+        where: { link_transfer: { slug }, transfer_type: TRANSFER_TYPE.LINK },
+        select: {
+          id: true,
+          owner_user_id: true,
+          status: true,
+          expiration_date: true,
+          files: {
+            select: {
+              id: true,
+              name: true,
+              size: true,
+              content_type: true,
+              metadata: true,
+              blocks: {
+                select: {
+                  id: true,
+                  file_id: true,
+                  index: true,
+                  size: true,
+                  encrypted_size: true,
+                  path: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!transfer) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Transfer not found' });
+        return;
+      }
+
+      // Check if the transfer is still active
+      if (transfer.status !== TRANSFER_STATUS.ACTIVE || transfer.expiration_date < new Date()) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'Transfer is no longer active' });
+        return;
+      }
+
+      // Generate Token
+      const payloadId = uuid_v4();
+      const payload: JWTDownloadRequestPayload = {
+        id: payloadId,
+        userId: userId,
+        tid: transfer.id,
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor((Date.now() + transferConfig.tokenValidDuration) / 1000),
+      };
+      // Store token in cache
+      const key = `${cacheConfig.ID_Prefix.Download_Request}${transfer.id}:${payloadId}`;
+      await cache.setEx(key, transferConfig.tokenValidDuration / 1000, JSON.stringify(payload));
+
+      const token = jwt.sign(payload, process.env.TRANSFER_TOKEN_SECRET as string);
+
+      res.status(StatusCodes.OK).json({ message: 'Success', data: { transfer, token } });
+    } catch (error) {
+      this.transferLogger.error(error, 'Error requesting link download');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   };

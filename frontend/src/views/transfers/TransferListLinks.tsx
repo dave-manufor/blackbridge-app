@@ -13,7 +13,7 @@ import useTransferListContext from "@/hooks/context/useTransferListContext";
 import { useGetTransfersQuery } from "@/hooks/queries";
 import { usePageReducer } from "@/hooks/reducers";
 
-const TransferListSent = () => {
+const TransferListLinks = () => {
   const { search, limit } = useTransferListContext();
   const { page, dispatch: pageDispatch } = usePageReducer();
   const DIRECTION = TRANSFER_DIRECTION.SENT;
@@ -22,7 +22,7 @@ const TransferListSent = () => {
     search,
     limit,
     page,
-    type: TRANSFER_TYPES.EMAIL,
+    type: TRANSFER_TYPES.LINK,
   };
   const { isPending, isError, data } = useGetTransfersQuery(query);
   return (
@@ -72,4 +72,4 @@ const TransferListSent = () => {
   );
 };
 
-export default TransferListSent;
+export default TransferListLinks;

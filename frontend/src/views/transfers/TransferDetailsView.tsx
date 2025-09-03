@@ -17,16 +17,21 @@ import { formatFileSize, prettierLinkAccessControl } from "@/utils/format";
 import { MdOutlineFileDownload } from "react-icons/md";
 import { IoCloseCircleOutline } from "react-icons/io5";
 import CopyText from "@/components/ui/CopyText";
-import { BASE_SHAREABLE_URL } from "@/config/constants/transfers";
+import {
+  BASE_SHAREABLE_URL,
+  TRANSFER_TYPES,
+} from "@/config/constants/transfers";
 import { CryptoBridge } from "@/lib/crypto/workers/CryptoBridge";
 import QRCode from "react-qr-code";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMarkTransferAsViewedMutation } from "@/hooks/mutations";
 import FileCard from "@/components/ui/FileCard";
 import FileCardSkeleton from "@/components/ui/FileCardSkeleton";
+import useDownloader from "@/hooks/useDownloader";
 
 const TransferDetailsView = () => {
   const cryptoBridge = CryptoBridge.getInstance();
+  const downloader = useDownloader();
   const navigate = useNavigate();
   const [isNotFoundError, setIsNotFoundError] = useState(false);
   const [sharableUrl, setSharableUrl] = useState("");
@@ -91,10 +96,55 @@ const TransferDetailsView = () => {
   }, [transferDetails, cryptoBridge]);
 
   useEffect(() => {
-    if (transferDetails) {
+    if (
+      transferDetails &&
+      transferDetails.transfer_type === TRANSFER_TYPES.EMAIL &&
+      !transferDetails.is_owner
+    ) {
       markTransferAsViewed({ transfer_id: transferDetails.id });
     }
   }, [transferDetails, markTransferAsViewed]);
+
+  const handleDownloadAll = () => {
+    if (!transferDetails) return;
+    downloader.downloadFiles({
+      transfer_identifier:
+        transferDetails.transfer_type === TRANSFER_TYPES.EMAIL
+          ? transferDetails.id
+          : transferDetails.link_transfer?.slug || "",
+      type: transferDetails.transfer_type,
+      file_ids: transferDetails.files.map((file) => file.id),
+      sessionKeyArmored: transferDetails.is_owner
+        ? transferDetails.owner_file_key
+        : transferDetails.email_transfers[0].file_key,
+      options: {
+        sessionKeyOptions: {
+          decryptWith: "privateKey",
+        },
+      },
+    });
+  };
+
+  const handleFileDownload = (fileId: string) => {
+    if (!transferDetails) return;
+
+    downloader.downloadFiles({
+      transfer_identifier:
+        transferDetails.transfer_type === TRANSFER_TYPES.EMAIL
+          ? transferDetails.id
+          : transferDetails.link_transfer?.slug || "",
+      type: transferDetails.transfer_type,
+      file_ids: [fileId],
+      sessionKeyArmored: transferDetails.is_owner
+        ? transferDetails.owner_file_key
+        : transferDetails.email_transfers[0].file_key,
+      options: {
+        sessionKeyOptions: {
+          decryptWith: "privateKey",
+        },
+      },
+    });
+  };
 
   return (
     <>
@@ -264,7 +314,11 @@ const TransferDetailsView = () => {
                       {formatFileSize(transferDetails.total_files_size_bytes)}
                     </span>
                   </div>
-                  <div className={styles.files_download_icon}>
+                  <div
+                    className={styles.files_download_icon}
+                    onClick={handleDownloadAll}
+                    title="Download All"
+                  >
                     <MdOutlineFileDownload />
                   </div>
                 </div>
@@ -276,7 +330,9 @@ const TransferDetailsView = () => {
                     name={file.name}
                     contentType={file.content_type}
                     size={file.size}
-                    onDownload={() => {}}
+                    onDownload={() => {
+                      handleFileDownload(file.id);
+                    }}
                   />
                 ))}
               </div>

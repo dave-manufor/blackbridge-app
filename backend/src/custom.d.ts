@@ -25,6 +25,14 @@ export interface JWTOtpPayload {
   exp: number;
 }
 
+export interface JWTDownloadRequestPayload {
+  id: string;
+  userId: string | null;
+  tid: string;
+  iat: number;
+  exp: number;
+}
+
 export interface PaginationDetails {
   page: number;
   limit: number;
@@ -43,6 +51,7 @@ declare global {
   namespace Express {
     export interface Request {
       session?: JWTAuthPayload;
+      downloadRequest?: JWTDownloadRequestPayload;
       consumeOtpToken?: () => Promise<void>;
     }
   }

@@ -1,11 +1,12 @@
 import { TransferStatusBadge, TransferTypeBadge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatFileSize } from "@/utils/format";
 import { FaRegFolderOpen } from "react-icons/fa";
 import { FiArrowDownLeft, FiArrowUpRight } from "react-icons/fi";
 import { useNavigate } from "react-router";
+import { TRANSFER_TYPES } from "@/config/constants/transfers";
+import { IoLink } from "react-icons/io5";
 
 const TransferSummaryCard = ({
   id,
@@ -30,15 +31,18 @@ const TransferSummaryCard = ({
   className?: string;
   onClick?: () => void;
 }) => {
+  const navigate = useNavigate();
   const handleCardClick = () => {
     onClick?.();
     navigate(`/transfers/${id}`);
   };
-  const navigate = useNavigate();
   return (
     <Card
       key={id}
-      className={cn("p-4 gap-0 hover:bg-neutral-50 relative", className)}
+      className={cn(
+        "p-4 gap-0 hover:bg-neutral-50 relative cursor-pointer",
+        className
+      )}
       onClick={handleCardClick}
     >
       {!is_viewed && (
@@ -46,7 +50,9 @@ const TransferSummaryCard = ({
       )}
       <div className="w-full overflow-hidden text-ellipsis font-medium mb-6 flex gap-4">
         <span className="grow truncate text-base">{recommended_title}</span>
-        {is_owner ? (
+        {transfer_type === TRANSFER_TYPES.LINK ? (
+          <IoLink className="text-2xl min-w-fit" />
+        ) : is_owner ? (
           <FiArrowUpRight className="text-2xl min-w-fit" />
         ) : (
           <FiArrowDownLeft className="text-2xl min-w-fit" />
@@ -77,9 +83,11 @@ const TransferSummaryCard = ({
         <TransferStatusBadge status={status} />
         <TransferTypeBadge type={transfer_type} />
       </div>
-      <div className="flex items-center pt-4 border-t border-neutral-200">
-        <Button className="cursor-pointer">Download All</Button>
-      </div>
+      {/* <div className="flex items-center pt-4 border-t border-neutral-200">
+        <Button className="cursor-pointer" onClick={handleDownload}>
+          Download All
+        </Button>
+      </div> */}
     </Card>
   );
 };

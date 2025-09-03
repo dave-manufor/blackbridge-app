@@ -32,6 +32,8 @@ import {
   IoCaretUpCircle,
   IoCaretDownCircleOutline,
   IoCaretDownCircle,
+  IoLinkOutline,
+  IoLink,
 } from "react-icons/io5";
 import { Link } from "react-router";
 import { useAuthStore } from "@/stores/authStore";
@@ -114,6 +116,12 @@ const AppSideBar = () => {
                   ? "99+"
                   : unviewedTransfersCount
                 : undefined,
+          },
+          {
+            label: "Links",
+            defaultIcon: IoLinkOutline,
+            activeIcon: IoLink,
+            url: "/transfers/links",
           },
           // {
           //   label: "Deleted Files",

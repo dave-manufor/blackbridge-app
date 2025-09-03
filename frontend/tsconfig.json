@@ -13,6 +13,7 @@
     "incremental": true,
     "esModuleInterop": true,
     "baseUrl": "./src",
+    "types": ["@types/wicg-file-system-access"],
     "paths": {
       "@/*": ["./*"],
       "@api/*": ["./api/*"],

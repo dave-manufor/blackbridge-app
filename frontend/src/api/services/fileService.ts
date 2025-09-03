@@ -135,11 +135,16 @@ export async function processBlockUpload(
   signal?: AbortSignal
 ) {
   const { block, initialParts, handleProgress } = payload;
+  console.log("Processing block upload:", {
+    block,
+  });
   try {
     // No parts to upload, return early
     if (!initialParts || initialParts.length === 0) return [];
 
-    let partsToUpload = [...initialParts];
+    let partsToUpload = [...initialParts].sort(
+      (a, b) => a.part_index - b.part_index
+    );
     const successfulUploads: UploadPartResponse[] = [];
     let retryCount = 0;
 
@@ -147,13 +152,24 @@ export async function processBlockUpload(
       // Check if all parts have been uploaded successfully
       if (partsToUpload.length === 0) break;
 
+      let previousEnd = 0;
       const uploadPromises = partsToUpload.map((part) => {
-        const start =
-          part.part_index === initialParts.length - 1
-            ? block.size - part.part_size
-            : part.part_index * part.part_size;
-        const end = start + part.part_size;
+        const start = previousEnd;
+        const end =
+          part.part_index === initialParts.length // 1-index for parts not 0-index
+            ? block.size
+            : start + part.part_size;
+        previousEnd = end;
         const chunk = block.slice(start, end);
+        console.log("Part boundaries:", {
+          index: part.part_index,
+          start,
+          end,
+        });
+        console.log("Uploading part:", {
+          chunk,
+          part,
+        });
         return uploadPart(
           {
             fileChunk: chunk,
@@ -172,7 +188,7 @@ export async function processBlockUpload(
         if (result.status === "fulfilled") {
           successfulUploads.push(result.value as UploadPartResponse);
         } else {
-          const originalPartData = initialParts[index];
+          const originalPartData = partsToUpload[index];
           failedParts.push(originalPartData);
         }
       });
@@ -199,7 +215,7 @@ export async function processBlockUpload(
       try {
         const refreshedParts = await callRetryEndpoint(
           {
-            block_id: initialParts[0].block_id,
+            block_id: partsToUpload[0].block_id,
             failed_parts: failedParts,
           },
           signal

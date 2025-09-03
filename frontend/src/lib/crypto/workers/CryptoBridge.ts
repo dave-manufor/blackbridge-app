@@ -167,13 +167,11 @@ export class CryptoBridge implements CryptoBridgeInterface {
       .decryptFragment(encryptedFragment)) as string;
   }
 
-  async generateSessionKey(
-    algorithm: "aes128" | "aes256" = "aes256"
-  ): Promise<openpgp.SessionKey> {
+  async generateSessionKey(): Promise<openpgp.SessionKey> {
     this.assertInitialized({ loose: true });
     return (await this.workerPool
       .getWorker()
-      .generateSessionKey(algorithm)) as openpgp.SessionKey;
+      .generateSessionKey()) as openpgp.SessionKey;
   }
 
   async encryptSessionKeys<T extends EncryptionOutputFormat>(
