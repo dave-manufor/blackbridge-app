@@ -248,16 +248,10 @@ export class CryptoWorker implements CryptoWorkerInterface {
    * @param algorithm - AES algorithm variant ('aes128' or 'aes256'). Defaults to 'aes256'.
    * @returns A new session key with random data.
    */
-  generateSessionKey(
-    algorithm: "aes128" | "aes256" = "aes256"
-  ): openpgp.SessionKey {
-    const sizeMap = {
-      aes128: 16,
-      aes256: 32,
-    };
-    const length = sizeMap[algorithm];
-    const data = crypto.getRandomValues(new Uint8Array(length));
-    return { data, algorithm };
+  async generateSessionKey(): Promise<openpgp.SessionKey> {
+    return await openpgp.generateSessionKey({
+      encryptionKeys: [],
+    });
   }
 
   generateRandomFragment(

@@ -4,10 +4,14 @@ import { SignInView, SignUpView, VerificationView } from "./views/auth";
 import ProtectedRoute from "./components/features/navigation/ProtectedRoute";
 import DashboardView from "./views/dashboard/DashboardView";
 import SideBarLayout from "./layouts/SideBarLayout";
-import { TransferDetailsView, TransferHistoryView } from "./views/transfers";
-import TransferListAll from "./views/transfers/TransferListAll";
-import TransferListSent from "./views/transfers/TransferListSent";
-import TransferListReceived from "./views/transfers/TransferListReceived";
+import {
+  TransferDetailsView,
+  TransferListLayout,
+  TransferListAll,
+  TransferListSent,
+  TransferListReceived,
+  TransferListLinks,
+} from "./views/transfers";
 import { TransferListProvider } from "./contexts/TransferListContext";
 import PublicLinkView from "./views/public/PublicLinkView";
 import PublicLayout from "./layouts/PublicLayout";
@@ -55,7 +59,7 @@ const router = createBrowserRouter([
                 path: "",
                 element: (
                   <TransferListProvider>
-                    <TransferHistoryView />
+                    <TransferListLayout />
                   </TransferListProvider>
                 ),
                 children: [
@@ -70,6 +74,10 @@ const router = createBrowserRouter([
                   {
                     path: "received",
                     element: <TransferListReceived />,
+                  },
+                  {
+                    path: "links",
+                    element: <TransferListLinks />,
                   },
                 ],
               },

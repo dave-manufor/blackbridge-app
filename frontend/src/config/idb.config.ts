@@ -1,4 +1,4 @@
 export default {
   name: "BlackBridgeApp",
-  version: 1,
+  version: 2,
 };

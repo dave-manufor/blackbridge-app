@@ -5,7 +5,10 @@ import TransferSummaryCardSkeleton from "@/components/features/transfers/Transfe
 import GenericErrorState from "@/components/ui/GenericErrorState";
 import GridSection from "@/components/ui/GridSection";
 import { PaginationControls } from "@/components/ui/pagination";
-import { TRANSFER_DIRECTION } from "@/config/constants/transfers";
+import {
+  TRANSFER_DIRECTION,
+  TRANSFER_TYPES,
+} from "@/config/constants/transfers";
 import useTransferListContext from "@/hooks/context/useTransferListContext";
 import { useGetTransfersQuery } from "@/hooks/queries";
 import { usePageReducer } from "@/hooks/reducers";
@@ -19,6 +22,7 @@ const TransferListReceived = () => {
     search,
     limit,
     page,
+    type: TRANSFER_TYPES.EMAIL,
   };
   const { isPending, isError, data } = useGetTransfersQuery(query);
   return (

@@ -38,5 +38,11 @@ export default {
     initiateLinkTransfer: "transfers/links/initiate",
     commitLinkTransfer: ({ transferId }: { transferId: string }) =>
       `transfers/links/commit/${transferId}`,
+    getEmailTransferDownloadRequest: ({ transferId }: { transferId: string }) =>
+      `transfers/emails/${transferId}/download-request`,
+    getLinkTransferDownloadRequest: ({ slug }: { slug: string }) =>
+      `transfers/links/${slug}/download-request`,
+    getDownloadUrls: ({ fileId }: { fileId: string }) =>
+      `files/${fileId}/download-urls`,
   },
 };

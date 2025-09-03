@@ -28,13 +28,15 @@ import GenericErrorState from "@/components/ui/GenericErrorState";
 import { PasswordInput } from "@/components/ui/input";
 import { CryptoBridge } from "@/lib/crypto/workers/CryptoBridge";
 import { devOnly } from "@/utils/dev";
+import useDownloader from "@/hooks/useDownloader";
+import { TRANSFER_TYPES } from "@/config/constants/transfers";
 
 const PublicLinkView = () => {
+  const downloader = useDownloader();
   const cryptoBridge = useMemo(() => CryptoBridge.getInstance(), []);
   const navigate = useNavigate();
   const [isNotFoundError, setIsNotFoundError] = useState(false);
   const [isServerError, setIsServerError] = useState(false);
-  // const [readyToView, setReadyToView] = useState(false);
   const [isAuthError, setIsAuthError] = useState(false);
   const [password, setPassword] = useState("");
   const [isKeyDecrypting, setIsKeyDecrypting] = useState(false);
@@ -80,8 +82,8 @@ const PublicLinkView = () => {
     }: {
       sessionKey: string;
       password?: string;
-    }): Promise<boolean> => {
-      if (!fragment) return false;
+    }): Promise<{ isValid: boolean; passphrase?: string }> => {
+      if (!fragment) return { isValid: false };
       let passphrase = fragment;
       if (password) {
         passphrase += password;
@@ -91,10 +93,10 @@ const PublicLinkView = () => {
           decryptWith: "passphrase",
           passphrase,
         });
-        return true;
+        return { isValid: true, passphrase };
       } catch (error) {
         devOnly(() => console.error("Failed to decrypt session key", error));
-        return false;
+        return { isValid: false };
       }
     },
     [cryptoBridge, fragment]
@@ -111,11 +113,54 @@ const PublicLinkView = () => {
     // Check if key decryption was successful and update state
     if (isValid) {
       setIsKeyDecrypted(true);
-      // setReadyToView(true);
     } else {
       setIsKeyDecryptFailed(true);
     }
     setIsKeyDecrypting(false);
+  };
+
+  const handleDownloadAll = async () => {
+    if (!linkData) return;
+    const { isValid, passphrase } = await checkKey({
+      sessionKey: linkData.file_key,
+    });
+    if (!isValid || !passphrase) {
+      return;
+    }
+    downloader.downloadFiles({
+      transfer_identifier: linkData.slug,
+      type: TRANSFER_TYPES.LINK,
+      file_ids: linkData.transfer.files.map((file) => file.id),
+      sessionKeyArmored: linkData.file_key,
+      options: {
+        sessionKeyOptions: {
+          decryptWith: "passphrase",
+          passphrase,
+        },
+      },
+    });
+  };
+
+  const handleFileDownload = async (fileId: string) => {
+    if (!linkData) return;
+    const { isValid, passphrase } = await checkKey({
+      sessionKey: linkData.file_key,
+    });
+    if (!isValid || !passphrase) {
+      return;
+    }
+    downloader.downloadFiles({
+      transfer_identifier: linkData.slug,
+      type: TRANSFER_TYPES.LINK,
+      file_ids: [fileId],
+      sessionKeyArmored: linkData.file_key,
+      options: {
+        sessionKeyOptions: {
+          decryptWith: "passphrase",
+          passphrase,
+        },
+      },
+    });
   };
 
   useEffect(() => {
@@ -156,7 +201,7 @@ const PublicLinkView = () => {
         // Set loading state
         setIsKeyDecrypting(true);
         // Attempt to decrypt file key
-        const isValid = await checkKey({
+        const { isValid } = await checkKey({
           sessionKey: linkData.file_key,
         });
         // Check if key decryption was successful and update state
@@ -170,15 +215,7 @@ const PublicLinkView = () => {
         setIsKeyDecrypting(false);
       });
     }
-  }, [
-    linkData,
-    isKeyDecrypted,
-    isPending,
-    isError,
-    error,
-    // setReadyToView,
-    checkKey,
-  ]);
+  }, [linkData, isKeyDecrypted, isPending, isError, error, checkKey]);
 
   const readyToView =
     !isPending && !isError && !isKeyDecryptFailed && isKeyDecrypted && linkData;
@@ -334,7 +371,10 @@ const PublicLinkView = () => {
                       {formatFileSize(linkData.total_files_size_bytes)}
                     </span>
                   </div>
-                  <div className={styles.files_download_icon}>
+                  <div
+                    className={styles.files_download_icon}
+                    onClick={handleDownloadAll}
+                  >
                     <MdOutlineFileDownload />
                   </div>
                 </div>
@@ -346,7 +386,9 @@ const PublicLinkView = () => {
                     name={file.name}
                     size={file.size}
                     contentType={file.content_type}
-                    onDownload={() => {}}
+                    onDownload={() => {
+                      handleFileDownload(file.id);
+                    }}
                   />
                 ))}
               </div>

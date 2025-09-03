@@ -3,6 +3,7 @@ import ToastWrapper from "./components/overlay/ToastWrapper";
 import LoadScreen from "./components/overlay/LoadScreen";
 import { useAuthStore } from "./stores/authStore";
 import { useEffect, useRef } from "react";
+import DownloadsDrawer from "./components/overlay/DownloadsDrawer";
 
 function Root() {
   const authInitialized = useAuthStore((state) => state.authInitialized);
@@ -26,6 +27,7 @@ function Root() {
         <LoadScreen />
       )}
       <ToastWrapper />
+      <DownloadsDrawer />
       <ScrollRestoration />
     </>
   );

@@ -9,7 +9,7 @@ import db from '../services/db';
 import jwtConfig from '../config/jwt.config';
 import otpConfig from '../config/otp.config';
 import cacheConfig from '../config/cache.config';
-import transferConfig from 'config/transfer.config';
+import transferConfig from '../config/transfer.config';
 
 const authMiddlewareLogger = logger.child({ module: 'AuthMiddleware' });
 

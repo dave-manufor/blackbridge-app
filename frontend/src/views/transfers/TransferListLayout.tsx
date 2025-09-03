@@ -41,6 +41,9 @@ const TransferListLayout = () => {
           <NavigationTabsTrigger to="/transfers/received">
             Received
           </NavigationTabsTrigger>
+          <NavigationTabsTrigger to="/transfers/links">
+            Links
+          </NavigationTabsTrigger>
         </NavigationTabs>
       </GridSection>
       <GridSection>

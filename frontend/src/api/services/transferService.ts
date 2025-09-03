@@ -192,7 +192,7 @@ export type TransferDetailsData = {
   is_owner: boolean;
   is_expired: boolean;
   is_viewed: boolean;
-};
+} & { is_owner: true; owner_file_key: string };
 
 export async function getTransferDetails(
   transferId: string,
@@ -259,4 +259,78 @@ export async function getLinkTransfer(
   const endpoint = ApiRoutes.transfer.getLinkTransfer({ slug });
   const response = await PUBLIC_API.get(endpoint, { signal });
   return response.data?.data as LinkTransferData;
+}
+
+export type RequestDownloadResponse = {
+  transfer: {
+    id: string;
+    owner_user_id: string;
+    status: string;
+    expiration_date: string;
+    files: Array<{
+      id: string;
+      name: string;
+      size: number;
+      content_type: string;
+      metadata: object | null;
+      blocks: Array<{
+        id: string;
+        file_id: string;
+        index: number;
+        size: number;
+        encrypted_size: number;
+        path: string;
+      }>;
+    }>;
+  };
+  token: string;
+};
+
+export async function requestDownload(
+  identifier: string,
+  type: (typeof TRANSFER_TYPES)[keyof typeof TRANSFER_TYPES],
+  signal?: AbortSignal
+): Promise<RequestDownloadResponse> {
+  let endpoint: string;
+  switch (type) {
+    case TRANSFER_TYPES.EMAIL:
+      endpoint = ApiRoutes.transfer.getEmailTransferDownloadRequest({
+        transferId: identifier,
+      });
+      break;
+    case TRANSFER_TYPES.LINK:
+      endpoint = ApiRoutes.transfer.getLinkTransferDownloadRequest({
+        slug: identifier,
+      });
+      break;
+    default:
+      throw new Error("Invalid transfer type");
+  }
+  const response = await API.get(endpoint, { signal });
+
+  return response.data?.data as RequestDownloadResponse;
+}
+
+type FileBlockDownloadDetails = {
+  file_id: string;
+  file_name: string;
+  block_index: number;
+  download_url: string;
+};
+
+type GetDownloadUrlsResponse = Array<FileBlockDownloadDetails>;
+
+export async function getDownloadUrls(
+  fileId: string,
+  token: string,
+  signal?: AbortSignal
+): Promise<GetDownloadUrlsResponse> {
+  const endpoint = ApiRoutes.transfer.getDownloadUrls({ fileId });
+  const response = await API.get(endpoint, {
+    signal,
+    headers: {
+      "x-download-authorization": `Bearer ${token}`,
+    },
+  });
+  return response.data?.data as GetDownloadUrlsResponse;
 }

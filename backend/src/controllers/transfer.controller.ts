@@ -12,9 +12,9 @@ import { getPaginationResult } from '../utils/db.utils';
 import { generateRandomSlug } from '../utils/slug.utils';
 import { JWTDownloadRequestPayload } from 'custom';
 import jwt from 'jsonwebtoken';
-import transferConfig from 'config/transfer.config';
-import cacheConfig from 'config/cache.config';
-import cache from 'services/cache';
+import transferConfig from '../config/transfer.config';
+import cacheConfig from '../config/cache.config';
+import cache from '../services/cache';
 import { v4 as uuid_v4 } from 'uuid';
 
 class TransferController {
@@ -377,7 +377,7 @@ class TransferController {
       const where = {
         OR: primarySelectors[direction],
         status: { not: TRANSFER_STATUS.PENDING },
-        ...(type && { type: type as TRANSFER_TYPE }),
+        ...(type && { transfer_type: type as TRANSFER_TYPE }),
         ...(status && { status: status as TRANSFER_STATUS }),
         ...(search && {
           OR: [
@@ -428,15 +428,19 @@ class TransferController {
         },
       });
 
+      const is_expired = (transfer: any) =>
+        transfer.status === TRANSFER_STATUS.EXPIRED || Date.now() > new Date(String(transfer.expiration_date)).getTime();
+
       // Add derived meta and remove other email transfers if not owner requesting
       const enrichedTransfers = transfers.map((transfer) => {
         const enrichedTransfer = {
           ...transfer,
+          status: is_expired(transfer) ? TRANSFER_STATUS.EXPIRED : transfer.status,
           recommended_title: transfer.title || transfer.files[0]?.name || 'Untitled',
           total_files_count: transfer.files.length,
           total_files_size_bytes: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
           is_owner: transfer.owner_user_id === userId,
-          is_expired: transfer.status === TRANSFER_STATUS.EXPIRED || Date.now() > new Date(String(transfer.expiration_date)).getTime(),
+          is_expired: is_expired(transfer),
           is_viewed: transfer.owner_user_id === userId ? true : transfer.email_transfers.some((et) => et.recipient_user.id === userId && et.viewed),
         };
         delete enrichedTransfer.email_transfers;
@@ -525,15 +529,19 @@ class TransferController {
         transfer.email_transfers = transfer.email_transfers.filter((email) => email.recipient_user.id === userId);
       }
 
+      const is_expired = (transfer: any) =>
+        transfer.status === TRANSFER_STATUS.EXPIRED || Date.now() > new Date(String(transfer.expiration_date)).getTime();
+
       res.status(StatusCodes.OK).json({
         message: 'Transfer fetched successfully',
         data: {
           ...transfer,
+          status: is_expired(transfer) ? TRANSFER_STATUS.EXPIRED : transfer.status,
           recommended_title: transfer.title || transfer.files[0]?.name || 'Untitled',
           total_files_count: transfer.files.length,
           total_files_size_bytes: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
           is_owner: transfer.owner_user_id === userId,
-          is_expired: transfer.status === TRANSFER_STATUS.EXPIRED || Date.now() > new Date(String(transfer.expiration_date)).getTime(),
+          is_expired: is_expired(transfer),
           is_viewed: transfer.owner_user_id === userId ? true : transfer.email_transfers.some((et) => et.recipient_user.id === userId && et.viewed),
         },
       });

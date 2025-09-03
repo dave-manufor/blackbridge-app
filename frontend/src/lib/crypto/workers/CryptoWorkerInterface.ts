@@ -45,7 +45,7 @@ interface CryptoWorkerInterface {
 
   decryptFragment(encryptedFragment: string): Promise<string>;
 
-  generateSessionKey(algorithm: "aes128" | "aes256"): openpgp.SessionKey;
+  generateSessionKey(): Promise<openpgp.SessionKey>;
 
   encryptSessionKeys<T extends EncryptionOutputFormat>(
     sessionKey: openpgp.SessionKey,

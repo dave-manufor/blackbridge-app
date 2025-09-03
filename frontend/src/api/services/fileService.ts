@@ -135,6 +135,9 @@ export async function processBlockUpload(
   signal?: AbortSignal
 ) {
   const { block, initialParts, handleProgress } = payload;
+  console.log("Processing block upload:", {
+    block,
+  });
   try {
     // No parts to upload, return early
     if (!initialParts || initialParts.length === 0) return [];
@@ -147,22 +150,35 @@ export async function processBlockUpload(
       // Check if all parts have been uploaded successfully
       if (partsToUpload.length === 0) break;
 
-      const uploadPromises = partsToUpload.map((part) => {
-        const start =
-          part.part_index === initialParts.length - 1
-            ? block.size - part.part_size
-            : part.part_index * part.part_size;
-        const end = start + part.part_size;
-        const chunk = block.slice(start, end);
-        return uploadPart(
-          {
-            fileChunk: chunk,
+      let previousEnd = 0;
+      const uploadPromises = partsToUpload
+        .sort((a, b) => a.part_index - b.part_index)
+        .map((part) => {
+          const start = previousEnd;
+          const end =
+            part.part_index === initialParts.length // 1-index for parts not 0-index
+              ? block.size
+              : start + part.part_size;
+          previousEnd = end;
+          const chunk = block.slice(start, end);
+          console.log("Part boundaries:", {
+            index: part.part_index,
+            start,
+            end,
+          });
+          console.log("Uploading part:", {
+            chunk,
             part,
-            onUploadProgress: (e) => handleProgress(e, part.part_index),
-          },
-          signal
-        );
-      });
+          });
+          return uploadPart(
+            {
+              fileChunk: chunk,
+              part,
+              onUploadProgress: (e) => handleProgress(e, part.part_index),
+            },
+            signal
+          );
+        });
 
       const results = await Promise.allSettled(uploadPromises);
       const failedParts: UploadPart[] = [];
