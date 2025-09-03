@@ -12,7 +12,7 @@ import { initDB } from './services/db';
 import AWS from 'aws-sdk';
 import nocache from 'nocache';
 import { readFileSync } from 'fs';
-import { isDevEnvironment } from 'utils/dev.utils';
+import { isDevEnvironment } from './utils/dev.utils';
 import https from 'https';
 
 const certificateFile = readFileSync('./certs/cert.pem');
