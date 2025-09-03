@@ -192,7 +192,7 @@ export type TransferDetailsData = {
   is_owner: boolean;
   is_expired: boolean;
   is_viewed: boolean;
-} & { is_owner: true; owner_file_key: string };
+} & ({ is_owner: true; owner_file_key: string } | { is_owner: false });
 
 export async function getTransferDetails(
   transferId: string,

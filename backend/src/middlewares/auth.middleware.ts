@@ -189,7 +189,7 @@ export const verifyLinkAccess = () => {
 };
 
 const extractTransferToken = (req: Request): string | null => {
-  const authHeader = req.headers[transferConfig.downloadAuthorizationHeader];
+  const authHeader = req.get(transferConfig.downloadAuthorizationHeader);
   if (typeof authHeader === 'string') {
     const match = authHeader.match(/^Bearer (.+)$/);
     return match ? match[1] : null;

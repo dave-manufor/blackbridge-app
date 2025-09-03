@@ -142,7 +142,9 @@ export async function processBlockUpload(
     // No parts to upload, return early
     if (!initialParts || initialParts.length === 0) return [];
 
-    let partsToUpload = [...initialParts];
+    let partsToUpload = [...initialParts].sort(
+      (a, b) => a.part_index - b.part_index
+    );
     const successfulUploads: UploadPartResponse[] = [];
     let retryCount = 0;
 
@@ -151,34 +153,32 @@ export async function processBlockUpload(
       if (partsToUpload.length === 0) break;
 
       let previousEnd = 0;
-      const uploadPromises = partsToUpload
-        .sort((a, b) => a.part_index - b.part_index)
-        .map((part) => {
-          const start = previousEnd;
-          const end =
-            part.part_index === initialParts.length // 1-index for parts not 0-index
-              ? block.size
-              : start + part.part_size;
-          previousEnd = end;
-          const chunk = block.slice(start, end);
-          console.log("Part boundaries:", {
-            index: part.part_index,
-            start,
-            end,
-          });
-          console.log("Uploading part:", {
-            chunk,
-            part,
-          });
-          return uploadPart(
-            {
-              fileChunk: chunk,
-              part,
-              onUploadProgress: (e) => handleProgress(e, part.part_index),
-            },
-            signal
-          );
+      const uploadPromises = partsToUpload.map((part) => {
+        const start = previousEnd;
+        const end =
+          part.part_index === initialParts.length // 1-index for parts not 0-index
+            ? block.size
+            : start + part.part_size;
+        previousEnd = end;
+        const chunk = block.slice(start, end);
+        console.log("Part boundaries:", {
+          index: part.part_index,
+          start,
+          end,
         });
+        console.log("Uploading part:", {
+          chunk,
+          part,
+        });
+        return uploadPart(
+          {
+            fileChunk: chunk,
+            part,
+            onUploadProgress: (e) => handleProgress(e, part.part_index),
+          },
+          signal
+        );
+      });
 
       const results = await Promise.allSettled(uploadPromises);
       const failedParts: UploadPart[] = [];
@@ -188,7 +188,7 @@ export async function processBlockUpload(
         if (result.status === "fulfilled") {
           successfulUploads.push(result.value as UploadPartResponse);
         } else {
-          const originalPartData = initialParts[index];
+          const originalPartData = partsToUpload[index];
           failedParts.push(originalPartData);
         }
       });
@@ -215,7 +215,7 @@ export async function processBlockUpload(
       try {
         const refreshedParts = await callRetryEndpoint(
           {
-            block_id: initialParts[0].block_id,
+            block_id: partsToUpload[0].block_id,
             failed_parts: failedParts,
           },
           signal

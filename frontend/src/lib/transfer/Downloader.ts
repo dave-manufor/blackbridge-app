@@ -134,6 +134,8 @@ export class Downloader {
 
     // Build list of indices to fetch
     const todo: number[] = [];
+    const MAX_RETRIES = 3;
+    const retries = new Map<number, number>();
 
     for (const block of manifest.blocks)
       if (!this.isBitSet(bitmap!, block.index)) todo.push(block.index);
@@ -183,8 +185,6 @@ export class Downloader {
       const results = await Promise.allSettled(decryptPromises);
 
       // handle outcomes
-      const MAX_RETRIES = 3;
-      const retries = new Map<number, number>();
       for (let i = 0; i < results.length; i++) {
         const result = results[i];
         const index = batch[i];

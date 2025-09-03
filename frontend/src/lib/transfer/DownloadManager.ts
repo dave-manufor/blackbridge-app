@@ -41,6 +41,7 @@ export class DownloadManager {
       this.zipWriter = new ZipWriter<Blob>(new BlobWriter("application/zip"));
     }
     return new Promise<Blob | void>((resolve, reject) => {
+      let failed = false;
       const next = async () => {
         if (this.queue.length === 0 && this.active === 0) {
           if (this.mode === "zip" && this.zipWriter) {
@@ -51,19 +52,35 @@ export class DownloadManager {
           }
           return;
         }
-        while (this.active < this.concurrency && this.queue.length > 0) {
+        while (
+          !failed &&
+          this.active < this.concurrency &&
+          this.queue.length > 0
+        ) {
           const job = this.queue.shift()!;
           this.active++;
           this.runJob(job)
-            .catch((err) => {
+            .catch(async (err) => {
               devOnly(() => {
                 console.error("File failed:", job.fileName, err);
               });
+              failed = true;
+              // Drain queue
+              this.queue = [];
+              if (this.mode === "zip" && this.zipWriter) {
+                try {
+                  await this.zipWriter.close();
+                } catch {
+                  devOnly(() => {
+                    console.error("Failed to close zip writer:", job.fileName);
+                  });
+                }
+              }
               reject(err);
             })
             .finally(() => {
               this.active--;
-              next();
+              if (!failed) next();
             });
         }
       };
@@ -88,12 +105,23 @@ export class DownloadManager {
       }
     }
     const downloader = new Downloader(writer);
-    await downloader.downloadAndAssemble(
-      job.manifest,
-      job.sessionKeyArmored,
-      job.options
-    );
-
-    await writer.close();
+    try {
+      await downloader.downloadAndAssemble(
+        job.manifest,
+        job.sessionKeyArmored,
+        job.options
+      );
+    } catch (error) {
+      devOnly(() => {
+        console.error("Download failed:", job.fileName, error);
+      });
+      try {
+        await writer.close();
+      } catch (error) {
+        devOnly(() => {
+          console.error("Failed to close writer:", job.fileName, error);
+        });
+      }
+    }
   }
 }

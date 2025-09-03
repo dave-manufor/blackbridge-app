@@ -440,10 +440,12 @@ class FileController {
         where: { id: fileId },
         select: {
           id: true,
+          status: true,
           transfer_id: true,
           name: true,
           blocks: {
             select: { path: true, index: true },
+            orderBy: { index: 'asc' },
           },
         },
       });
@@ -454,9 +456,9 @@ class FileController {
         return;
       }
 
-      // Check if blocks exist
-      if (file.blocks.length === 0) {
-        res.status(StatusCodes.NOT_FOUND).json({ message: 'No blocks found for this file' });
+      // Check if file is ready and blocks exist
+      if (file.status !== FILE_STATUS.UPLOADED || file.blocks.length === 0) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'File not ready for download' });
         return;
       }
 
@@ -475,7 +477,7 @@ class FileController {
             this.fileLogger.warn({ fileId: file.id }, 'File found with no blocks to generate URL for.');
             return null;
           }
-          const url = await getPresignedUrl(objectKey, { type: 'download' });
+          const url = await getPresignedUrl(objectKey, { type: 'download', expiresIn: 6 * 60 * 60 });
           return {
             file_id: file.id,
             file_name: file.name,

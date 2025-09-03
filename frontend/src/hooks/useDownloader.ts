@@ -87,6 +87,8 @@ const useDownloader = () => {
       if (blob && blob instanceof Blob) {
         saveBlob(blob, `Archive.zip`);
       }
+
+      // Event is removed in download drawer component with timeout
     } catch (error) {
       devOnly(() => {
         console.error("Download failed:", error);

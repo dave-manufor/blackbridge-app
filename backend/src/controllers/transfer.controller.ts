@@ -743,7 +743,7 @@ class TransferController {
       const payloadId = uuid_v4();
       const payload: JWTDownloadRequestPayload = {
         id: payloadId,
-        userId: userId,
+        userId: userId ?? null,
         tid: transfer.id,
         iat: Date.now(),
         exp: Date.now() + transferConfig.tokenValidDuration,
@@ -756,12 +756,10 @@ class TransferController {
 
       // Non-blocking update of email transfer
       db.emailTransfers
-        .update({
+        .updateMany({
           where: {
-            unique_recipient_per_transfer: {
-              recipient_user_id: userId,
-              transfer_id: transferId,
-            },
+            recipient_user_id: userId,
+            transfer_id: transferId,
             downloaded: false,
           },
           data: { downloaded: true, downloaded_at: new Date() },
@@ -826,8 +824,8 @@ class TransferController {
         id: payloadId,
         userId: userId,
         tid: transfer.id,
-        iat: Date.now(),
-        exp: Date.now() + transferConfig.tokenValidDuration,
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor((Date.now() + transferConfig.tokenValidDuration) / 1000),
       };
       // Store token in cache
       const key = `${cacheConfig.ID_Prefix.Download_Request}${transfer.id}:${payloadId}`;
@@ -836,8 +834,6 @@ class TransferController {
       const token = jwt.sign(payload, process.env.TRANSFER_TOKEN_SECRET as string);
 
       res.status(StatusCodes.OK).json({ message: 'Success', data: { transfer, token } });
-
-      res.status(StatusCodes.OK).json({ message: 'Success', data: transfer });
     } catch (error) {
       this.transferLogger.error(error, 'Error requesting link download');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
