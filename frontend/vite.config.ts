@@ -6,6 +6,12 @@ import tailwindcss from "@tailwindcss/vite";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 export default defineConfig({
+  server: {
+    https: {
+      key: "./certs/key.pem",
+      cert: "./certs/cert.pem",
+    },
+  },
   plugins: [
     comlink(),
     react(),

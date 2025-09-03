@@ -11,6 +11,14 @@ import { HomeController, AuthController, UserController, FileController, Transfe
 import { initDB } from './services/db';
 import AWS from 'aws-sdk';
 import nocache from 'nocache';
+import { readFileSync } from 'fs';
+import { isDevEnvironment } from 'utils/dev.utils';
+import https from 'https';
+
+const certificateFile = readFileSync('./certs/cert.pem');
+const keyFile = readFileSync('./certs/key.pem');
+
+const credentials = { key: keyFile, cert: certificateFile };
 
 const port = Number(process.env.PORT) || 3000;
 const crossOrigin = process.env.CROSS_ORIGIN ? process.env.CROSS_ORIGIN.split(',') : ['http://localhost:5174'];
@@ -30,7 +38,7 @@ AWS.config.update({
   return parseInt(this.toString());
 };
 
-let app: App;
+let server: App;
 
 (async () => {
   // Initialize database and cache
@@ -39,7 +47,7 @@ let app: App;
 })()
   .then(() => {
     // Initialize app
-    app = new App({
+    server = new App({
       port: port,
       middlewares: [
         express.json(),
@@ -56,11 +64,18 @@ let app: App;
   })
   .then(() => {
     // Start the app
-    app.listen();
+    if (isDevEnvironment()) {
+      const httpsServer = https.createServer(credentials, server.app);
+      httpsServer.listen(port, () => {
+        logger.info(`HTTPS Server listening on port ${port}`);
+      });
+    } else {
+      server.listen();
+    }
   })
   .catch((error) => {
     logger.error('Error during initialization:', error);
     process.exit(1);
   });
 
-export default app;
+export default server;

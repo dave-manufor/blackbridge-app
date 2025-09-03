@@ -10,26 +10,25 @@ export type FileJob = {
   options: { sessionKeyOptions: DecryptSessionKeyOptions };
 };
 
+const CONCURRENCY = 1;
+
 export class DownloadManager {
-  private concurrency: number;
-  private mode: "direct" | "zip";
+  private concurrency: number = CONCURRENCY;
+  private mode: "direct" | "zip" = "direct";
   private queue: FileJob[] = [];
   private active = 0;
+  private blobWriter: BlobWriter | null = null;
   private zipWriter: ZipWriter<Blob> | null = null;
 
-  constructor(opts?: { mode: "direct" | "zip"; concurrency?: number }) {
-    this.concurrency = opts?.concurrency ?? 1; // default: 1 file at once
-    this.mode = opts?.mode ?? "direct"; // default: 'direct'
-  }
+  constructor() {}
 
-  private async writerFactory(
-    fileName: string
-  ): Promise<WritableStreamDefaultWriter<Uint8Array>> {
-    const handle = await window.showSaveFilePicker({
-      suggestedName: fileName,
-    });
-    const writable = await handle.createWritable();
-    return writable.getWriter();
+  private async writerFactory(mime: string): Promise<{
+    writer: WritableStreamDefaultWriter<Uint8Array>;
+    blobWriter: BlobWriter;
+  }> {
+    const blobWriter = new BlobWriter(mime);
+    const writer = blobWriter.writable.getWriter();
+    return { writer, blobWriter };
   }
 
   enqueue(job: FileJob) {
@@ -37,18 +36,26 @@ export class DownloadManager {
   }
 
   async startAll() {
-    if (this.mode === "zip") {
+    if (this.queue.length > 1) {
+      this.mode = "zip";
       this.zipWriter = new ZipWriter<Blob>(new BlobWriter("application/zip"));
+    } else {
+      this.mode = "direct";
     }
-    return new Promise<Blob | void>((resolve, reject) => {
+    return new Promise<Blob>((resolve, reject) => {
       let failed = false;
       const next = async () => {
         if (this.queue.length === 0 && this.active === 0) {
+          console.log("All downloads completed");
           if (this.mode === "zip" && this.zipWriter) {
+            console.log("Finalizing zip file");
             const blob = await this.zipWriter.close();
             resolve(blob);
-          } else {
-            resolve();
+          } else if (this.mode === "direct" && this.blobWriter) {
+            console.log("Finalizing direct download");
+            const blob = await this.blobWriter.getData();
+            console.log("Direct download completed. Blob:", blob);
+            resolve(blob);
           }
           return;
         }
@@ -60,27 +67,16 @@ export class DownloadManager {
           const job = this.queue.shift()!;
           this.active++;
           this.runJob(job)
-            .catch(async (err) => {
+            .catch((err) => {
               devOnly(() => {
                 console.error("File failed:", job.fileName, err);
               });
               failed = true;
-              // Drain queue
-              this.queue = [];
-              if (this.mode === "zip" && this.zipWriter) {
-                try {
-                  await this.zipWriter.close();
-                } catch {
-                  devOnly(() => {
-                    console.error("Failed to close zip writer:", job.fileName);
-                  });
-                }
-              }
               reject(err);
             })
             .finally(() => {
               this.active--;
-              if (!failed) next();
+              next();
             });
         }
       };
@@ -91,9 +87,14 @@ export class DownloadManager {
   private async runJob(job: FileJob) {
     let writer: WritableStreamDefaultWriter<Uint8Array>;
     switch (this.mode) {
-      case "direct":
-        writer = await this.writerFactory(job.fileName);
+      case "direct": {
+        const { writer: w, blobWriter } = await this.writerFactory(
+          job.manifest.mime
+        );
+        this.blobWriter = blobWriter;
+        writer = w;
         break;
+      }
       case "zip": {
         if (!this.zipWriter) {
           throw new Error("ZipWriter not initialized");
@@ -105,23 +106,12 @@ export class DownloadManager {
       }
     }
     const downloader = new Downloader(writer);
-    try {
-      await downloader.downloadAndAssemble(
-        job.manifest,
-        job.sessionKeyArmored,
-        job.options
-      );
-    } catch (error) {
-      devOnly(() => {
-        console.error("Download failed:", job.fileName, error);
-      });
-      try {
-        await writer.close();
-      } catch (error) {
-        devOnly(() => {
-          console.error("Failed to close writer:", job.fileName, error);
-        });
-      }
-    }
+    await downloader.downloadAndAssemble(
+      job.manifest,
+      job.sessionKeyArmored,
+      job.options
+    );
+
+    await writer.close();
   }
 }

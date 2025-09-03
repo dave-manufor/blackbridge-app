@@ -9,6 +9,7 @@ export type FileManifest = {
   fileSize: number;
   totalBlocks: number;
   fileId: string;
+  mime: string;
   blocks: Array<{
     index: number;
     blockLocator: string;
