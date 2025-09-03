@@ -20,7 +20,7 @@ const useDownloader = () => {
     const { createEvent, removeEvent, setBlockProgress } =
       useDownloadStore.getState();
     const mode = config.file_ids.length > 1 ? "zip" : "direct";
-    const manager = new DownloadManager({ mode });
+    const manager = new DownloadManager();
     const { transfer, token } = await requestDownload(
       config.transfer_identifier,
       config.type
@@ -53,6 +53,7 @@ const useDownloader = () => {
 
       const manifest: FileManifest = {
         fileSize: file.size,
+        mime: file.content_type,
         totalBlocks: file.blocks.length,
         fileId: file.id,
         blocks: presignedUrls.map((block) => ({
@@ -84,9 +85,15 @@ const useDownloader = () => {
     try {
       const blob = await manager.startAll();
 
-      if (blob && blob instanceof Blob) {
-        saveBlob(blob, `Archive.zip`);
-      }
+      console.log("Download completed, got blob:", blob);
+
+      const details = {
+        fileName: mode === "zip" ? "Archive.zip" : filesToDownload[0]?.name,
+        mimeType:
+          mode === "zip" ? "application/zip" : filesToDownload[0]?.content_type,
+      };
+
+      saveBlob(blob, details.fileName, details.mimeType);
 
       // Event is removed in download drawer component with timeout
     } catch (error) {

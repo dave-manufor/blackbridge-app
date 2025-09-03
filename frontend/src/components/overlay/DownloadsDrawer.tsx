@@ -15,7 +15,7 @@ import { FaCheckCircle } from "react-icons/fa";
 //     "id1",
 //     {
 //       id: "id1",
-//       name: "Annual_Report_2023.pdf",
+//       name: "Annual_Report_2023.pdf jdkjalvhjgdhdhvshdaljfghdjhvgdhls",
 //       mode: "direct",
 //       totalBytes: 2450000,
 //       progressMap: new Map(),
@@ -281,9 +281,11 @@ const DownloadsDrawer = () => {
                 key={event.id}
                 className="flex items-center justify-between px-4 py-4 border-b border-neutral-200 last:border-b-0"
               >
-                <div className="flex items-center gap-2">
-                  {event.mode === "zip" ? <FaRegFileZipper /> : <FaRegFile />}
-                  <span>{event.name}</span>
+                <div className="flex items-center gap-2 max-w-[calc(100%-56px)]">
+                  <div className="min-w-fit">
+                    {event.mode === "zip" ? <FaRegFileZipper /> : <FaRegFile />}
+                  </div>
+                  <span className="truncate">{event.name}</span>
                 </div>
                 <div className="size-6 relative">
                   {progress < 100 ? (
