@@ -1,7 +1,8 @@
+import * as streamSaver from "streamsaver";
+import { WritableWriter, ZipWriter } from "@zip.js/zip.js";
 import { devOnly } from "@/utils/dev";
 import { DecryptSessionKeyOptions } from "../crypto/workers/crypto";
 import { Downloader, FileManifest } from "./Downloader";
-import { BlobWriter, ZipWriter } from "@zip.js/zip.js";
 
 export type FileJob = {
   manifest: FileManifest;
@@ -17,19 +18,13 @@ export class DownloadManager {
   private mode: "direct" | "zip" = "direct";
   private queue: FileJob[] = [];
   private active = 0;
-  private blobWriter: BlobWriter | null = null;
-  private zipWriter: ZipWriter<Blob> | null = null;
+
+  // streaming writers
+  private fileWriter: WritableStreamDefaultWriter<Uint8Array> | null = null;
+  private zipWriter: ZipWriter<WritableWriter> | null = null;
+  private fileStream: WritableStream<Uint8Array> | null = null;
 
   constructor() {}
-
-  private async writerFactory(mime: string): Promise<{
-    writer: WritableStreamDefaultWriter<Uint8Array>;
-    blobWriter: BlobWriter;
-  }> {
-    const blobWriter = new BlobWriter(mime);
-    const writer = blobWriter.writable.getWriter();
-    return { writer, blobWriter };
-  }
 
   enqueue(job: FileJob) {
     this.queue.push(job);
@@ -38,32 +33,55 @@ export class DownloadManager {
   async startAll() {
     if (this.queue.length > 1) {
       this.mode = "zip";
-      this.zipWriter = new ZipWriter<Blob>(new BlobWriter("application/zip"));
+      // Stream the final zip file using streamSaver
+      const zipName = "Archive.zip";
+      devOnly(() => console.log("Opening zip download stream:", zipName));
+
+      const fileStream = streamSaver.createWriteStream(zipName);
+      this.fileStream = fileStream;
+
+      this.zipWriter = new ZipWriter(fileStream);
     } else {
       this.mode = "direct";
     }
-    return new Promise<Blob>((resolve, reject) => {
+
+    return new Promise<void>((resolve, reject) => {
       let failed = false;
+
       const next = async () => {
         if (this.queue.length === 0 && this.active === 0) {
-          console.log("All downloads completed");
-          if (this.mode === "zip" && this.zipWriter) {
-            console.log("Finalizing zip file");
-            const blob = await this.zipWriter.close();
-            resolve(blob);
-          } else if (this.mode === "direct" && this.blobWriter) {
-            console.log("Finalizing direct download");
-            const blob = await this.blobWriter.getData();
-            console.log("Direct download completed. Blob:", blob);
-            resolve(blob);
+          devOnly(() => console.log("All downloads completed"));
+
+          try {
+            if (this.mode === "zip" && this.zipWriter) {
+              devOnly(() => console.log("Finalizing zip file"));
+              await this.zipWriter.close(); // writes central directory
+            }
+          } catch (err) {
+            devOnly(() => console.error("Error finalizing zipWriter:", err));
+            // still try to close fileWriter below
           }
+
+          try {
+            if (this.fileWriter) {
+              devOnly(() => console.log("Closing file writer"));
+              await this.fileWriter.close();
+            }
+            // if direct mode we close inside runJob after all is done
+          } catch (err) {
+            devOnly(() => console.error("Error closing file writer:", err));
+          }
+
+          resolve();
           return;
         }
+
         while (
           !failed &&
           this.active < this.concurrency &&
           this.queue.length > 0
         ) {
+          devOnly(() => console.log("Starting next download job"));
           const job = this.queue.shift()!;
           this.active++;
           this.runJob(job)
@@ -71,40 +89,62 @@ export class DownloadManager {
               devOnly(() => {
                 console.error("File failed:", job.fileName, err);
               });
+              this.fileWriter?.abort(err);
+              this.zipWriter?.close();
               failed = true;
               reject(err);
             })
             .finally(() => {
+              devOnly(() =>
+                console.log("Download job finished:", job.fileName)
+              );
               this.active--;
               next();
             });
         }
       };
+
       next();
     });
   }
 
   private async runJob(job: FileJob) {
+    devOnly(() => console.log("Running job:", job.fileName, this.mode));
     let writer: WritableStreamDefaultWriter<Uint8Array>;
+
     switch (this.mode) {
       case "direct": {
-        const { writer: w, blobWriter } = await this.writerFactory(
-          job.manifest.mime
+        devOnly(() =>
+          console.log("Starting direct download for:", job.fileName)
         );
-        this.blobWriter = blobWriter;
-        writer = w;
+        // Stream a single file directly to disk
+        const fileStream = streamSaver.createWriteStream(job.fileName, {
+          size: job.manifest.fileSize,
+        });
+        const fileWriter = fileStream.getWriter();
+        writer = fileWriter;
+        // Downloader will write to this writer and close it after
         break;
       }
       case "zip": {
+        devOnly(() => console.log("Adding file to zip:", job.fileName));
         if (!this.zipWriter) {
           throw new Error("ZipWriter not initialized");
         }
-        // Create a stream for the zip writer
+
+        // Each file gets its own stream inside the zip
         const stream = new TransformStream<Uint8Array, Uint8Array>();
-        this.zipWriter.add(job.fileName, stream.readable);
+        // zip.js accepts readable streams as entries
+        this.zipWriter.add(job.fileName, stream.readable).catch((err) => {
+          throw new Error("Error adding file to zip: " + err);
+        });
         writer = stream.writable.getWriter();
+        break;
       }
     }
+    devOnly(() => console.log("Writer initialized for job:", job.fileName));
+
+    // Stream decrypted chunks into the writer
     const downloader = new Downloader(writer);
     await downloader.downloadAndAssemble(
       job.manifest,
@@ -112,6 +152,16 @@ export class DownloadManager {
       job.options
     );
 
+    // close the writer for this entry (direct file or zip entry stream)
     await writer.close();
+
+    // In direct mode, file writer close is done here (closing the file download)
+    if (this.mode === "direct") {
+      devOnly(() =>
+        console.log(
+          "Direct file finished, file writer closed by writer.close()"
+        )
+      );
+    }
   }
 }

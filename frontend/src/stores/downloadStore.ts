@@ -7,6 +7,7 @@ export interface DownloadEvent {
   name: string;
   mode: "direct" | "zip";
   totalBytes: number;
+  hasError: boolean;
   progressMap: Map<string, Map<number, number>>; // fileId -> (blockIndex -> bytesDownloaded)
 }
 
@@ -17,6 +18,7 @@ interface DownloadState {
     mode: DownloadEvent["mode"],
     totalBytes: number
   ) => string;
+  setEventError: (id: string, hasError: boolean) => void;
   removeEvent: (id: string) => void;
   setBlockProgress: (
     id: string,
@@ -38,11 +40,23 @@ export const useDownloadStore = create<DownloadState>()(
           name,
           mode,
           totalBytes,
+          hasError: false,
           progressMap: new Map(),
         };
         set((state) => ({ events: new Map(state.events).set(id, newEvent) }));
         return id;
       },
+
+      setEventError: (id, hasError) => {
+        set((state) => {
+          const event = state.events.get(id);
+          if (!event) return state;
+
+          event.hasError = hasError;
+          return { events: new Map(state.events).set(id, event) };
+        });
+      },
+
       removeEvent: (id) =>
         set((state) => {
           state.events.delete(id);

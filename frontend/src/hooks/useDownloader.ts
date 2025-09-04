@@ -7,7 +7,6 @@ import { FileManifest } from "@/lib/transfer/Downloader";
 import { DownloadManager, FileJob } from "@/lib/transfer/DownloadManager";
 import { useDownloadStore } from "@/stores/downloadStore";
 import { devOnly } from "@/utils/dev";
-import { saveBlob } from "@/utils/downloads";
 
 const useDownloader = () => {
   const downloadFiles = async (
@@ -17,7 +16,7 @@ const useDownloader = () => {
       file_ids: string[];
     } & Pick<FileJob, "sessionKeyArmored" | "options">
   ) => {
-    const { createEvent, removeEvent, setBlockProgress } =
+    const { createEvent, removeEvent, setEventError, setBlockProgress } =
       useDownloadStore.getState();
     const mode = config.file_ids.length > 1 ? "zip" : "direct";
     const manager = new DownloadManager();
@@ -83,24 +82,14 @@ const useDownloader = () => {
 
     devOnly(() => console.log("Starting download for:", filesToDownload));
     try {
-      const blob = await manager.startAll();
-
-      console.log("Download completed, got blob:", blob);
-
-      const details = {
-        fileName: mode === "zip" ? "Archive.zip" : filesToDownload[0]?.name,
-        mimeType:
-          mode === "zip" ? "application/zip" : filesToDownload[0]?.content_type,
-      };
-
-      saveBlob(blob, details.fileName, details.mimeType);
-
-      // Event is removed in download drawer component with timeout
+      await manager.startAll();
     } catch (error) {
       devOnly(() => {
         console.error("Download failed:", error);
       });
-      removeEvent(transferEventId);
+      setEventError(transferEventId, true);
+    } finally {
+      setTimeout(() => removeEvent(transferEventId), 5000);
     }
   };
 
