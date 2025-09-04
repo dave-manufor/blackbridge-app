@@ -17,6 +17,7 @@ export class DownloadManager {
   private concurrency: number = CONCURRENCY;
   private mode: "direct" | "zip" = "direct";
   private queue: FileJob[] = [];
+  private usedNames: Record<string, number> = {};
   private active = 0;
 
   // streaming writers
@@ -131,11 +132,18 @@ export class DownloadManager {
         if (!this.zipWriter) {
           throw new Error("ZipWriter not initialized");
         }
+        // Ensure unique file names in the zip
+        let uniqueName = job.fileName;
+        while (this.usedNames[uniqueName]) {
+          const counter = this.usedNames[uniqueName];
+          uniqueName = `${uniqueName}(${counter})`;
+        }
+        this.usedNames[uniqueName] = (this.usedNames[uniqueName] || 0) + 1;
 
         // Each file gets its own stream inside the zip
         const stream = new TransformStream<Uint8Array, Uint8Array>();
         // zip.js accepts readable streams as entries
-        this.zipWriter.add(job.fileName, stream.readable).catch((err) => {
+        this.zipWriter.add(uniqueName, stream.readable).catch((err) => {
           throw new Error("Error adding file to zip: " + err);
         });
         writer = stream.writable.getWriter();
