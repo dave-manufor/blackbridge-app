@@ -1,3 +1,5 @@
+import streamSaver from "streamsaver";
+
 export const saveBlob = (blob: Blob, fileName: string, mime: string) => {
   console.log("Saving blob:", { blob, fileName, mime });
   // extract user agent
@@ -13,7 +15,6 @@ export const saveBlob = (blob: Blob, fileName: string, mime: string) => {
 
   // if its ipad or iphone
   if (ios) {
-    console.log("ios download");
     const reader = new FileReader();
     reader.onload = () => {
       if (chrome) {
@@ -46,4 +47,29 @@ export const saveBlob = (blob: Blob, fileName: string, mime: string) => {
     // For Firefox it is necessary to delay revoking the ObjectURL
     window.URL.revokeObjectURL(blobURL);
   }, 100);
+};
+
+export const saveBlobWithStream = async (
+  blob: Blob,
+  fileName: string,
+  mime: string
+) => {
+  const safeBlob = new Blob([blob], { type: mime });
+  const stream = safeBlob.stream();
+
+  // Create a file stream with suggested name
+  const fileStream = streamSaver.createWriteStream(fileName);
+
+  // Pipe the data into it
+  const writer = fileStream.getWriter();
+
+  const reader = stream.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    await writer.write(value);
+  }
+
+  await writer.close();
+  console.log("✅ File saved via StreamSaver:", fileName);
 };

@@ -3,12 +3,12 @@ import { IoIosArrowDown } from "react-icons/io";
 import { useShallow } from "zustand/react/shallow";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { FaRegFile, FaRegFileZipper } from "react-icons/fa6";
 import CircularProgress from "@mui/material/CircularProgress";
-import { FaCheckCircle } from "react-icons/fa";
+import { FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
 
 // const dummyEvents = new Map([
 //   [
@@ -213,27 +213,16 @@ import { FaCheckCircle } from "react-icons/fa";
 //   ],
 // ]);
 
-const QUEUE_REMOVAL_TIMEOUT = 5000; // ms
 const DownloadsDrawer = () => {
   const [open, setOpen] = useState(true);
-  const queuedForRemoval = useRef<Set<string>>(new Set());
-  const { events, removeEvent, getEventProgress } = useDownloadStore(
+  const { events, getEventProgress } = useDownloadStore(
     useShallow((state) => ({
       events: state.events,
-      removeEvent: state.removeEvent,
       getEventProgress: state.getEventProgress,
     }))
   );
 
   const toggleOpen = () => setOpen((prev) => !prev);
-
-  const queueRemoval = (eventId: string) => {
-    if (queuedForRemoval.current.has(eventId)) return;
-    queuedForRemoval.current.add(eventId);
-    setTimeout(() => {
-      removeEvent(eventId);
-    }, QUEUE_REMOVAL_TIMEOUT);
-  };
 
   return (
     <Card
@@ -269,10 +258,6 @@ const DownloadsDrawer = () => {
           {Array.from(events.values()).map((event) => {
             const progress = getEventProgress(event.id);
 
-            if (progress >= 100) {
-              queueRemoval(event.id);
-            }
-
             return (
               <motion.div
                 animate={{ scale: 1, opacity: 1 }}
@@ -285,10 +270,16 @@ const DownloadsDrawer = () => {
                   <div className="min-w-fit">
                     {event.mode === "zip" ? <FaRegFileZipper /> : <FaRegFile />}
                   </div>
-                  <span className="truncate">{event.name}</span>
+                  <span
+                    className={cn("truncate", {
+                      "line-through": event.hasError,
+                    })}
+                  >
+                    {event.name}
+                  </span>
                 </div>
                 <div className="size-6 relative">
-                  {progress < 100 ? (
+                  {!event.hasError && progress < 100 && (
                     <div className="absolute top-1/2 left-1/2 transform -translate-1/2">
                       <CircularProgress
                         className={cn("!size-5 text-neutral-400", {
@@ -299,9 +290,15 @@ const DownloadsDrawer = () => {
                         value={progress > 0 ? progress : undefined}
                       />
                     </div>
-                  ) : (
+                  )}
+                  {!event.hasError && progress >= 100 && (
                     <div className="absolute top-1/2 left-1/2 transform -translate-1/2">
                       <FaCheckCircle className="size-5 text-green-400 " />
+                    </div>
+                  )}
+                  {event.hasError && (
+                    <div className="absolute top-1/2 left-1/2 transform -translate-1/2">
+                      <FaExclamationCircle className="size-5 text-red-400 " />
                     </div>
                   )}
                 </div>
