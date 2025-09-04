@@ -23,7 +23,6 @@ export class DownloadManager {
   // streaming writers
   private fileWriter: WritableStreamDefaultWriter<Uint8Array> | null = null;
   private zipWriter: ZipWriter<WritableWriter> | null = null;
-  private fileStream: WritableStream<Uint8Array> | null = null;
 
   constructor() {}
 
@@ -39,8 +38,6 @@ export class DownloadManager {
       devOnly(() => console.log("Opening zip download stream:", zipName));
 
       const fileStream = streamSaver.createWriteStream(zipName);
-      this.fileStream = fileStream;
-
       this.zipWriter = new ZipWriter(fileStream);
     } else {
       this.mode = "direct";
@@ -133,12 +130,17 @@ export class DownloadManager {
           throw new Error("ZipWriter not initialized");
         }
         // Ensure unique file names in the zip
+        let counter = this.usedNames[job.fileName] || 0;
         let uniqueName = job.fileName;
+        const extensionMatch = job.fileName.match(/(\.[^.]+)$/);
+        const extension = extensionMatch ? extensionMatch[1] : "";
+        const baseName = extension
+          ? job.fileName.slice(0, -extension.length)
+          : job.fileName;
         while (this.usedNames[uniqueName]) {
-          const counter = this.usedNames[uniqueName];
-          uniqueName = `${uniqueName}(${counter})`;
+          uniqueName = `${baseName}(${++counter})${extension}`;
         }
-        this.usedNames[uniqueName] = (this.usedNames[uniqueName] || 0) + 1;
+        this.usedNames[uniqueName] = counter + 1;
 
         // Each file gets its own stream inside the zip
         const stream = new TransformStream<Uint8Array, Uint8Array>();

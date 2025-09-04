@@ -18,6 +18,8 @@ export type FileManifest = {
   signature?: string;
 };
 
+// Limit concurrency to 2 to reduce resource usage and avoid overwhelming the streaming implementation.
+// This helps prevent excessive simultaneous fetches and memory usage, especially on devices with many CPU cores.
 const MAX_BATCH = navigator.hardwareConcurrency
   ? Math.min(navigator.hardwareConcurrency, 2)
   : 2;
@@ -86,7 +88,10 @@ export class Downloader {
     devOnly(() => console.log("Starting download with bitmap:", bitmap));
 
     // Detect whether blocks are 0-indexed or 1-indexed
-    const minIndex = Math.min(...manifest.blocks.map((b) => b.index));
+    const minIndex = manifest.blocks.reduce(
+      (min, b) => (b.index < min ? b.index : min),
+      manifest.blocks.length ? manifest.blocks[0].index : 0
+    );
     let nextToWrite = minIndex === 0 ? 0 : 1;
 
     const outOfOrder = new Map<number, Uint8Array>();
@@ -149,7 +154,7 @@ export class Downloader {
             block.onBlockProgress?.(downloaded);
           }
         } finally {
-          reader.releaseLock?.();
+          reader.releaseLock();
         }
 
         const blockBuffer = concatUint8Arrays(chunks);
