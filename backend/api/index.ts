@@ -38,30 +38,26 @@ AWS.config.update({
   return parseInt(this.toString());
 };
 
-let server: App;
+let server: App = new App({
+  port: port,
+  middlewares: [
+    express.json(),
+    express.urlencoded({ extended: true }),
+    helmet(),
+    nocache(),
+    cors(corsOptions),
+    cookieParser(),
+    useragent.express(),
+    httpLogger,
+  ],
+  controllers: [new HomeController(), new AuthController(), new UserController(), new FileController(), new TransferController()],
+});
 
 (async () => {
   // Initialize database and cache
   await initDB();
   await initCache();
 })()
-  .then(() => {
-    // Initialize app
-    server = new App({
-      port: port,
-      middlewares: [
-        express.json(),
-        express.urlencoded({ extended: true }),
-        helmet(),
-        nocache(),
-        cors(corsOptions),
-        cookieParser(),
-        useragent.express(),
-        httpLogger,
-      ],
-      controllers: [new HomeController(), new AuthController(), new UserController(), new FileController(), new TransferController()],
-    });
-  })
   .then(() => {
     // Start the app
     if (isDevEnvironment()) {
