@@ -5,7 +5,6 @@
   "main": "app.js",
   "scripts": {
     "dev": "nodemon | npx pino-pretty",
-    "postinstall": "prisma generate",
     "build": "tsc",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate",
