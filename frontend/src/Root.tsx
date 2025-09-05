@@ -42,7 +42,7 @@ function Root() {
     } else {
       console.warn("Unable to setup Userback");
     }
-  }, [validateSession, user]);
+  }, [validateSession, user, authInitialized]);
 
   return (
     <>
