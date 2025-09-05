@@ -1,18 +1,18 @@
 import 'dotenv/config';
 import express from 'express';
-import App from '../src/app';
+import App from './app';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import useragent from 'express-useragent';
-import { initCache } from '../src/services/cache';
-import logger, { httpLogger } from '../src/lib/logger';
-import { HomeController, AuthController, UserController, FileController, TransferController } from '../src/controllers';
-import { initDB } from '../src/services/db';
+import { initCache } from './services/cache';
+import logger, { httpLogger } from './lib/logger';
+import { HomeController, AuthController, UserController, FileController, TransferController } from './controllers';
+import { initDB } from './services/db';
 import AWS from 'aws-sdk';
 import nocache from 'nocache';
 import { readFileSync } from 'fs';
-import { isDevEnvironment } from '../src/utils/dev.utils';
+import { isDevEnvironment } from './utils/dev.utils';
 import https from 'https';
 
 const certificateFile = readFileSync('./certs/cert.pem');
@@ -38,7 +38,7 @@ AWS.config.update({
   return parseInt(this.toString());
 };
 
-let server: App = new App({
+const server: App = new App({
   port: port,
   middlewares: [
     express.json(),
