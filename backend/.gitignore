@@ -28,6 +28,8 @@ build/
 *.swp
 *.code-workspace
 
+certs
+
 # OS generated files
 .DS_Store
 Thumbs.db
