@@ -78,4 +78,4 @@ let server: App;
     process.exit(1);
   });
 
-export default server;
+export default server.app;
