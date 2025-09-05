@@ -22,7 +22,7 @@ function Root() {
       validateSession();
     }
 
-    if (userbackApiKey) {
+    if (authInitialized && userbackApiKey) {
       const options = user
         ? {
             user_data: {
