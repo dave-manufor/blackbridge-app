@@ -9,6 +9,6 @@
     "esModuleInterop": true,
     "baseUrl": "src"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "api/index.ts"],
   "exclude": ["node_modules", "dist"]
 }
