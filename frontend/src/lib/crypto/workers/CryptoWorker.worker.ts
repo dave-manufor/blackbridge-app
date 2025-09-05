@@ -221,6 +221,12 @@ export class CryptoWorker implements CryptoWorkerInterface {
     }
   }
 
+  private async streamMessageFromBinary(
+    data: ReadableStream<Uint8Array>
+  ): Promise<openpgp.Message<ReadableStream<Uint8Array>>> {
+    return await openpgp.createMessage({ binary: data });
+  }
+
   /**
    * Parses encrypted input data into a readable OpenPGP message.
    *
@@ -397,6 +403,23 @@ export class CryptoWorker implements CryptoWorkerInterface {
     });
 
     return decryptedData.data as DecryptedDataOutput<T>;
+  }
+
+  async decryptBinaryAsStream<T extends DecryptionOutputFormat>(
+    data: ReadableStream<Uint8Array>,
+    options: DecryptDataOptions<T>
+  ): Promise<ReadableStream<DecryptedDataOutput<T>>> {
+    const sessionKey = options.sessionKey;
+
+    const message = await this.streamMessageFromBinary(data);
+
+    const decryptedStream = await openpgp.decrypt({
+      message,
+      sessionKeys: sessionKey,
+      format: options.outputFormat === "string" ? "utf8" : "binary",
+    });
+
+    return decryptedStream.data as ReadableStream<DecryptedDataOutput<T>>;
   }
 
   /**

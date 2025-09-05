@@ -67,6 +67,11 @@ interface CryptoWorkerInterface {
     options: DecryptDataOptions<T>
   ): Promise<DecryptedDataOutput<T>>;
 
+  decryptBinaryAsStream<T extends DecryptionOutputFormat>(
+    data: ReadableStream<Uint8Array>,
+    options: DecryptDataOptions<T>
+  ): Promise<ReadableStream<DecryptedDataOutput<T>>>;
+
   encryptAndSign<T extends EncryptionOutputFormat>(
     data: Uint8Array | string,
     options: EncryptDataOptions<T>
