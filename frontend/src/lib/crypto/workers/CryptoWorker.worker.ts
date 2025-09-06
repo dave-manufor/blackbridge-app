@@ -405,6 +405,12 @@ export class CryptoWorker implements CryptoWorkerInterface {
     return decryptedData.data as DecryptedDataOutput<T>;
   }
 
+  /**
+   * Decrypts a binary stream of data.
+   * @param data The binary stream to decrypt.
+   * @param options Decryption options including session key and format.
+   * @returns A stream of decrypted data.
+   */
   async decryptBinaryAsStream<T extends DecryptionOutputFormat>(
     data: ReadableStream<Uint8Array>,
     options: DecryptDataOptions<T>
@@ -420,6 +426,24 @@ export class CryptoWorker implements CryptoWorkerInterface {
     });
 
     return decryptedStream.data as ReadableStream<DecryptedDataOutput<T>>;
+  }
+
+  /**
+   * Decrypts a binary stream from a URL.
+   * @param url The URL to fetch the encrypted data from.
+   * @param options Decryption options including session key and format.
+   * @returns A stream of decrypted data.
+   */
+  async decryptFromUrlAsStream<T extends DecryptionOutputFormat>(
+    url: string,
+    options: DecryptDataOptions<T>
+  ): Promise<ReadableStream<DecryptedDataOutput<T>>> {
+    const response = await fetch(url);
+    if (!response.ok || !response.body) {
+      throw new Error(`Failed to fetch data from URL: ${url}`);
+    }
+
+    return this.decryptBinaryAsStream<T>(response.body, options);
   }
 
   /**

@@ -245,6 +245,18 @@ export class CryptoBridge implements CryptoBridgeInterface {
     >;
   }
 
+  async decryptFromUrlAsStream<T extends DecryptionOutputFormat>(
+    url: string,
+    options: DecryptDataOptions<T>
+  ): Promise<ReadableStream<DecryptedDataOutput<T>>> {
+    this.assertInitialized({ loose: true });
+    return (await this.workerPool
+      .getWorker()
+      .decryptFromUrlAsStream(url, options)) as ReadableStream<
+      DecryptedDataOutput<T>
+    >;
+  }
+
   async encryptAndSign<T extends EncryptionOutputFormat>(
     data: Uint8Array | string,
     options: EncryptDataOptions<T>
