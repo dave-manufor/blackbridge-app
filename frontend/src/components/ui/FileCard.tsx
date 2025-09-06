@@ -7,11 +7,13 @@ const FileCard = ({
   contentType,
   name,
   size,
+  allowDownload,
   onDownload,
 }: {
   contentType: string;
   name: string;
   size: number;
+  allowDownload: boolean;
   onDownload: () => void;
 }) => {
   const iconStyle = defaultStyles[contentType as keyof typeof defaultStyles];
@@ -28,9 +30,11 @@ const FileCard = ({
           </span>
         </div>
       </div>
-      <div className={styles.file_download_icon} onClick={onDownload}>
-        <MdOutlineFileDownload />
-      </div>
+      {allowDownload && (
+        <div className={styles.file_download_icon} onClick={onDownload}>
+          <MdOutlineFileDownload />
+        </div>
+      )}
     </div>
   );
 };

@@ -386,6 +386,7 @@ const PublicLinkView = () => {
                     name={file.name}
                     size={file.size}
                     contentType={file.content_type}
+                    allowDownload={true} // Link details are only returned if not expired
                     onDownload={() => {
                       handleFileDownload(file.id);
                     }}
