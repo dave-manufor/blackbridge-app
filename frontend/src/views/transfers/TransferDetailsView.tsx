@@ -314,13 +314,15 @@ const TransferDetailsView = () => {
                       {formatFileSize(transferDetails.total_files_size_bytes)}
                     </span>
                   </div>
-                  <div
-                    className={styles.files_download_icon}
-                    onClick={handleDownloadAll}
-                    title="Download All"
-                  >
-                    <MdOutlineFileDownload />
-                  </div>
+                  {!transferDetails.is_expired && (
+                    <div
+                      className={styles.files_download_icon}
+                      onClick={handleDownloadAll}
+                      title="Download All"
+                    >
+                      <MdOutlineFileDownload />
+                    </div>
+                  )}
                 </div>
               </div>
               <div className={styles.files_list}>
@@ -330,6 +332,7 @@ const TransferDetailsView = () => {
                     name={file.name}
                     contentType={file.content_type}
                     size={file.size}
+                    allowDownload={!transferDetails.is_expired}
                     onDownload={() => {
                       handleFileDownload(file.id);
                     }}

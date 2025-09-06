@@ -11,24 +11,23 @@ import {
   DecryptedDataOutput,
   DecryptDataOptions,
 } from "./crypto";
-import CryptoWorkerInterface from "./CryptoWorkerInterface";
+import CryptoApi from "./CryptoApi";
 import { CryptoWorkerPool } from "./CryptoWorkerPool";
 import { Asyncify } from "@/utils/typescript";
 import bcrypt from "bcryptjs";
 import { KeyStore } from "../KeyStore";
+import { StreamBridge } from "@/lib/StreamBridge";
+import { transfer } from "comlink";
 
-type CryptoBridgeInterface = Asyncify<
-  Omit<
-    CryptoWorkerInterface,
-    "importPrivateKey" | "clearPrivateKey" | "wrapPrivateKey"
-  >
+type CryptoBridgeApi = Asyncify<
+  Omit<CryptoApi, "importPrivateKey" | "clearPrivateKey" | "wrapPrivateKey">
 >;
 
 /**
  * This class serves as a bridge to the CryptoWorkerPool, allowing
  * for RPC-like communication with the worker pool.
  */
-export class CryptoBridge implements CryptoBridgeInterface {
+export class CryptoBridge implements CryptoBridgeApi {
   private static instance: CryptoBridge;
   private workerPool: CryptoWorkerPool = CryptoWorkerPool.getInstance();
   private initialized: boolean = false;
@@ -231,6 +230,24 @@ export class CryptoBridge implements CryptoBridgeInterface {
     return (await this.workerPool
       .getWorker()
       .decrypt(data, options)) as DecryptedDataOutput<T>;
+  }
+
+  async decryptBinaryAsStream(
+    data: ReadableStream<Uint8Array<ArrayBuffer>>,
+    options: {
+      sessionKey: openpgp.SessionKey;
+    }
+  ): Promise<ReadableStream<Uint8Array<ArrayBuffer>>> {
+    this.assertInitialized({ loose: true });
+    const inputStreamPort = StreamBridge.serialize(data);
+    const outputStreamPort = await this.workerPool
+      .getWorker()
+      .decryptBinaryAsStream(
+        transfer(inputStreamPort, [inputStreamPort]),
+        options
+      );
+
+    return StreamBridge.deserialize(outputStreamPort);
   }
 
   async encryptAndSign<T extends EncryptionOutputFormat>(

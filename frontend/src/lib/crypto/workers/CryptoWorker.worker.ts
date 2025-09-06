@@ -1,5 +1,5 @@
 import * as openpgp from "openpgp";
-import CryptoWorkerInterface from "./CryptoWorkerInterface";
+import CryptoApi from "./CryptoApi";
 import {
   EncryptAndSignOutput,
   DecryptAndVerifyOutput,
@@ -12,8 +12,10 @@ import {
   DecryptedDataOutput,
   DecryptDataOptions,
 } from "./crypto";
-import { expose } from "comlink";
+import { expose, transfer } from "comlink";
 import bcrypt from "bcryptjs";
+import { StreamBridge } from "@/lib/StreamBridge";
+import { devOnly } from "@/utils/dev";
 
 /**
  * Web Worker class that performs cryptographic operations (encryption, decryption, key management)
@@ -21,7 +23,7 @@ import bcrypt from "bcryptjs";
  *
  * TODO: Extract OpenPGP-specific logic into an OpenPgpProxy to decouple implementation.
  */
-export class CryptoWorker implements CryptoWorkerInterface {
+export class CryptoWorker implements CryptoApi {
   /** Holds the currently imported private key (if any) */
   private privateKey: openpgp.PrivateKey | null = null;
 
@@ -221,6 +223,10 @@ export class CryptoWorker implements CryptoWorkerInterface {
     }
   }
 
+  private async streamMessageFromBinary(data: ReadableStream<Uint8Array>) {
+    return await openpgp.readMessage({ binaryMessage: data });
+  }
+
   /**
    * Parses encrypted input data into a readable OpenPGP message.
    *
@@ -400,6 +406,48 @@ export class CryptoWorker implements CryptoWorkerInterface {
   }
 
   /**
+   * Decrypts a binary stream of data.
+   * @param port The binary stream to decrypt.
+   * @param options Decryption options including session key and format.
+   * @returns A stream of decrypted data.
+   */
+  async decryptBinaryAsStream(
+    port: MessagePort,
+    options: {
+      sessionKey: openpgp.SessionKey;
+    }
+  ): Promise<MessagePort> {
+    devOnly(() =>
+      console.log(
+        "CryptoWorker: decryptBinaryAsStream called with options:",
+        port,
+        options
+      )
+    );
+    const sessionKey = options.sessionKey;
+    const deserializedStream = StreamBridge.deserialize(port);
+    devOnly(() =>
+      console.log("CryptoWorker: deserialized stream:", deserializedStream)
+    );
+
+    const message = await this.streamMessageFromBinary(deserializedStream);
+    devOnly(() =>
+      console.log("CryptoWorker: created message from stream:", message)
+    );
+
+    const decryptedStream = await openpgp.decrypt({
+      message,
+      sessionKeys: sessionKey,
+      format: "binary",
+    });
+
+    const outputPort = StreamBridge.serialize(
+      decryptedStream.data as ReadableStream<Uint8Array<ArrayBuffer>>
+    );
+    return transfer(outputPort, [outputPort]);
+  }
+
+  /**
    * Placeholder for future method to encrypt and sign data.
    * Currently unimplemented.
    */
@@ -407,7 +455,7 @@ export class CryptoWorker implements CryptoWorkerInterface {
     data: Uint8Array | string,
     options: EncryptDataOptions<T>
   ): Promise<EncryptAndSignOutput<T>> {
-    console.log(data, options);
+    devOnly(() => console.log(data, options));
     throw new Error("Method not implemented yet.");
   }
 
@@ -419,7 +467,7 @@ export class CryptoWorker implements CryptoWorkerInterface {
     data: Uint8Array | string,
     options: DecryptDataOptions<T>
   ): Promise<DecryptAndVerifyOutput<T>> {
-    console.log(data, options);
+    devOnly(() => console.log(data, options));
     throw new Error("Method not implemented yet.");
   }
 

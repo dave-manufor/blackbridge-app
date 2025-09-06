@@ -15,11 +15,6 @@ import { readFileSync } from 'fs';
 import { isDevEnvironment } from './utils/dev.utils';
 import https from 'https';
 
-const certificateFile = readFileSync('./certs/cert.pem');
-const keyFile = readFileSync('./certs/key.pem');
-
-const credentials = { key: keyFile, cert: certificateFile };
-
 const port = Number(process.env.PORT) || 3000;
 const crossOrigin = process.env.CROSS_ORIGIN ? process.env.CROSS_ORIGIN.split(',') : ['http://localhost:5174'];
 const corsOptions = {
@@ -61,6 +56,10 @@ const server: App = new App({
   .then(() => {
     // Start the app
     if (isDevEnvironment()) {
+      const certificateFile = readFileSync('./certs/cert.pem');
+      const keyFile = readFileSync('./certs/key.pem');
+
+      const credentials = { key: keyFile, cert: certificateFile };
       const httpsServer = https.createServer(credentials, server.app);
       httpsServer.listen(port, () => {
         logger.info(`HTTPS Server listening on port ${port}`);

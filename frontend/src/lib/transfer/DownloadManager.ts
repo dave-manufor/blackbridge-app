@@ -21,7 +21,7 @@ export class DownloadManager {
   private active = 0;
 
   // streaming writers
-  private fileWriter: WritableStreamDefaultWriter<Uint8Array> | null = null;
+  private fileWriter: WritableStream<Uint8Array> | null = null;
   private zipWriter: ZipWriter<WritableWriter> | null = null;
 
   constructor() {}
@@ -108,7 +108,7 @@ export class DownloadManager {
 
   private async runJob(job: FileJob) {
     devOnly(() => console.log("Running job:", job.fileName, this.mode));
-    let writer: WritableStreamDefaultWriter<Uint8Array>;
+    let fileStream: WritableStream<Uint8Array>;
 
     switch (this.mode) {
       case "direct": {
@@ -116,12 +116,10 @@ export class DownloadManager {
           console.log("Starting direct download for:", job.fileName)
         );
         // Stream a single file directly to disk
-        const fileStream = streamSaver.createWriteStream(job.fileName, {
+        fileStream = streamSaver.createWriteStream(job.fileName, {
           size: job.manifest.fileSize,
         });
-        const fileWriter = fileStream.getWriter();
-        writer = fileWriter;
-        // Downloader will write to this writer and close it after
+
         break;
       }
       case "zip": {
@@ -148,14 +146,14 @@ export class DownloadManager {
         this.zipWriter.add(uniqueName, stream.readable).catch((err) => {
           throw new Error("Error adding file to zip: " + err);
         });
-        writer = stream.writable.getWriter();
+        fileStream = stream.writable;
         break;
       }
     }
     devOnly(() => console.log("Writer initialized for job:", job.fileName));
 
     // Stream decrypted chunks into the writer
-    const downloader = new Downloader(writer);
+    const downloader = new Downloader(fileStream);
     await downloader.downloadAndAssemble(
       job.manifest,
       job.sessionKeyArmored,
@@ -163,7 +161,7 @@ export class DownloadManager {
     );
 
     // close the writer for this entry (direct file or zip entry stream)
-    await writer.close();
+    await fileStream.close();
 
     // In direct mode, file writer close is done here (closing the file download)
     if (this.mode === "direct") {
