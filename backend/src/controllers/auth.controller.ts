@@ -18,6 +18,7 @@ import { hashOTP, hashRefreshToken, verifyOTPHash } from '../utils/hashing.utils
 import { otpVerificationLimiter } from '../middlewares/rateLimiter.middleware';
 import cacheConfig from '../config/cache.config';
 import { generateOTP } from '../utils/otp.utils';
+import notificationService from 'services/notifications';
 
 class AuthController {
   public path = '/auth';
@@ -145,6 +146,8 @@ class AuthController {
       const cooldownAt = Date.now() + otpConfig.cooldownDuration;
       const expiresAt = Date.now() + otpConfig.requestValidDuration;
       // Respond with timestamp
+
+      await notificationService.send_otp_notification(req.session.email, code, otpConfig.requestValidDuration);
 
       res.status(StatusCodesConfig.OK).json({
         message: 'OTP has been sent',

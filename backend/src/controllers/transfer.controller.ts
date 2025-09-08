@@ -16,6 +16,7 @@ import transferConfig from '../config/transfer.config';
 import cacheConfig from '../config/cache.config';
 import cache from '../services/cache';
 import { v4 as uuid_v4 } from 'uuid';
+import notificationService from 'services/notifications';
 
 class TransferController {
   public path = '/transfers';
@@ -142,13 +143,16 @@ class TransferController {
 
     // normalize emails once
     const keysByEmail = new Map(recipient_keys.map((r) => [r.email.trim().toLowerCase(), r.file_key]));
+    let recipientEmails: Set<string> | undefined = undefined;
+    let transferDetails: { title?: string; sender_email: string; files: Array<{ name: string; size: number }>; expires_at: Date } | undefined =
+      undefined;
 
     try {
       await useSerializableTransaction(async (tx) => {
         // 1) Load transfer
         const transfer = await tx.transfers.findUnique({
           where: { id },
-          select: { id: true, owner_user_id: true, status: true },
+          select: { id: true, title: true, owner_user_id: true, status: true, expiration_date: true, files: { select: { name: true, size: true } } },
         });
 
         if (!transfer) {
@@ -219,6 +223,7 @@ class TransferController {
 
         // 5) Atomically set owner key + activate transfer
         // Use updateMany with status=PENDING to avoid race committing twice
+        // Will not actually update many since only one transfer will ever meet all requirements. We use update many to allow for a non unique field check (status) in case of a race condition
         const activateTransfer = tx.transfers.updateMany({
           where: {
             id,
@@ -246,11 +251,21 @@ class TransferController {
           }
           throw { status: StatusCodes.CONFLICT, message: 'Transfer could not be committed (state changed)' };
         }
+
+        // No errors, set values for notifications
+        recipientEmails = new Set(validRecipientUpdates.map(([email]) => email));
+        transferDetails = {
+          title: transfer.title,
+          sender_email: req.session.email!,
+          files: transfer.files.map((f) => ({ name: f.name, size: Number(f.size) })),
+          expires_at: transfer.expiration_date,
+        };
       });
 
-      // TODO: notify asynchronously (queue/job)
-      // notifyRecipients(id).catch(err => this.transferLogger.warn({ err }, 'notifyRecipients failed'));
-
+      // Notify recipients
+      if (recipientEmails.size > 0 && transferDetails) {
+        await notificationService.send_new_transfer_notification(Array.from(recipientEmails), transferDetails);
+      }
       res.status(StatusCodes.ACCEPTED).json({ message: 'Email transfer committed successfully' });
     } catch (error: any) {
       if (error?.status) {

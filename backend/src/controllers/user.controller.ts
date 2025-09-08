@@ -5,6 +5,7 @@ import StatusCodesConfig from '../config/StatusCodes.config';
 import { requireOtp, verifyToken } from '../middlewares/auth.middleware';
 import db from '../services/db';
 import { bodyValidator } from '../middlewares/validation.middleware';
+import notificationService from 'services/notifications';
 
 class UserController {
   public path = '/users';
@@ -88,6 +89,7 @@ class UserController {
       });
 
       await req.consumeOtpToken?.();
+      await notificationService.send_welcome_notification(req.session.email);
       res.status(StatusCodesConfig.OK).send();
     } catch (error) {
       this.userLogger.error(error, 'Error verifying current user');
