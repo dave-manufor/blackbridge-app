@@ -16,7 +16,7 @@ import transferConfig from '../config/transfer.config';
 import cacheConfig from '../config/cache.config';
 import cache from '../services/cache';
 import { v4 as uuid_v4 } from 'uuid';
-import notificationService from 'services/notifications';
+import notificationService from '../services/notifications';
 
 class TransferController {
   public path = '/transfers';

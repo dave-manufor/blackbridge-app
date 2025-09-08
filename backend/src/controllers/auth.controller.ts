@@ -18,7 +18,7 @@ import { hashOTP, hashRefreshToken, verifyOTPHash } from '../utils/hashing.utils
 import { otpVerificationLimiter } from '../middlewares/rateLimiter.middleware';
 import cacheConfig from '../config/cache.config';
 import { generateOTP } from '../utils/otp.utils';
-import notificationService from 'services/notifications';
+import notificationService from '../services/notifications';
 
 class AuthController {
   public path = '/auth';
