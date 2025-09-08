@@ -18,6 +18,7 @@ import { hashOTP, hashRefreshToken, verifyOTPHash } from '../utils/hashing.utils
 import { otpVerificationLimiter } from '../middlewares/rateLimiter.middleware';
 import cacheConfig from '../config/cache.config';
 import { generateOTP } from '../utils/otp.utils';
+import notificationService from 'services/notifications';
 
 class AuthController {
   public path = '/auth';
@@ -145,6 +146,10 @@ class AuthController {
       const cooldownAt = Date.now() + otpConfig.cooldownDuration;
       const expiresAt = Date.now() + otpConfig.requestValidDuration;
       // Respond with timestamp
+
+      notificationService.send_otp_notification(req.session.email, code, otpConfig.requestValidDuration).catch((error) => {
+        this.authLogger.warn(error, 'Error sending OTP notification');
+      });
 
       res.status(StatusCodesConfig.OK).json({
         message: 'OTP has been sent',
@@ -361,6 +366,19 @@ class AuthController {
         secure: process.env.NODE_ENV === 'production',
         maxAge: jwtConfig.accessToken.duration,
       });
+
+      const device = userAgent.isMobile ? 'mobile' : userAgent.isDesktop ? 'desktop' : userAgent.isTablet ? 'tablet' : 'unknown';
+
+      notificationService
+        .send_signin_notification(user.email, {
+          ipAddress: req.ip,
+          platform: userAgent.platform,
+          device,
+          time: new Date(),
+        })
+        .catch((error) => {
+          this.authLogger.warn(error, 'Error sending sign-in notification');
+        });
       res.status(StatusCodesConfig.OK).json({
         message: 'Sign in successful',
         data: {

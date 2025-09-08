@@ -7,9 +7,11 @@ class App {
   public app: Application;
   public port: number;
 
-  constructor(appInit: { port: number; middlewares: any[]; controllers: any[] }) {
+  constructor(appInit: { port: number; trustProxy: boolean; middlewares: any[]; controllers: any[] }) {
     this.app = express();
     this.port = appInit.port;
+
+    this.app.set('trust proxy', appInit.trustProxy);
 
     this.initializeMiddlewares(appInit.middlewares);
     this.initializeControllers(appInit.controllers);

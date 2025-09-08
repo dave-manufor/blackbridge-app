@@ -35,6 +35,7 @@ AWS.config.update({
 
 const server: App = new App({
   port: port,
+  trustProxy: true,
   middlewares: [
     express.json(),
     express.urlencoded({ extended: true }),
