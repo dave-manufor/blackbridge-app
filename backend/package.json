@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon | npx pino-pretty",
     "email:dev": "email dev --dir src/services/notifications/templates/email",
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate",
     "start": "node dist/index.js",
@@ -74,6 +74,7 @@
     "react-dom": "19.1.1",
     "redis": "^4.7.0",
     "resend": "^4.8.0",
+    "tsc-alias": "^1.8.16",
     "uuid": "^11.1.0",
     "zod": "^3.24.2"
   }

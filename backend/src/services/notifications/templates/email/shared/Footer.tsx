@@ -1,5 +1,5 @@
 import React from 'react';
-import { Section, Container, Text, Link, Hr } from '@react-email/components';
+import { Section, Text, Link, Hr } from '@react-email/components';
 import notificationConfig from 'services/notifications/config';
 const supportEmail = notificationConfig.SUPPORT_EMAIL;
 
