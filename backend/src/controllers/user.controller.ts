@@ -89,7 +89,9 @@ class UserController {
       });
 
       await req.consumeOtpToken?.();
-      await notificationService.send_welcome_notification(req.session.email);
+      notificationService.send_welcome_notification(req.session.email).catch((error) => {
+        this.userLogger.warn(error, 'Error sending welcome notification');
+      });
       res.status(StatusCodesConfig.OK).send();
     } catch (error) {
       this.userLogger.error(error, 'Error verifying current user');

@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 import emailConfig from './config';
-import { NewTransferEmailTemplate, OtpEmailTemplate, WelcomeEmailTemplate } from './templates/email';
+import { NewTransferEmailTemplate, OtpEmailTemplate, SignInEmailTemplate, WelcomeEmailTemplate } from './templates/email';
 
 const resend = new Resend(emailConfig.RESEND_API_KEY);
 
@@ -21,8 +21,21 @@ const notificationService = {
       react: WelcomeEmailTemplate({ email }),
     });
   },
-  send_signin_notification: async (email: string) => {
-    // Implementation for sending sign-in notification
+  send_signin_notification: async (
+    email: string,
+    sessionDetails: {
+      ipAddress: string;
+      platform: string;
+      device: 'mobile' | 'desktop' | 'tablet' | 'unknown';
+      time: Date;
+    },
+  ) => {
+    await resend.emails.send({
+      from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
+      to: email,
+      subject: 'New sign-in to your BlackBridge account',
+      react: SignInEmailTemplate({ email, sessionDetails }),
+    });
   },
   send_transfer_success_notification: async (email: string, transferDetails: any) => {
     // Implementation for sending transfer success notification to sender
@@ -39,12 +52,14 @@ const notificationService = {
       expires_at: Date;
     },
   ) => {
-    await resend.emails.send({
-      from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
-      to: recipients,
-      subject: 'New File Transfer Notification',
-      react: NewTransferEmailTemplate(transferDetails),
-    });
+    await resend.batch.send(
+      recipients.map((email) => ({
+        from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
+        to: email,
+        subject: 'New File Transfer Notification',
+        react: NewTransferEmailTemplate(transferDetails),
+      })),
+    );
   },
   send_password_reset_notification: async (email: string, resetLink: string) => {
     // Implementation for sending password reset notification

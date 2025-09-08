@@ -12,7 +12,7 @@ const OtpEmailTemplate = ({ email, otp, expiresInMills }: Props) => {
   const expiresInMinutes = Math.floor(expiresInMills / 60000);
   return (
     <GenericContentWrapper preview={`Verify your identity. Your One-Time Password (OTP) is ${otp}`}>
-      <Section className="w-full px-4 text-center">
+      <Section className="w-full text-center">
         <Heading as="h3">Here's your One-Time Password (OTP)</Heading>
         <Text>
           Hi, {email}

@@ -264,7 +264,9 @@ class TransferController {
 
       // Notify recipients
       if (recipientEmails.size > 0 && transferDetails) {
-        await notificationService.send_new_transfer_notification(Array.from(recipientEmails), transferDetails);
+        notificationService.send_new_transfer_notification(Array.from(recipientEmails), transferDetails).catch((error) => {
+          this.transferLogger.warn(error, 'Error sending new transfer notification');
+        });
       }
       res.status(StatusCodes.ACCEPTED).json({ message: 'Email transfer committed successfully' });
     } catch (error: any) {

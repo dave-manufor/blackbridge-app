@@ -3,7 +3,7 @@ import StyledBody from './StyledBody';
 import Header from './Header';
 import BrandStyles from './BrandStyles';
 import Footer from './Footer';
-import { Html, Head, Preview } from '@react-email/components';
+import { Html, Head, Preview, Container } from '@react-email/components';
 
 const GenericContentWrapper = ({ preview, children }: { preview?: string; children: React.ReactNode }) => {
   return (
@@ -13,7 +13,7 @@ const GenericContentWrapper = ({ preview, children }: { preview?: string; childr
         {preview && <Preview>{preview}</Preview>}
         <StyledBody>
           <Header />
-          {children}
+          <Container className="px-6">{children}</Container>
           <Footer />
         </StyledBody>
       </Html>

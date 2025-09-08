@@ -35,7 +35,7 @@ const NewTransferEmailTemplate = (payload: NewTransferEmailTemplateProps) => {
         <Container>
           <Heading as="h3">Files</Heading>
           <Container>
-            {payload.files.map((file, index) => (
+            {payload.files?.map((file, index) => (
               <Text className="font-medium text-[16px] text-wrap m-0 mb-4" key={index}>
                 {file.name}
                 <br />
