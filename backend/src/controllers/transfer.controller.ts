@@ -116,11 +116,15 @@ class TransferController {
                 recipient_user_id: user.id,
               })),
             },
+            // Create invites for non-existing users
+            invites: {
+              create: nonExistingUsers.map((email) => ({
+                email,
+                inviter_id: userId,
+              })),
+            },
           },
         });
-
-        // Save invitee details
-        // TODO: Implement invitee save logic
 
         res.status(StatusCodes.CREATED).json({
           message: 'Email transfer initiated',

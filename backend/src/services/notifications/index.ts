@@ -1,6 +1,14 @@
 import { Resend } from 'resend';
 import emailConfig from './config';
-import { NewTransferEmailTemplate, OtpEmailTemplate, SignInEmailTemplate, WelcomeEmailTemplate } from './templates/email';
+import {
+  AccessGrantedEmailTemplate,
+  InviteAcceptedEmailTemplate,
+  NewInviteEmailTemplate,
+  NewTransferEmailTemplate,
+  OtpEmailTemplate,
+  SignInEmailTemplate,
+  WelcomeEmailTemplate,
+} from './templates/email';
 
 const resend = new Resend(emailConfig.RESEND_API_KEY);
 
@@ -61,8 +69,58 @@ const notificationService = {
       })),
     );
   },
-  send_password_reset_notification: async (email: string, resetLink: string) => {
-    // Implementation for sending password reset notification
+  send_invite_notification: async (
+    recipients: string[],
+    transferDetails: {
+      title?: string;
+      sender_email: string;
+      files: Array<{
+        name: string;
+        size: number;
+      }>;
+      expires_at: Date;
+    },
+    inviteToken: string,
+  ) => {
+    await resend.batch.send(
+      recipients.map((email) => ({
+        from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
+        to: email,
+        subject: 'You have been invited to join BlackBridge',
+        react: NewInviteEmailTemplate(),
+      })),
+    );
+  },
+  send_invite_accepted_notification: async (
+    email: string,
+    inviteDetails: {
+      recipient_email: string;
+      transfer_title: string;
+    },
+    acceptanceToken: string,
+  ) => {
+    await resend.emails.send({
+      from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
+      to: email,
+      subject: 'Your invitation has been accepted',
+      react: InviteAcceptedEmailTemplate(),
+    });
+  },
+  send_access_granted_notification: async (
+    email: string,
+    transferDetails: {
+      transfer_id: string;
+      transfer_title?: string;
+      granted_by: string;
+      expires_at: Date;
+    },
+  ) => {
+    await resend.emails.send({
+      from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
+      to: email,
+      subject: 'Access Granted to BlackBridge',
+      react: AccessGrantedEmailTemplate(),
+    });
   },
 };
 
