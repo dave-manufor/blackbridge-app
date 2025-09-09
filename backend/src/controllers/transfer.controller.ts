@@ -460,6 +460,7 @@ class TransferController {
           invite.inviter.email,
           {
             recipient_email: invite.email,
+            transfer_id: invite.transfer.id,
             transfer_title: invite.transfer.title,
           },
           acceptanceToken,
