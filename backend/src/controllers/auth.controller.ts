@@ -369,16 +369,18 @@ class AuthController {
 
       const device = userAgent.isMobile ? 'mobile' : userAgent.isDesktop ? 'desktop' : userAgent.isTablet ? 'tablet' : 'unknown';
 
-      notificationService
-        .send_signin_notification(user.email, {
-          ipAddress: req.ip,
-          platform: userAgent.platform,
-          device,
-          time: new Date(),
-        })
-        .catch((error) => {
-          this.authLogger.warn(error, 'Error sending sign-in notification');
-        });
+      if (user && user.verified) {
+        notificationService
+          .send_signin_notification(user.email, {
+            ipAddress: req.ip,
+            platform: userAgent.platform,
+            device,
+            time: new Date(),
+          })
+          .catch((error) => {
+            this.authLogger.warn(error, 'Error sending sign-in notification');
+          });
+      }
       res.status(StatusCodesConfig.OK).json({
         message: 'Sign in successful',
         data: {
