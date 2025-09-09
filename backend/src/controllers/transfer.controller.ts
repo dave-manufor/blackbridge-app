@@ -2,7 +2,7 @@ import StatusCodes from '../config/StatusCodes.config';
 import logger from '../lib/logger';
 import { verifyLinkAccess, verifyToken } from '../middlewares/auth.middleware';
 import { bodyValidator } from '../middlewares/validation.middleware';
-import { FILE_STATUS, TRANSFER_STATUS, TRANSFER_TYPE, Prisma, LINK_ACCESS_CONTROL } from '@prisma/client';
+import { FILE_STATUS, TRANSFER_STATUS, TRANSFER_TYPE, Prisma, LINK_ACCESS_CONTROL, INVITE_STATUS } from '@prisma/client';
 import db, { useSerializableTransaction } from '../services/db';
 import { PGPValidator } from '../utils/PGPValidator.utils';
 import { Request, Response, Router } from 'express';
@@ -39,6 +39,8 @@ class TransferController {
     this.router.post('/emails/initiate', verifyToken(), this.validateBody('initiateEmailTransfer'), this.initiateEmailTransfer);
     this.router.post('/links/commit/:id', verifyToken(), this.validateBody('commitLinkTransfer'), this.commitLinkTransfer);
     this.router.post('/emails/commit/:id', verifyToken(), this.validateBody('commitEmailTransfer'), this.commitEmailTransfer);
+    this.router.post('/invites/accept', verifyToken(), this.validateBody('acceptInvite'), this.acceptInvite);
+    this.router.post('/invites/approve', verifyToken(), this.validateBody('approveInvite'), this.approveInvite);
     this.router.get('/links/:slug', verifyLinkAccess(), this.getLinkTransfer);
   }
 
@@ -377,6 +379,112 @@ class TransferController {
       return;
     }
   };
+
+  private acceptInvite = async (req: Request, res: Response) => {
+    const { token } = req.body as BodyTypeToShape<'acceptInvite'>;
+    const { email: userEmail } = req.session;
+    try {
+      let payload: JWTInvitePayload;
+      try {
+        payload = jwt.verify(token, process.env.INVITE_TOKEN_SECRET!) as JWTInvitePayload;
+      } catch {
+        res.status(StatusCodes.BAD_REQUEST).json({ message: 'Invalid invite token' });
+        return;
+      }
+      // Validate token and accept invite
+      const invite = await db.invites.findUnique({
+        where: { id: payload.id },
+        select: {
+          id: true,
+          email: true,
+          status: true,
+          transfer: {
+            select: {
+              id: true,
+              status: true,
+              title: true,
+            },
+          },
+          inviter: {
+            select: {
+              id: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      // Check if invite exists
+      if (!invite) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Invite not found' });
+        return;
+      }
+
+      // Check if invite is for the current user
+      if (invite.email !== userEmail) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to accept this invite' });
+        return;
+      }
+
+      // Check if invite is already accepted
+      if (invite.status !== INVITE_STATUS.PENDING) {
+        res.status(StatusCodes.CONFLICT).json({ message: 'Invite has already been accepted' });
+        return;
+      }
+
+      // Check if transfer is still valid
+      if (invite.transfer.status !== TRANSFER_STATUS.ACTIVE) {
+        res.status(StatusCodes.CONFLICT).json({ message: 'Transfer is no longer valid' });
+        return;
+      }
+
+      // Update invite status
+      const updatedInvite = await db.invites.update({
+        where: { id: invite.id },
+        data: { status: INVITE_STATUS.ACCEPTED },
+      });
+
+      const acceptancePayload: JWTInvitePayload = {
+        id: invite.id,
+        email: invite.email,
+        transfer_id: invite.transfer.id,
+        iat: Math.floor(Date.now() / 1000),
+      };
+
+      const acceptanceToken = jwt.sign(acceptancePayload, process.env.INVITE_TOKEN_SECRET!);
+
+      // Send notification to inviter (non-blocking)
+      notificationService
+        .send_invite_accepted_notification(
+          invite.inviter.email,
+          {
+            recipient_email: invite.email,
+            transfer_title: invite.transfer.title,
+          },
+          acceptanceToken,
+        )
+        .catch((error) => {
+          this.transferLogger.warn(error, 'Failed to send invite accepted notification');
+        });
+
+      res.status(StatusCodes.OK).json({
+        message: 'Invite accepted successfully',
+        data: {
+          invite: {
+            id: invite.id,
+            email: invite.email,
+            status: updatedInvite.status,
+            transfer_id: invite.transfer.id,
+          },
+        },
+      });
+    } catch (error) {
+      this.transferLogger.error(error, 'Failed to accept invite');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  };
+
+  private approveInvite = async (req: Request, res: Response) => {};
 
   private getTransfers = async (req: Request, res: Response) => {
     const { userId } = req.session;
@@ -896,8 +1004,6 @@ class TransferController {
   private validateBody = bodyValidator(this.getValidationSchema);
 }
 
-type BodyType = 'initiateLinkTransfer' | 'initiateEmailTransfer' | 'commitLinkTransfer' | 'commitEmailTransfer';
-
 const initiateEmailTransferSchema = z.object({
   recipients: z.array(z.string().email()).nonempty('At least one recipient is required'),
   title: z.string().max(100).optional(),
@@ -939,14 +1045,25 @@ const commitLinkTransferSchema = z.object({
   }),
 });
 
+const acceptInviteSchema = z.object({
+  token: z.string(),
+});
+
+const approveInviteSchema = z.object({
+  token: z.string(),
+});
+
 const schemas = {
   initiateEmailTransfer: initiateEmailTransferSchema,
   initiateLinkTransfer: initiateLinkTransferSchema,
   commitEmailTransfer: commitEmailTransferSchema,
   commitLinkTransfer: commitLinkTransferSchema,
+  acceptInvite: acceptInviteSchema,
+  approveInvite: approveInviteSchema,
 } as const;
 
 type SchemaMap = typeof schemas;
+type BodyType = keyof SchemaMap;
 type BodyTypeToShape<T extends BodyType> = z.infer<SchemaMap[T]>;
 
 export default TransferController;
