@@ -1,11 +1,8 @@
 import React from 'react';
 import { GenericContentWrapper } from './shared';
 import { Heading, Link, Text } from '@react-email/components';
-import notificationConfig from 'services/notifications/config';
 
-const baseUrl = notificationConfig.BASE_URL;
-
-const WelcomeEmailTemplate = ({ email }: { email: string }) => {
+const WelcomeEmailTemplate = ({ email, url }: { email: string; url: string }) => {
   return (
     <GenericContentWrapper preview="Start sending files safely with end-to-end encryption.">
       <Text>Hi {email},</Text>
@@ -56,7 +53,7 @@ const WelcomeEmailTemplate = ({ email }: { email: string }) => {
         </div>
       ))}
       <Text>
-        <Link href={`${baseUrl}/sign-in`}>
+        <Link href={url}>
           <strong>Log in</strong>
         </Link>{' '}
         now and try your first secure transfer, it only takes a few seconds.

@@ -9,8 +9,11 @@ import {
   SignInEmailTemplate,
   WelcomeEmailTemplate,
 } from './templates/email';
+import notificationConfig from './config';
+import { getMailboxName } from './utils/format';
 
 const resend = new Resend(emailConfig.RESEND_API_KEY);
+const baseAppUrl = notificationConfig.BASE_URL;
 
 const notificationService = {
   send_otp_notification: async (email: string, otp: string, expiresInMills: number) => {
@@ -22,11 +25,12 @@ const notificationService = {
     });
   },
   send_welcome_notification: async (email: string) => {
+    const url = `${baseAppUrl}/sign-in`;
     await resend.emails.send({
       from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
       to: email,
       subject: 'Welcome to BlackBridge 🚀 — from our Founder',
-      react: WelcomeEmailTemplate({ email }),
+      react: WelcomeEmailTemplate({ email, url }),
     });
   },
   send_signin_notification: async (
@@ -38,11 +42,12 @@ const notificationService = {
       time: Date;
     },
   ) => {
+    const url = `${baseAppUrl}/sign-in`;
     await resend.emails.send({
       from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
       to: email,
       subject: 'New sign-in to your BlackBridge account',
-      react: SignInEmailTemplate({ email, sessionDetails }),
+      react: SignInEmailTemplate({ email, sessionDetails, url }),
     });
   },
   send_transfer_success_notification: async (email: string, transferDetails: any) => {
@@ -51,6 +56,7 @@ const notificationService = {
   send_new_transfer_notification: async (
     recipients: string[],
     transferDetails: {
+      id: string;
       title?: string;
       sender_email: string;
       files: Array<{
@@ -60,12 +66,13 @@ const notificationService = {
       expires_at: Date;
     },
   ) => {
+    const url = `${baseAppUrl}/transfers/${transferDetails.id}`;
     await resend.batch.send(
       recipients.map((email) => ({
         from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
         to: email,
         subject: 'New File Transfer Notification',
-        react: NewTransferEmailTemplate(transferDetails),
+        react: NewTransferEmailTemplate({ ...transferDetails, url }),
       })),
     );
   },
@@ -85,12 +92,15 @@ const notificationService = {
     },
   ) => {
     await resend.batch.send(
-      recipients.map(({ email, inviteToken }) => ({
-        from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
-        to: email,
-        subject: 'You have been invited to join BlackBridge',
-        react: NewInviteEmailTemplate(),
-      })),
+      recipients.map(({ email, inviteToken }) => {
+        const url = `${baseAppUrl}/sign-up?inviteToken=${inviteToken}`;
+        return {
+          from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
+          to: email,
+          subject: 'You’ve been invited to access a secure transfer on BlackBridge',
+          react: NewInviteEmailTemplate({ email, inviteToken, transferDetails, url }),
+        };
+      }),
     );
   },
   send_invite_accepted_notification: async (
@@ -101,11 +111,13 @@ const notificationService = {
     },
     acceptanceToken: string,
   ) => {
+    const mailboxName = getMailboxName(inviteDetails.recipient_email);
+    const url = `${baseAppUrl}/acceptanceToken=${acceptanceToken}`;
     await resend.emails.send({
       from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
       to: email,
-      subject: 'Your invitation has been accepted',
-      react: InviteAcceptedEmailTemplate(),
+      subject: `${mailboxName} has accepted your invitation`,
+      react: InviteAcceptedEmailTemplate({ email, inviteDetails, url }),
     });
   },
   send_access_granted_notification: async (
@@ -117,11 +129,12 @@ const notificationService = {
       expires_at: Date;
     },
   ) => {
+    const url = `${baseAppUrl}/transfers/${transferDetails.transfer_id}`;
     await resend.emails.send({
       from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
       to: email,
-      subject: 'Access Granted to BlackBridge',
-      react: AccessGrantedEmailTemplate(),
+      subject: `Your access ${transferDetails.transfer_title ? `to ${transferDetails.transfer_title}` : ''} has been approved`,
+      react: AccessGrantedEmailTemplate({ email, transferDetails, url }),
     });
   },
 };
