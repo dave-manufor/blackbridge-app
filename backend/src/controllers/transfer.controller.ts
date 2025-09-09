@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { prettyZodErrors } from '../utils/zod.utils';
 import { getPaginationResult } from '../utils/db.utils';
 import { generateRandomSlug } from '../utils/slug.utils';
-import { JWTDownloadRequestPayload } from 'custom';
+import { JWTDownloadRequestPayload, JWTInvitePayload } from 'custom';
 import jwt from 'jsonwebtoken';
 import transferConfig from '../config/transfer.config';
 import cacheConfig from '../config/cache.config';
@@ -142,7 +142,7 @@ class TransferController {
 
   private commitEmailTransfer = async (req: Request, res: Response) => {
     const { owner_key, recipient_keys } = req.body as BodyTypeToShape<'commitEmailTransfer'>;
-    const { userId } = req.session;
+    const { userId, email: senderEmail } = req.session;
     const { id } = req.params;
 
     // normalize emails once
@@ -260,7 +260,7 @@ class TransferController {
         recipientEmails = new Set(validRecipientUpdates.map(([email]) => email));
         transferDetails = {
           title: transfer.title,
-          sender_email: req.session.email!,
+          sender_email: senderEmail!,
           files: transfer.files.map((f) => ({ name: f.name, size: Number(f.size) })),
           expires_at: transfer.expiration_date,
         };
@@ -272,6 +272,32 @@ class TransferController {
           this.transferLogger.warn(error, 'Error sending new transfer notification');
         });
       }
+
+      // Notify invitees (non-blocking)
+      if (transferDetails) {
+        db.invites
+          .findMany({
+            where: {
+              transfer_id: id,
+            },
+          })
+          .then((invites) => {
+            const recipients = invites.map(({ email }) => {
+              const jwtPayload: JWTInvitePayload = {
+                id: id,
+                email: email!,
+                transfer_id: id,
+                iat: Math.floor(Date.now() / 1000),
+              };
+              const inviteToken = jwt.sign(jwtPayload, process.env.INVITE_TOKEN_SECRET!);
+              return { email, inviteToken };
+            });
+            notificationService.send_invite_notification(recipients, transferDetails).catch((error) => {
+              this.transferLogger.warn(error, 'Error sending invite notification');
+            });
+          });
+      }
+
       res.status(StatusCodes.ACCEPTED).json({ message: 'Email transfer committed successfully' });
     } catch (error: any) {
       if (error?.status) {
