@@ -93,7 +93,7 @@ const notificationService = {
   ) => {
     await resend.batch.send(
       recipients.map(({ email, inviteToken }) => {
-        const url = `${baseAppUrl}?inviteToken=${inviteToken}`;
+        const url = `${baseAppUrl}?action=acceptInvite&inviteToken=${inviteToken}`;
         return {
           from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
           to: email,

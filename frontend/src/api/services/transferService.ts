@@ -334,3 +334,7 @@ export async function getDownloadUrls(
   });
   return response.data?.data as GetDownloadUrlsResponse;
 }
+
+export async function acceptTransferInvitation(): Promise<void> {}
+
+export async function approveTransferInvitation(): Promise<void> {}
