@@ -39,8 +39,11 @@ class TransferController {
     this.router.post('/emails/initiate', verifyToken(), this.validateBody('initiateEmailTransfer'), this.initiateEmailTransfer);
     this.router.post('/links/commit/:id', verifyToken(), this.validateBody('commitLinkTransfer'), this.commitLinkTransfer);
     this.router.post('/emails/commit/:id', verifyToken(), this.validateBody('commitEmailTransfer'), this.commitEmailTransfer);
-    this.router.post('/invites/accept', verifyToken(), this.validateBody('acceptInvite'), this.acceptInvite);
-    this.router.post('/invites/approve', verifyToken(), this.validateBody('approveInvite'), this.approveInvite);
+    this.router.get('/invitations', verifyToken(), this.getInvitations);
+    this.router.get('/invitations/:invitationId', verifyToken(), this.getInvitationDetails);
+    this.router.post('/invitations/details', verifyToken(), this.validateBody('getInvitationDetailsFromToken'), this.getInvitationDetailsFromToken);
+    this.router.post('/invitations/accept', verifyToken(), this.validateBody('acceptInvite'), this.acceptInvite);
+    this.router.post('/invitations/approve', verifyToken(), this.validateBody('approveInvite'), this.approveInvite);
     this.router.get('/links/:slug', verifyLinkAccess(), this.getLinkTransfer);
   }
 
@@ -375,6 +378,145 @@ class TransferController {
       res.status(StatusCodes.ACCEPTED).json({ message: 'Link transfer committed successfully' });
     } catch (error) {
       this.transferLogger.error(error, 'Failed to commit link transfer');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+      return;
+    }
+  };
+
+  private getInvitations = async (req: Request, res: Response) => {
+    res.status(StatusCodes.NOT_IMPLEMENTED).json({ message: 'Not Implemented' });
+    return;
+  };
+
+  private getInvitationDetails = async (req: Request, res: Response) => {
+    const { invitationId } = req.params;
+    const { userId, email: userEmail } = req.session;
+    try {
+      const invite = await db.invites.findUnique({
+        where: { id: invitationId },
+        select: {
+          id: true,
+          email: true,
+          status: true,
+          created_at: true,
+          transfer: {
+            select: {
+              id: true,
+              status: true,
+              title: true,
+              expiration_date: true,
+              files: {
+                select: {
+                  name: true,
+                  size: true,
+                  content_type: true,
+                },
+              },
+            },
+          },
+          inviter: {
+            select: {
+              id: true,
+              email: true,
+            },
+          },
+          viewed_invite: true,
+          viewed_authorization: true,
+        },
+      });
+
+      // Check if invite exists
+      if (!invite) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Invite not found' });
+        return;
+      }
+
+      // Check permissions
+      if (invite.email !== userEmail && invite.inviter.id !== userId) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to view this invite' });
+        return;
+      }
+
+      // Don't return invites for invalid transfers
+      if (invite.transfer.status !== TRANSFER_STATUS.ACTIVE || invite.transfer.expiration_date < new Date()) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'Transfer is no longer valid' });
+        return;
+      }
+
+      res.status(StatusCodes.OK).json({ message: 'Invite found', data: invite });
+    } catch {
+      this.transferLogger.error('Failed to get invitation details from token');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+      return;
+    }
+  };
+
+  private getInvitationDetailsFromToken = async (req: Request, res: Response) => {
+    const { userId, email: userEmail } = req.session;
+    const { token } = req.body as BodyTypeToShape<'getInvitationDetailsFromToken'>;
+    let payload: JWTInvitePayload;
+    try {
+      try {
+        payload = jwt.verify(token, process.env.INVITE_TOKEN_SECRET!) as JWTInvitePayload;
+      } catch {
+        res.status(StatusCodes.BAD_REQUEST).json({ message: 'Invalid invite token' });
+        return;
+      }
+
+      const invite = await db.invites.findUnique({
+        where: { id: payload.id },
+        select: {
+          id: true,
+          email: true,
+          status: true,
+          created_at: true,
+          transfer: {
+            select: {
+              id: true,
+              status: true,
+              title: true,
+              expiration_date: true,
+              files: {
+                select: {
+                  name: true,
+                  size: true,
+                  content_type: true,
+                },
+              },
+            },
+          },
+          inviter: {
+            select: {
+              id: true,
+              email: true,
+            },
+          },
+          viewed_invite: true,
+          viewed_authorization: true,
+        },
+      });
+
+      // Check if invite exists
+      if (!invite) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Invite not found' });
+        return;
+      }
+
+      // Check permissions
+      if (invite.email !== userEmail && invite.inviter.id !== userId) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to view this invite' });
+        return;
+      }
+
+      // Don't return invites for invalid transfers
+      if (invite.transfer.status !== TRANSFER_STATUS.ACTIVE || invite.transfer.expiration_date < new Date()) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'Transfer is no longer valid' });
+        return;
+      }
+
+      res.status(StatusCodes.OK).json({ message: 'Invite found', data: invite });
+    } catch {
+      this.transferLogger.error('Failed to get invitation details from token');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
       return;
     }
@@ -1152,6 +1294,10 @@ const commitLinkTransferSchema = z.object({
   }),
 });
 
+const getInvitationDetailsFromTokenSchema = z.object({
+  token: z.string(),
+});
+
 const acceptInviteSchema = z.object({
   token: z.string(),
 });
@@ -1170,6 +1316,7 @@ const schemas = {
   commitLinkTransfer: commitLinkTransferSchema,
   acceptInvite: acceptInviteSchema,
   approveInvite: approveInviteSchema,
+  getInvitationDetailsFromToken: getInvitationDetailsFromTokenSchema,
 } as const;
 
 type SchemaMap = typeof schemas;
