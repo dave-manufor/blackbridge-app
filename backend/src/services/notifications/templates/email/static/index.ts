@@ -1,22 +1,5 @@
-import notificationConfig from 'services/notifications/config';
-
-const baseUrl = `${notificationConfig.BASE_URL}/public/img`;
-
-const icons = [
-  { name: 'LogoBanner', file: 'blackbridge-banner.png' },
-  { name: 'PhoneIcon', file: 'phone-icon.png' },
-  { name: 'TabletIcon', file: 'tablet-icon.png' },
-  { name: 'LaptopIcon', file: 'laptop-icon.png' },
-  { name: 'LoginIcon', file: 'login-icon.png' },
-] as const;
-
-type IconExports = {
-  [K in (typeof icons)[number]['name']]: string;
-};
-
-const iconExports: IconExports = icons.reduce((acc, { name, file }) => {
-  acc[name] = `${baseUrl}/${file}`;
-  return acc;
-}, {} as IconExports);
-
-export const { LogoBanner, PhoneIcon, TabletIcon, LaptopIcon, LoginIcon } = iconExports;
+export const LogoBanner = 'https://i.ibb.co/RTsPFtmT/blackbridge-banner.png';
+export const PhoneIcon = 'https://i.ibb.co/NnY40FDM/phone-icon.png';
+export const TabletIcon = 'https://i.ibb.co/zTCyr3KS/tablet-icon.png';
+export const LaptopIcon = 'https://i.ibb.co/jdwL0Bz/laptop-icon.png';
+export const LoginIcon = 'https://i.ibb.co/cSq6VzCD/login-icon.png';
