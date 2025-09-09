@@ -1,8 +1,7 @@
 import React from 'react';
-import { GenericContentWrapper, StyledButton } from './shared';
+import { Detail, Details, GenericContentWrapper, StyledButton } from './shared';
 import { Container, Heading, Img, Text } from '@react-email/components';
 import { LaptopIcon, PhoneIcon, TabletIcon, LoginIcon } from './static';
-import notificationConfig from 'services/notifications/config';
 import { formatInTimeZone } from 'date-fns-tz';
 
 type Devices = 'mobile' | 'tablet' | 'desktop' | 'unknown';
@@ -15,6 +14,7 @@ type Props = {
     device: Devices;
     time: Date;
   };
+  url: string;
 };
 
 const deviceIconMap = {
@@ -23,8 +23,6 @@ const deviceIconMap = {
   desktop: LaptopIcon,
   unknown: LoginIcon,
 } as Record<Devices, string>;
-
-const baseUrl = notificationConfig.BASE_URL;
 
 const SignInEmailTemplate = (payload: Props) => {
   return (
@@ -40,16 +38,14 @@ const SignInEmailTemplate = (payload: Props) => {
         <div className="mt-2 mb-8">
           <div className="mr-[32px] inline-flex items-start">
             <Img src={deviceIconMap[payload.sessionDetails?.device]} className="h-[48px]" />
-            <table style={{ borderCollapse: 'separate', borderSpacing: '20px 8px', marginTop: -12 }}>
-              <tbody>
-                <Detail title="Platform" value={payload.sessionDetails?.platform} />
-                <Detail
-                  title="Time"
-                  value={`${formatInTimeZone(payload.sessionDetails?.time, 'UTC', 'eeee, MMMM d, yyyy', {})} at ${formatInTimeZone(payload.sessionDetails?.time, 'UTC', 'h:mm a z')}`}
-                />
-                <Detail title="IP Address" value={payload.sessionDetails?.ipAddress} />
-              </tbody>
-            </table>
+            <Details style={{ marginTop: -12 }}>
+              <Detail title="Platform" value={payload.sessionDetails?.platform} />
+              <Detail
+                title="Time"
+                value={`${formatInTimeZone(payload.sessionDetails?.time, 'UTC', 'eeee, MMMM d, yyyy', {})} at ${formatInTimeZone(payload.sessionDetails?.time, 'UTC', 'h:mm a z')}`}
+              />
+              <Detail title="IP Address" value={payload.sessionDetails?.ipAddress} />
+            </Details>
           </div>
         </div>
       </Container>
@@ -60,27 +56,12 @@ const SignInEmailTemplate = (payload: Props) => {
       <Text>3. Review your account activity.</Text>
       <Text>4. Contact our support team if you see anything unusual.</Text>
       <div className="w-full flex items-center justify-center">
-        <StyledButton href={baseUrl} className="my-4">
+        <StyledButton href={payload.url} className="my-4">
           Go to BlackBridge
         </StyledButton>
       </div>
     </GenericContentWrapper>
   );
 };
-
-const Detail = ({ title, value }: { title: string; value: string }) => (
-  <tr>
-    <td>
-      <DetailTitle>{title}</DetailTitle>
-    </td>
-    <td>
-      <DetailValue>{value}</DetailValue>
-    </td>
-  </tr>
-);
-
-const DetailTitle = ({ children }: { children: React.ReactNode }) => <span className="font-bold text-sm">{children}:</span>;
-
-const DetailValue = ({ children }: { children: React.ReactNode }) => <span className="text-sm">{children}</span>;
 
 export default SignInEmailTemplate;

@@ -148,8 +148,9 @@ class TransferController {
     // normalize emails once
     const keysByEmail = new Map(recipient_keys.map((r) => [r.email.trim().toLowerCase(), r.file_key]));
     let recipientEmails: Set<string> | undefined = undefined;
-    let transferDetails: { title?: string; sender_email: string; files: Array<{ name: string; size: number }>; expires_at: Date } | undefined =
-      undefined;
+    let transferDetails:
+      | { id: string; title?: string; sender_email: string; files: Array<{ name: string; size: number }>; expires_at: Date }
+      | undefined = undefined;
 
     try {
       await useSerializableTransaction(async (tx) => {
@@ -259,6 +260,7 @@ class TransferController {
         // No errors, set values for notifications
         recipientEmails = new Set(validRecipientUpdates.map(([email]) => email));
         transferDetails = {
+          id: transfer.id,
           title: transfer.title,
           sender_email: senderEmail!,
           files: transfer.files.map((f) => ({ name: f.name, size: Number(f.size) })),

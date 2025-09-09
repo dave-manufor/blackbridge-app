@@ -12,6 +12,7 @@ type NewTransferEmailTemplateProps = {
     size: number;
   }>;
   expires_at: Date;
+  url: string;
 };
 
 const NewTransferEmailTemplate = (payload: NewTransferEmailTemplateProps) => {
@@ -28,7 +29,7 @@ const NewTransferEmailTemplate = (payload: NewTransferEmailTemplateProps) => {
           <Text className="-mt-2 text-neutral-400">
             {totalFiles} item{totalFiles === 1 ? '' : 's'}, {formatFileSize(totalSize)} in total | Expires on {prettyExpiresAt}
           </Text>
-          <StyledButton href="#" className="my-8">
+          <StyledButton href={payload.url} className="my-8">
             View your files
           </StyledButton>
         </Section>
