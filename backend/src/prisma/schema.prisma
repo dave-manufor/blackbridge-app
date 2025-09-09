@@ -214,6 +214,8 @@ model Invites {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   status INVITE_STATUS @default(PENDING)
+  viewed_invite Boolean @default(false)
+  viewed_authorization Boolean @default(false)
   transfer Transfers @relation(fields: [transfer_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   inviter Users @relation(fields: [inviter_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   @@unique([email, transfer_id], name: "unique_email_transfer")
