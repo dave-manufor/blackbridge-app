@@ -70,7 +70,10 @@ const notificationService = {
     );
   },
   send_invite_notification: async (
-    recipients: string[],
+    recipients: {
+      email: string;
+      inviteToken: string;
+    }[],
     transferDetails: {
       title?: string;
       sender_email: string;
@@ -80,10 +83,9 @@ const notificationService = {
       }>;
       expires_at: Date;
     },
-    inviteToken: string,
   ) => {
     await resend.batch.send(
-      recipients.map((email) => ({
+      recipients.map(({ email, inviteToken }) => ({
         from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
         to: email,
         subject: 'You have been invited to join BlackBridge',
