@@ -30,7 +30,7 @@ const SignInEmailTemplate = (payload: Props) => {
   return (
     <GenericContentWrapper preview="We noticed a new sign-in to your account. Here are the details.">
       <Text>
-        Hi <strong>{'davemanufor@gmail.com'}</strong>,
+        Hi <strong>{payload.email}</strong>,
       </Text>
       <Text>We noticed a new sign-in to your BlackBridge account. If this was you, no action is needed.</Text>
       <Heading as="h4" className="mt-6">
@@ -39,15 +39,15 @@ const SignInEmailTemplate = (payload: Props) => {
       <Container>
         <div className="mt-2 mb-8">
           <div className="mr-[32px] inline-flex items-start">
-            <Img src={deviceIconMap['tablet']} className="h-[48px]" />
+            <Img src={deviceIconMap[payload.sessionDetails?.device]} className="h-[48px]" />
             <table style={{ borderCollapse: 'separate', borderSpacing: '20px 8px', marginTop: -12 }}>
               <tbody>
-                <Detail title="Platform" value={'Windows'} />
+                <Detail title="Platform" value={payload.sessionDetails?.platform} />
                 <Detail
                   title="Time"
-                  value={`${formatInTimeZone(Date.now(), 'UTC', 'eeee, MMMM d, yyyy', {})} at ${formatInTimeZone(Date.now(), 'UTC', 'h:mm a z')}`}
+                  value={`${formatInTimeZone(payload.sessionDetails?.time, 'UTC', 'eeee, MMMM d, yyyy', {})} at ${formatInTimeZone(payload.sessionDetails?.time, 'UTC', 'h:mm a z')}`}
                 />
-                <Detail title="IP Address" value={'10.26.66.66'} />
+                <Detail title="IP Address" value={payload.sessionDetails?.ipAddress} />
               </tbody>
             </table>
           </div>
