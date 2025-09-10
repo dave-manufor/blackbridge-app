@@ -289,7 +289,7 @@ class TransferController {
             },
           })
           .then((invites) => {
-            const recipients = invites.map(({ email }) => {
+            const recipients = invites.map(({ id, email }) => {
               const jwtPayload: JWTInvitePayload = {
                 id: id,
                 email: email!,
