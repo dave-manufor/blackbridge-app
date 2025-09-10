@@ -16,10 +16,10 @@ const ProfileSummary = ({
 }) => {
   return (
     <div className={cn("flex items-center", className)} onClick={onClick}>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 overflow-hidden">
         <StyledAvatar profile_url={profile_url} />
         <div className="flex flex-col items-start flex-1 overflow-hidden">
-          <span className="text-[14px] font-normal max-w-full truncate">
+          <span className="text-[14px] font-normal max-w-full truncate overflow-ellipsis">
             {email}
           </span>
           {subText && (
