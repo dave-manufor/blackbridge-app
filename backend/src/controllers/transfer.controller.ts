@@ -384,8 +384,100 @@ class TransferController {
   };
 
   private getInvitations = async (req: Request, res: Response) => {
-    res.status(StatusCodes.NOT_IMPLEMENTED).json({ message: 'Not Implemented' });
-    return;
+    const { userId, email: userEmail } = req.session;
+    const query = req.query;
+
+    // Validate Filter Query
+    const querySchema = z.object({
+      page: z.coerce.number().min(1).default(1),
+      limit: z.coerce.number().min(1).max(100).default(10),
+      type: z.enum(['SENT', 'RECEIVED', 'PENDING_APPROVAL', 'ALL']).default('ALL'),
+      status: z.enum(Object.keys(INVITE_STATUS) as [string, ...string[]]).optional(),
+      search: z.string().optional(), // Email or Transfer Title
+    });
+
+    const queryResult = querySchema.safeParse(query);
+    if (!queryResult.success) {
+      const errors = prettyZodErrors(queryResult.error);
+      res.status(StatusCodes.BAD_REQUEST).json({ message: 'Invalid query parameters', details: errors });
+      return;
+    }
+
+    const { page, limit, status, search, type } = queryResult.data;
+
+    const inviterSelector = [{ inviter_id: userId }];
+    const inviteeSelector = [{ email: userEmail }];
+    const primarySelector = {
+      ALL: [...inviterSelector, ...inviteeSelector],
+      SENT: inviterSelector,
+      RECEIVED: inviteeSelector,
+      PENDING_APPROVAL: inviterSelector,
+    } as Record<z.infer<typeof querySchema>['type'], []>;
+
+    const where = {
+      OR: primarySelector[type],
+      ...(status && { status }),
+      ...(type === 'PENDING_APPROVAL' && { status: INVITE_STATUS.ACCEPTED }),
+      ...(search && {
+        OR: [
+          { email: { contains: search, mode: Prisma.QueryMode.insensitive } },
+          { transfer: { title: { contains: search, mode: Prisma.QueryMode.insensitive } } },
+        ],
+      }),
+      AND: [{ transfer: { expiration_date: { gte: new Date() } } }, { transfer: { status: TRANSFER_STATUS.ACTIVE } }],
+    };
+
+    const include = {
+      id: true,
+      email: true,
+      status: true,
+      viewed_invite: true,
+      viewed_authorization: true,
+      transfer: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          status: true,
+          expiration_date: true,
+        },
+      },
+      inviter: {
+        select: {
+          id: true,
+          email: true,
+          profile_picture: true,
+        },
+      },
+    };
+
+    try {
+      const [invitations, paginationDetails] = await getPaginationResult({
+        modelName: 'Invites',
+        where,
+        page,
+        limit,
+        include,
+        orderBy: { created_at: 'desc' },
+      });
+      const enrichedInvitations = invitations.map((invite) => {
+        const enrichedInvite = {
+          ...invite,
+          isInviter: invite.inviter.id === userId,
+          isInvitee: invite.email === userEmail,
+          isAccepted: invite.status !== INVITE_STATUS.PENDING,
+          isPendingApproval: invite.status === INVITE_STATUS.ACCEPTED,
+        };
+        if (!enrichedInvite.isInviter) delete enrichedInvite.viewed_authorization;
+        return enrichedInvite;
+      });
+
+      res.status(StatusCodes.OK).json({ message: 'Invitations retrieved successfully', data: enrichedInvitations, pagination: paginationDetails });
+    } catch (error) {
+      this.transferLogger.error(error, 'Failed to get invitations');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+      return;
+    }
   };
 
   private getInvitationDetails = async (req: Request, res: Response) => {
@@ -441,6 +533,11 @@ class TransferController {
       if (invite.transfer.status !== TRANSFER_STATUS.ACTIVE || invite.transfer.expiration_date < new Date()) {
         res.status(StatusCodes.FORBIDDEN).json({ message: 'Transfer is no longer valid' });
         return;
+      }
+
+      // Remove viewed_authorization if the inviter is not the user
+      if (invite.inviter.id !== userId) {
+        delete invite.viewed_authorization;
       }
 
       res.status(StatusCodes.OK).json({ message: 'Invite found', data: invite });
