@@ -19,6 +19,7 @@ import { IoCloseCircleOutline } from "react-icons/io5";
 import CopyText from "@/components/ui/CopyText";
 import {
   BASE_SHAREABLE_URL,
+  TRANSFER_INVITATION_STATUS,
   TRANSFER_TYPES,
 } from "@/config/constants/transfers";
 import { CryptoBridge } from "@/lib/crypto/workers/CryptoBridge";
@@ -280,6 +281,22 @@ const TransferDetailsView = () => {
                           />
                         );
                       })}
+                      {transferDetails.is_owner &&
+                        transferDetails.invites &&
+                        transferDetails.invites
+                          .filter(
+                            (invite) =>
+                              invite.status !==
+                              TRANSFER_INVITATION_STATUS.APPROVED
+                          )
+                          .map((invite) => (
+                            <EmailChip
+                              key={invite.id}
+                              email={`${invite.email} (Pending)`}
+                              showDeleteButton={transferDetails.is_owner}
+                              onDelete={() => {}}
+                            />
+                          ))}
                     </div>
                   </li>
                 )}
