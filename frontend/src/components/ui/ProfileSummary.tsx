@@ -17,7 +17,7 @@ const ProfileSummary = ({
 }) => {
   return (
     <div className={cn("flex items-center", className)} onClick={onClick}>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 overflow-hidden">
         <Avatar className="rounded-md w-10 h-10">
           <AvatarImage src={profile_url} />
           <AvatarFallback className="bg-gray-200 text-gray-600 rounded-md">
@@ -25,7 +25,7 @@ const ProfileSummary = ({
           </AvatarFallback>
         </Avatar>
         <div className="flex flex-col items-start flex-1 overflow-hidden">
-          <span className="text-[14px] font-normal max-w-full truncate">
+          <span className="text-[14px] font-normal max-w-full truncate overflow-ellipsis">
             {email}
           </span>
           {subText && (
