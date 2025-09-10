@@ -992,6 +992,13 @@ class TransferController {
               },
             },
           },
+          invites: {
+            select: {
+              id: true,
+              email: true,
+              status: true,
+            },
+          },
           link_transfer: true,
           files: true,
         },
@@ -1027,8 +1034,9 @@ class TransferController {
         delete transfer.owner_file_key;
       }
 
-      // Remove other email transfers if not owner requesting
+      // Remove invites and other email transfers if not owner requesting
       if (transfer.owner_user_id !== userId) {
+        delete transfer.invites;
         transfer.email_transfers = transfer.email_transfers.filter((email) => email.recipient_user.id === userId);
       }
 
