@@ -73,6 +73,7 @@ export const verifyToken = (options?: { bypassVerification?: boolean }) => {
     });
   };
 };
+
 const extractOtpToken = (req: Request) => {
   const authHeader = req.headers[otpConfig.authorizationHeader];
   if (typeof authHeader === 'string') {
