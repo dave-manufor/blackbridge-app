@@ -35,7 +35,7 @@ import {
   IoLinkOutline,
   IoLink,
 } from "react-icons/io5";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useAuthStore } from "@/stores/authStore";
 import {
   DropdownMenuContent,
@@ -75,6 +75,7 @@ type FooterItem =
     });
 
 const AppSideBar = () => {
+  const navigate = useNavigate();
   const { user, signOut } = useAuthStore(
     useShallow((state) => ({
       user: state.user,
@@ -158,7 +159,7 @@ const AppSideBar = () => {
         defaultIcon: FaRegCheckCircle,
         activeIcon: FaRegCheckCircle,
         isAction: false,
-        url: "/",
+        url: "/settings/account",
         separator: false,
       },
       {
@@ -166,7 +167,7 @@ const AppSideBar = () => {
         defaultIcon: FaRegCreditCard,
         activeIcon: FaRegCreditCard,
         isAction: false,
-        url: "/",
+        url: "/settings/billing",
         separator: false,
       },
       {
@@ -174,7 +175,7 @@ const AppSideBar = () => {
         defaultIcon: FaRegBell,
         activeIcon: FaRegBell,
         isAction: false,
-        url: "/",
+        url: "/settings/notifications",
         separator: true,
       },
       {
@@ -285,7 +286,9 @@ const AppSideBar = () => {
             {items.footer.map((item) => (
               <Fragment key={item.label}>
                 <DropdownMenuItem
-                  onClick={item.isAction ? item.onClick : undefined}
+                  onClick={
+                    item.isAction ? item.onClick : () => navigate(item.url)
+                  }
                   className="cursor-pointer"
                 >
                   <div className="flex items-center gap-2">

@@ -15,6 +15,12 @@ import {
 import { TransferListProvider } from "./contexts/TransferListContext";
 import PublicLinkView from "./views/public/PublicLinkView";
 import PublicLayout from "./layouts/PublicLayout";
+import {
+  AccountSettings,
+  BillingSettings,
+  NotificationSettings,
+  SettingsLayout,
+} from "./views/settings";
 
 const router = createBrowserRouter([
   {
@@ -84,6 +90,20 @@ const router = createBrowserRouter([
               {
                 path: ":transferID",
                 element: <TransferDetailsView />,
+              },
+            ],
+          },
+          {
+            path: "settings",
+            children: [
+              {
+                path: "",
+                element: <SettingsLayout />,
+                children: [
+                  { path: "account", element: <AccountSettings /> },
+                  { path: "notifications", element: <NotificationSettings /> },
+                  { path: "billing", element: <BillingSettings /> },
+                ],
               },
             ],
           },
