@@ -18,6 +18,15 @@ interface CryptoWorkerInterface {
 
   wrapPrivateKey(params: { passphrase: string }): Promise<string>;
 
+  testPassphrase(armoredKey: string, passphrase: string): Promise<boolean>;
+
+  changePrivateKeyPassphrase(
+    oldPassword: string,
+    oldKeySalt: string,
+    newPassword: string,
+    armoredPrivateKey: string
+  ): Promise<{ armoredKey: string; salt: string }>;
+
   generateKeyPair(
     password: string,
     email: string

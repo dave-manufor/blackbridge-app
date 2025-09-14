@@ -29,12 +29,13 @@ export const verifyToken = (options?: { bypassVerification?: boolean }) => {
 
       req.session = decoded as JWTAuthPayload;
 
-      const sessionId = req.session.sessionId;
+      const { sessionId, userId } = req.session;
+      const cacheKey = `${cacheConfig.ID_Prefix.Session}${userId}:${sessionId}`;
 
       // Check if session is revoked
       try {
         // 1. Hit cache first
-        const cached = await cache.get(sessionId);
+        const cached = await cache.get(cacheKey);
         let session: Sessions | null = cached ? JSON.parse(cached) : null;
 
         // 2. If not found in cache, hit DB
@@ -43,7 +44,7 @@ export const verifyToken = (options?: { bypassVerification?: boolean }) => {
 
           // If session is found and valid, cache it
           if (session && !session.revoked) {
-            await cache.set(session.id, JSON.stringify(session), {
+            await cache.set(cacheKey, JSON.stringify(session), {
               EX: jwtConfig.accessToken.cacheTTL,
             });
           }

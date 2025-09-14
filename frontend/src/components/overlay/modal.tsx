@@ -95,9 +95,7 @@ const ModalBody = ({
   className,
   children,
 }: React.HTMLAttributes<HTMLDivElement>) => {
-  return (
-    <div className={cn("text-sm text-neutral-400", className)}>{children}</div>
-  );
+  return <div className={cn("text-sm", className)}>{children}</div>;
 };
 
 const ModalFooter = ({

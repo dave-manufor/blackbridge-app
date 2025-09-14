@@ -135,6 +135,33 @@ export class CryptoBridge implements CryptoBridgeApi {
     this.initialized = false;
   }
 
+  async changePrivateKeyPassphrase(
+    oldPassword: string,
+    oldKeySalt: string,
+    newPassword: string,
+    armoredPrivateKey: string
+  ): Promise<{ armoredKey: string; salt: string }> {
+    this.assertInitialized();
+    return (await this.workerPool
+      .getWorker()
+      .changePrivateKeyPassphrase(
+        oldPassword,
+        oldKeySalt,
+        newPassword,
+        armoredPrivateKey
+      )) as { armoredKey: string; salt: string };
+  }
+
+  async testPassphrase(
+    armoredKey: string,
+    passphrase: string
+  ): Promise<boolean> {
+    this.assertInitialized({ loose: true });
+    return (await this.workerPool
+      .getWorker()
+      .testPassphrase(armoredKey, passphrase)) as boolean;
+  }
+
   async generateRandomFragment(
     length: number = 12,
     options?: {

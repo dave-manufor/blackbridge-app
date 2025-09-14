@@ -1,3 +1,4 @@
+import cacheConfig from 'config/cache.config';
 import logger from '../lib/logger';
 import { createClient } from 'redis';
 
@@ -34,6 +35,24 @@ export const initCache = async () => {
   } catch (error) {
     logger.error(error, 'Redis Connection Error');
   }
+};
+
+export const deleteUserSessions = async (userId: string) => {
+  const pattern = `${cacheConfig.ID_Prefix.Session}${userId}:*`;
+  const stream = cache.scanIterator({ MATCH: pattern });
+  const keysToDelete: string[] = [];
+
+  for await (const keys of stream) {
+    if (keys.length) {
+      keysToDelete.push(...keys);
+    }
+  }
+
+  if (keysToDelete.length) {
+    await cache.del(keysToDelete);
+  }
+
+  return keysToDelete.length;
 };
 
 export default cache;

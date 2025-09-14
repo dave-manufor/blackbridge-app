@@ -16,13 +16,27 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import GridSection from "@/components/ui/GridSection";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/input";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
+import { OTP_ACTION_TYPES } from "@/config/constants/otp";
+import {
+  useConfirmVerificationMutation,
+  useRequestVerificationMutation,
+  useResetPasswordMutation,
+} from "@/hooks/mutations";
 import { changePasswordSchema } from "@/lib/validators";
 import { useAuthStore } from "@/stores/authStore";
 import { zodResolver } from "@hookform/resolvers/zod";
 import FormControl from "@mui/material/FormControl";
-import { useState } from "react";
+import { isAxiosError } from "axios";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "react-hot-toast";
+import { LuLoaderCircle } from "react-icons/lu";
 import { MdOutlinePassword } from "react-icons/md";
 import { z } from "zod";
 
@@ -78,7 +92,7 @@ const AccountSettings = () => {
       <GridSection>
         <ActionCard
           title="Change Password"
-          description="If you suspect your account has been compromised, update your password immediately to protect your files and data."
+          description="If you suspect your account has been compromised, update your password immediately to protect your files and data. This will log you out of all other devices."
           actionLabel="Change Password"
           onAction={handleOpenPasswordModal}
         />
@@ -140,16 +154,113 @@ const ChangePasswordModal = ({
   isOpen: boolean;
   onClose: () => void;
 }) => {
+  const user = useAuthStore((state) => state.user);
+  const [otpRequested, setOtpRequested] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [requestId, setRequestId] = useState("");
+  const requestVerificationMutation = useRequestVerificationMutation();
+  const confirmVerificationMutation = useConfirmVerificationMutation();
+  const passwordResetMutation = useResetPasswordMutation();
+  const startCooldown = useCallback((cooldownTimestamp: number) => {
+    const now = new Date().getTime();
+    const remaining = Math.max(0, Math.floor((cooldownTimestamp - now) / 1000));
+    setCooldown(remaining);
+  }, []);
   const form = useForm({
     defaultValues: {
       currentPassword: "",
       newPassword: "",
       confirmPassword: "",
+      otp: "",
     },
     mode: "onBlur",
     resolver: zodResolver(changePasswordSchema),
   });
-  const onSubmit = (data: z.infer<typeof changePasswordSchema>) => {};
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setInterval(() => {
+        setCooldown((prevCooldown) => prevCooldown - 1);
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [cooldown]);
+  useEffect(() => {
+    if (!isOpen) {
+      form.reset();
+    }
+  }, [isOpen, form]);
+  const handleRequestOTP = () => {
+    setOtpRequested(true);
+    requestVerificationMutation.mutate(
+      { action_type: OTP_ACTION_TYPES.PASSWORD_RESET },
+      {
+        onSuccess: (data) => {
+          if (data?.request_id) {
+            setRequestId(data.request_id);
+          }
+          if (data?.cooldown_at) {
+            startCooldown(data.cooldown_at);
+          }
+        },
+        onError: (error) => {
+          if (isAxiosError(error) && error.response?.data?.data?.cooldown_at) {
+            startCooldown(error.response.data.data.cooldown_at);
+          }
+        },
+      }
+    );
+  };
+  const handleVerify = async (otp: string): Promise<string | null> => {
+    let verificationToken: string | null = null;
+    if (otp.length === 6) {
+      const { verification_token } =
+        await confirmVerificationMutation.mutateAsync(
+          { request_id: requestId, code: otp },
+          {
+            onError: (error) => {
+              if (isAxiosError(error) && error.status === 429) {
+                toast.error(
+                  "Too many attempts. Please wait before trying again."
+                );
+              } else {
+                toast.error(
+                  "Verification failed. Please check the code and try again."
+                );
+              }
+            },
+          }
+        );
+      verificationToken = verification_token;
+    }
+    return verificationToken;
+  };
+  const onSubmit = async (data: z.infer<typeof changePasswordSchema>) => {
+    let verification_token: string | null = null;
+    try {
+      verification_token = await handleVerify(data.otp);
+    } catch {
+      return;
+    }
+    if (verification_token && user) {
+      try {
+        await passwordResetMutation.mutateAsync({
+          oldPassword: data.currentPassword,
+          newPassword: data.newPassword,
+          verificationToken: verification_token,
+        });
+        form.reset();
+        setOtpRequested(false);
+        onClose();
+      } catch {
+        return;
+      }
+    }
+  };
+  const isResend = otpRequested;
+  const isRequesting = requestVerificationMutation.isPending;
+  const isVerifying = confirmVerificationMutation.isPending;
+  const isResetting = passwordResetMutation.isPending;
   return (
     <Modal onClose={onClose} isOpen={isOpen}>
       <ModalContent>
@@ -174,7 +285,10 @@ const ChangePasswordModal = ({
                   <FormItem>
                     <FormLabel>Current Password</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Current Password" />
+                      <PasswordInput
+                        {...field}
+                        placeholder="Current Password"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -187,7 +301,7 @@ const ChangePasswordModal = ({
                   <FormItem>
                     <FormLabel>New Password</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="New Password" />
+                      <PasswordInput {...field} placeholder="New Password" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -200,7 +314,51 @@ const ChangePasswordModal = ({
                   <FormItem>
                     <FormLabel>Confirm Password</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Confirm Password" />
+                      <PasswordInput
+                        {...field}
+                        placeholder="Confirm Password"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="otp"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirmation Code</FormLabel>
+                    <FormControl>
+                      <div className="flex items-center">
+                        <InputOTP
+                          {...field}
+                          disabled={isVerifying || isRequesting}
+                          maxLength={6}
+                        >
+                          <InputOTPGroup>
+                            <InputOTPSlot index={0} />
+                            <InputOTPSlot index={1} />
+                            <InputOTPSlot index={2} />
+                            <InputOTPSlot index={3} />
+                            <InputOTPSlot index={4} />
+                            <InputOTPSlot index={5} />
+                          </InputOTPGroup>
+                        </InputOTP>
+                        <Button
+                          disabled={isVerifying || isRequesting || cooldown > 0}
+                          variant={"link"}
+                          className="underline"
+                          type="button"
+                          onClick={handleRequestOTP}
+                        >
+                          {isResend ? "Resend" : "Send"} Code
+                          {cooldown > 0 ? ` in ${cooldown}s` : " "}
+                          {(isRequesting || isVerifying) && (
+                            <LuLoaderCircle className="animate-spin" />
+                          )}
+                        </Button>
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -211,7 +369,13 @@ const ChangePasswordModal = ({
         </ModalBody>
         <ModalFooter>
           <ModalClose />
-          <Button onClick={form.handleSubmit(onSubmit)}>Change Password</Button>
+          <Button disabled={isResetting} onClick={form.handleSubmit(onSubmit)}>
+            {isResetting ? (
+              <LuLoaderCircle className="animate-spin" />
+            ) : (
+              "Change Password"
+            )}
+          </Button>
         </ModalFooter>
       </ModalContent>
     </Modal>

@@ -74,3 +74,36 @@ export async function getLocalSessionKey(
   const response = await API.get(ApiRoutes.auth.getLocalSessionKey, { signal });
   return response?.data?.data?.session_key || "";
 }
+
+export async function resetPassword(
+  {
+    key,
+    srp,
+    verification_token,
+  }: {
+    key: { salt: string; armored: string };
+    srp: { salt: string; verifier: string };
+    verification_token: string;
+  },
+  signal?: AbortSignal
+): Promise<void> {
+  await API.post(
+    ApiRoutes.auth.changePassword,
+    {
+      key: {
+        salt: key.salt,
+        armored_private_key: key.armored,
+      },
+      credentials: {
+        salt: srp.salt,
+        verifier: srp.verifier,
+      },
+    },
+    {
+      signal,
+      headers: {
+        "X-OTP-AUTHORIZATION": `Bearer ${verification_token}`,
+      },
+    }
+  );
+}
