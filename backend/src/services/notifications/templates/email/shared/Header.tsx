@@ -4,10 +4,8 @@ import { LogoBanner } from '../static';
 
 const Header = () => {
   return (
-    <Section className="bg-primary mb-8">
-      <Container className="flex items-center justify-center py-8">
-        <Img src={LogoBanner} alt="Logo" className="max-w-[240px]" />
-      </Container>
+    <Section className="bg-primary mb-8 py-8 text-center">
+      <Img src={LogoBanner} alt="Logo" className="max-w-[240px] m-auto" />
     </Section>
   );
 };

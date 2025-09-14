@@ -15,7 +15,7 @@ import { verifyToken } from '../middlewares/auth.middleware';
 import { bodyValidator } from '../middlewares/validation.middleware';
 import bcrypt from 'bcrypt';
 import { hashOTP, hashRefreshToken, verifyOTPHash } from '../utils/hashing.utils';
-import { otpVerificationLimiter } from '../middlewares/rateLimiter.middleware';
+import { authRateLimiter, otpVerificationLimiter } from '../middlewares/rateLimiter.middleware';
 import cacheConfig from '../config/cache.config';
 import { generateOTP } from '../utils/otp.utils';
 import notificationService from '../services/notifications';
@@ -32,8 +32,8 @@ class AuthController {
 
   private initializeRoutes() {
     this.router.post('/register', this.validateBody('register'), this.register);
-    this.router.post('/challenge', this.validateBody('challenge'), this.challenge);
-    this.router.post('/', this.validateBody('signIn'), this.signIn);
+    this.router.post('/challenge', authRateLimiter, this.validateBody('challenge'), this.challenge);
+    this.router.post('/', authRateLimiter, this.validateBody('signIn'), this.signIn);
     this.router.post('/logout', this.logout);
     this.router.post('/refresh', this.refreshToken);
     this.router.post(

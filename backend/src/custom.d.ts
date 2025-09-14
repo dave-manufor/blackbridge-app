@@ -33,6 +33,13 @@ export interface JWTDownloadRequestPayload {
   exp: number;
 }
 
+export interface JWTInvitePayload {
+  id: string;
+  email: string;
+  transfer_id: string;
+  iat: number;
+}
+
 export interface PaginationDetails {
   page: number;
   limit: number;

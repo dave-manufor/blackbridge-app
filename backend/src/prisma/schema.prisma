@@ -21,6 +21,7 @@ model Users{
   transfers Transfers[]
   transfers_received EmailTransfers[]
   link_accesses LinkAccess[]
+  invites Invites[]
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   @@index([email], name: "idx_user_email")
@@ -44,7 +45,6 @@ model Keys{
 model Sessions{
   id String @db.Uuid @id @default(uuid()) @unique
   user_id String @db.Uuid
-  // TODO: Ensure tokens and keys are hashed before being stored
   hashed_refresh_token String @unique
   session_key String? @unique
   user_agent String
@@ -133,6 +133,7 @@ model Transfers{
   email_transfers EmailTransfers[]
   link_transfer LinkTransfers?
   files Files[]
+  invites Invites[]
   owner Users @relation(fields: [owner_user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   @@index([owner_user_id], name: "idx_transfer_owner_user_id")
   @@index([transfer_type], name: "idx_transfer_type")
@@ -197,4 +198,27 @@ model LinkAccess {
   @@unique([link_transfer_id, user_id], name: "unique_link_user_access")
   @@index([user_id], name: "idx_link_access_user_id")
   @@index([link_transfer_id], name: "idx_link_access_link_transfer_id")
+}
+
+enum INVITE_STATUS {
+  PENDING
+  ACCEPTED
+  APPROVED
+}
+
+model Invites {
+  id String @db.Uuid @id @default(uuid()) @unique
+  inviter_id String @db.Uuid
+  transfer_id String @db.Uuid
+  email String
+  status INVITE_STATUS @default(PENDING)
+  viewed_invite Boolean @default(false)
+  viewed_authorization Boolean @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  transfer Transfers @relation(fields: [transfer_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  inviter Users @relation(fields: [inviter_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  @@unique([email, transfer_id], name: "unique_email_transfer")
+  @@index([transfer_id], name: "idx_invite_transfer_id")
+  @@index([email], name: "idx_invite_email")
 }

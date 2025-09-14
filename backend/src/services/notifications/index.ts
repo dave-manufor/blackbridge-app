@@ -1,8 +1,19 @@
 import { Resend } from 'resend';
 import emailConfig from './config';
-import { NewTransferEmailTemplate, OtpEmailTemplate, SignInEmailTemplate, WelcomeEmailTemplate } from './templates/email';
+import {
+  AccessGrantedEmailTemplate,
+  InviteAcceptedEmailTemplate,
+  NewInviteEmailTemplate,
+  NewTransferEmailTemplate,
+  OtpEmailTemplate,
+  SignInEmailTemplate,
+  WelcomeEmailTemplate,
+} from './templates/email';
+import notificationConfig from './config';
+import { getMailboxName } from './utils/format';
 
 const resend = new Resend(emailConfig.RESEND_API_KEY);
+const baseAppUrl = notificationConfig.BASE_URL;
 
 const notificationService = {
   send_otp_notification: async (email: string, otp: string, expiresInMills: number) => {
@@ -14,11 +25,12 @@ const notificationService = {
     });
   },
   send_welcome_notification: async (email: string) => {
+    const url = `${baseAppUrl}/sign-in`;
     await resend.emails.send({
       from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
       to: email,
       subject: 'Welcome to BlackBridge 🚀 — from our Founder',
-      react: WelcomeEmailTemplate({ email }),
+      react: WelcomeEmailTemplate({ email, url }),
     });
   },
   send_signin_notification: async (
@@ -30,11 +42,12 @@ const notificationService = {
       time: Date;
     },
   ) => {
+    const url = `${baseAppUrl}/sign-in`;
     await resend.emails.send({
       from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
       to: email,
       subject: 'New sign-in to your BlackBridge account',
-      react: SignInEmailTemplate({ email, sessionDetails }),
+      react: SignInEmailTemplate({ email, sessionDetails, url }),
     });
   },
   send_transfer_success_notification: async (email: string, transferDetails: any) => {
@@ -42,6 +55,32 @@ const notificationService = {
   },
   send_new_transfer_notification: async (
     recipients: string[],
+    transferDetails: {
+      id: string;
+      title?: string;
+      sender_email: string;
+      files: Array<{
+        name: string;
+        size: number;
+      }>;
+      expires_at: Date;
+    },
+  ) => {
+    const url = `${baseAppUrl}/transfers/${transferDetails.id}`;
+    await resend.batch.send(
+      recipients.map((email) => ({
+        from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
+        to: email,
+        subject: 'New File Transfer Notification',
+        react: NewTransferEmailTemplate({ ...transferDetails, url }),
+      })),
+    );
+  },
+  send_invite_notification: async (
+    recipients: {
+      email: string;
+      inviteToken: string;
+    }[],
     transferDetails: {
       title?: string;
       sender_email: string;
@@ -53,16 +92,51 @@ const notificationService = {
     },
   ) => {
     await resend.batch.send(
-      recipients.map((email) => ({
-        from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
-        to: email,
-        subject: 'New File Transfer Notification',
-        react: NewTransferEmailTemplate(transferDetails),
-      })),
+      recipients.map(({ email, inviteToken }) => {
+        const url = `${baseAppUrl}?action=acceptInvite&inviteToken=${inviteToken}`;
+        return {
+          from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
+          to: email,
+          subject: 'You’ve been invited to access a secure transfer on BlackBridge',
+          react: NewInviteEmailTemplate({ email, inviteToken, transferDetails, url }),
+        };
+      }),
     );
   },
-  send_password_reset_notification: async (email: string, resetLink: string) => {
-    // Implementation for sending password reset notification
+  send_invite_accepted_notification: async (
+    email: string,
+    inviteDetails: {
+      recipient_email: string;
+      transfer_id: string;
+      transfer_title: string;
+    },
+    acceptanceToken: string,
+  ) => {
+    const mailboxName = getMailboxName(inviteDetails.recipient_email);
+    const url = `${baseAppUrl}?action=authorizeInvite&transfer_id=${inviteDetails.transfer_id}&acceptanceToken=${acceptanceToken}`;
+    await resend.emails.send({
+      from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
+      to: email,
+      subject: `${mailboxName} has accepted your invitation`,
+      react: InviteAcceptedEmailTemplate({ email, inviteDetails, url }),
+    });
+  },
+  send_access_granted_notification: async (
+    email: string,
+    transferDetails: {
+      transfer_id: string;
+      transfer_title?: string;
+      granted_by: string;
+      expires_at: Date;
+    },
+  ) => {
+    const url = `${baseAppUrl}/transfers/${transferDetails.transfer_id}`;
+    await resend.emails.send({
+      from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
+      to: email,
+      subject: `Your access ${transferDetails.transfer_title ? `to ${transferDetails.transfer_title}` : ''} has been approved`,
+      react: AccessGrantedEmailTemplate({ email, transferDetails, url }),
+    });
   },
 };
 

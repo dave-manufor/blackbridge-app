@@ -23,6 +23,8 @@ export default {
     retryParts: "files/upload/retry",
     finalizeBlock: "files/upload/finalize/block",
     finalizeFile: "files/upload/finalize",
+    getDownloadUrls: ({ fileId }: { fileId: string }) =>
+      `files/${fileId}/download-urls`,
   },
   transfer: {
     getTransfers: "transfers",
@@ -42,7 +44,10 @@ export default {
       `transfers/emails/${transferId}/download-request`,
     getLinkTransferDownloadRequest: ({ slug }: { slug: string }) =>
       `transfers/links/${slug}/download-request`,
-    getDownloadUrls: ({ fileId }: { fileId: string }) =>
-      `files/${fileId}/download-urls`,
+    getInvitationDetails: ({ invitationId }: { invitationId: string }) =>
+      `transfers/invitations/${invitationId}`,
+    getInvitationByToken: "transfers/invitations/details",
+    acceptTransferInvitation: "transfers/invitations/accept",
+    approveTransferInvitation: "transfers/invitations/approve",
   },
 };

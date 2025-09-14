@@ -22,6 +22,12 @@ export const TRANSFER_DIRECTION = {
   RECEIVED: "RECEIVED",
 };
 
+export const TRANSFER_INVITATION_STATUS = {
+  PENDING: "PENDING",
+  ACCEPTED: "ACCEPTED",
+  APPROVED: "APPROVED",
+};
+
 /**
  *
  * Defines constants for various transfer durations in seconds.

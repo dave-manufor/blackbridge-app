@@ -1,6 +1,7 @@
 import {
   LINK_TRANSFER_ACCESS_CONTROL,
   TRANSFER_DIRECTION,
+  TRANSFER_INVITATION_STATUS,
   TRANSFER_STATUS,
   TRANSFER_TYPES,
 } from "@/config/constants/transfers";
@@ -192,7 +193,18 @@ export type TransferDetailsData = {
   is_owner: boolean;
   is_expired: boolean;
   is_viewed: boolean;
-} & ({ is_owner: true; owner_file_key: string } | { is_owner: false });
+} & (
+  | {
+      is_owner: true;
+      owner_file_key: string;
+      invites: {
+        id: string;
+        email: string;
+        status: string;
+      }[];
+    }
+  | { is_owner: false }
+);
 
 export async function getTransferDetails(
   transferId: string,
@@ -325,7 +337,7 @@ export async function getDownloadUrls(
   token: string,
   signal?: AbortSignal
 ): Promise<GetDownloadUrlsResponse> {
-  const endpoint = ApiRoutes.transfer.getDownloadUrls({ fileId });
+  const endpoint = ApiRoutes.files.getDownloadUrls({ fileId });
   const response = await API.get(endpoint, {
     signal,
     headers: {
@@ -333,4 +345,78 @@ export async function getDownloadUrls(
     },
   });
   return response.data?.data as GetDownloadUrlsResponse;
+}
+
+export type GetInvitationDetailsResponse = {
+  id: string;
+  status: (typeof TRANSFER_INVITATION_STATUS)[keyof typeof TRANSFER_INVITATION_STATUS];
+  email: string;
+  created_at: Date;
+  transfer: {
+    id: string;
+    status: (typeof TRANSFER_STATUS)[keyof typeof TRANSFER_STATUS];
+    title: string;
+    expiration_date: Date;
+    files: {
+      name: string;
+      size: bigint;
+      content_type: string;
+    }[];
+  };
+  viewed_invite: boolean;
+  viewed_authorization: boolean;
+  inviter: {
+    id: string;
+    email: string;
+  };
+};
+
+export async function getInvitationDetails(
+  { invitationId }: { invitationId: string },
+  signal?: AbortSignal
+): Promise<GetInvitationDetailsResponse> {
+  const endpoint = ApiRoutes.transfer.getInvitationDetails({ invitationId });
+  const response = await API.get(endpoint, { signal });
+  return response.data?.data as GetInvitationDetailsResponse;
+}
+
+export async function getInvitationByToken(
+  { token }: { token: string },
+  signal?: AbortSignal
+): Promise<GetInvitationDetailsResponse> {
+  const endpoint = ApiRoutes.transfer.getInvitationByToken;
+  const response = await API.post(endpoint, { token }, { signal });
+  return response.data?.data as GetInvitationDetailsResponse;
+}
+
+export type AcceptTransferInvitationResponse = {
+  invite: {
+    id: string;
+    email: string;
+    status: (typeof TRANSFER_INVITATION_STATUS)[keyof typeof TRANSFER_INVITATION_STATUS];
+    transfer_id: string;
+  };
+};
+
+export async function acceptTransferInvitation(
+  { token }: { token: string },
+  signal?: AbortSignal
+): Promise<AcceptTransferInvitationResponse> {
+  const response = await API.post(
+    ApiRoutes.transfer.acceptTransferInvitation,
+    { token },
+    { signal }
+  );
+  return response.data?.data as AcceptTransferInvitationResponse;
+}
+
+export async function approveTransferInvitation(
+  { token, file_key }: { token: string; file_key: string },
+  signal?: AbortSignal
+): Promise<void> {
+  await API.post(
+    ApiRoutes.transfer.approveTransferInvitation,
+    { token, file_key },
+    { signal }
+  );
 }

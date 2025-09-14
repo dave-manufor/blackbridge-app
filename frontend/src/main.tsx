@@ -14,7 +14,6 @@ import { useAuthStore } from "./stores/authStore";
 import streamsaver from "streamsaver";
 
 BaseModal.setAppElement("#root");
-console.log(import.meta.env.VITE_APP_BASE_URL + "/mitm.html");
 streamsaver.mitm = import.meta.env.VITE_APP_BASE_URL + "/mitm.html";
 
 // Spawn crypto workers as easily as possible (non-blocking)

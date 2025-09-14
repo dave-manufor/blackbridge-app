@@ -2,7 +2,7 @@ import StatusCodes from '../config/StatusCodes.config';
 import logger from '../lib/logger';
 import { verifyLinkAccess, verifyToken } from '../middlewares/auth.middleware';
 import { bodyValidator } from '../middlewares/validation.middleware';
-import { FILE_STATUS, TRANSFER_STATUS, TRANSFER_TYPE, Prisma, LINK_ACCESS_CONTROL } from '@prisma/client';
+import { FILE_STATUS, TRANSFER_STATUS, TRANSFER_TYPE, Prisma, LINK_ACCESS_CONTROL, INVITE_STATUS } from '@prisma/client';
 import db, { useSerializableTransaction } from '../services/db';
 import { PGPValidator } from '../utils/PGPValidator.utils';
 import { Request, Response, Router } from 'express';
@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { prettyZodErrors } from '../utils/zod.utils';
 import { getPaginationResult } from '../utils/db.utils';
 import { generateRandomSlug } from '../utils/slug.utils';
-import { JWTDownloadRequestPayload } from 'custom';
+import { JWTDownloadRequestPayload, JWTInvitePayload } from 'custom';
 import jwt from 'jsonwebtoken';
 import transferConfig from '../config/transfer.config';
 import cacheConfig from '../config/cache.config';
@@ -39,6 +39,11 @@ class TransferController {
     this.router.post('/emails/initiate', verifyToken(), this.validateBody('initiateEmailTransfer'), this.initiateEmailTransfer);
     this.router.post('/links/commit/:id', verifyToken(), this.validateBody('commitLinkTransfer'), this.commitLinkTransfer);
     this.router.post('/emails/commit/:id', verifyToken(), this.validateBody('commitEmailTransfer'), this.commitEmailTransfer);
+    this.router.get('/invitations', verifyToken(), this.getInvitations);
+    this.router.get('/invitations/:invitationId', verifyToken(), this.getInvitationDetails);
+    this.router.post('/invitations/details', verifyToken(), this.validateBody('getInvitationDetailsFromToken'), this.getInvitationDetailsFromToken);
+    this.router.post('/invitations/accept', verifyToken(), this.validateBody('acceptInvite'), this.acceptInvite);
+    this.router.post('/invitations/approve', verifyToken(), this.validateBody('approveInvite'), this.approveInvite);
     this.router.get('/links/:slug', verifyLinkAccess(), this.getLinkTransfer);
   }
 
@@ -116,11 +121,15 @@ class TransferController {
                 recipient_user_id: user.id,
               })),
             },
+            // Create invites for non-existing users
+            invites: {
+              create: nonExistingUsers.map((email) => ({
+                email,
+                inviter_id: userId,
+              })),
+            },
           },
         });
-
-        // Save invitee details
-        // TODO: Implement invitee save logic
 
         res.status(StatusCodes.CREATED).json({
           message: 'Email transfer initiated',
@@ -138,14 +147,15 @@ class TransferController {
 
   private commitEmailTransfer = async (req: Request, res: Response) => {
     const { owner_key, recipient_keys } = req.body as BodyTypeToShape<'commitEmailTransfer'>;
-    const { userId } = req.session;
+    const { userId, email: senderEmail } = req.session;
     const { id } = req.params;
 
     // normalize emails once
     const keysByEmail = new Map(recipient_keys.map((r) => [r.email.trim().toLowerCase(), r.file_key]));
     let recipientEmails: Set<string> | undefined = undefined;
-    let transferDetails: { title?: string; sender_email: string; files: Array<{ name: string; size: number }>; expires_at: Date } | undefined =
-      undefined;
+    let transferDetails:
+      | { id: string; title?: string; sender_email: string; files: Array<{ name: string; size: number }>; expires_at: Date }
+      | undefined = undefined;
 
     try {
       await useSerializableTransaction(async (tx) => {
@@ -255,8 +265,9 @@ class TransferController {
         // No errors, set values for notifications
         recipientEmails = new Set(validRecipientUpdates.map(([email]) => email));
         transferDetails = {
+          id: transfer.id,
           title: transfer.title,
-          sender_email: req.session.email!,
+          sender_email: senderEmail!,
           files: transfer.files.map((f) => ({ name: f.name, size: Number(f.size) })),
           expires_at: transfer.expiration_date,
         };
@@ -268,6 +279,32 @@ class TransferController {
           this.transferLogger.warn(error, 'Error sending new transfer notification');
         });
       }
+
+      // Notify invitees (non-blocking)
+      if (transferDetails) {
+        db.invites
+          .findMany({
+            where: {
+              transfer_id: id,
+            },
+          })
+          .then((invites) => {
+            const recipients = invites.map(({ id, email }) => {
+              const jwtPayload: JWTInvitePayload = {
+                id: id,
+                email: email!,
+                transfer_id: id,
+                iat: Math.floor(Date.now() / 1000),
+              };
+              const inviteToken = jwt.sign(jwtPayload, process.env.INVITE_TOKEN_SECRET!);
+              return { email, inviteToken };
+            });
+            notificationService.send_invite_notification(recipients, transferDetails).catch((error) => {
+              this.transferLogger.warn(error, 'Error sending invite notification');
+            });
+          });
+      }
+
       res.status(StatusCodes.ACCEPTED).json({ message: 'Email transfer committed successfully' });
     } catch (error: any) {
       if (error?.status) {
@@ -343,6 +380,455 @@ class TransferController {
       this.transferLogger.error(error, 'Failed to commit link transfer');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
       return;
+    }
+  };
+
+  private getInvitations = async (req: Request, res: Response) => {
+    const { userId, email: userEmail } = req.session;
+    const query = req.query;
+
+    // Validate Filter Query
+    const querySchema = z.object({
+      page: z.coerce.number().min(1).default(1),
+      limit: z.coerce.number().min(1).max(100).default(10),
+      type: z.enum(['SENT', 'RECEIVED', 'PENDING_APPROVAL', 'ALL']).default('ALL'),
+      status: z.enum(Object.keys(INVITE_STATUS) as [string, ...string[]]).optional(),
+      search: z.string().optional(), // Email or Transfer Title
+    });
+
+    const queryResult = querySchema.safeParse(query);
+    if (!queryResult.success) {
+      const errors = prettyZodErrors(queryResult.error);
+      res.status(StatusCodes.BAD_REQUEST).json({ message: 'Invalid query parameters', details: errors });
+      return;
+    }
+
+    const { page, limit, status, search, type } = queryResult.data;
+
+    const inviterSelector = [{ inviter_id: userId }];
+    const inviteeSelector = [{ email: userEmail }];
+    const primarySelector = {
+      ALL: [...inviterSelector, ...inviteeSelector],
+      SENT: inviterSelector,
+      RECEIVED: inviteeSelector,
+      PENDING_APPROVAL: inviterSelector,
+    } as Record<z.infer<typeof querySchema>['type'], []>;
+
+    const where = {
+      OR: primarySelector[type],
+      ...(status && { status }),
+      ...(type === 'PENDING_APPROVAL' && { status: INVITE_STATUS.ACCEPTED }),
+      ...(search && {
+        OR: [
+          { email: { contains: search, mode: Prisma.QueryMode.insensitive } },
+          { transfer: { title: { contains: search, mode: Prisma.QueryMode.insensitive } } },
+        ],
+      }),
+      AND: [{ transfer: { expiration_date: { gte: new Date() } } }, { transfer: { status: TRANSFER_STATUS.ACTIVE } }],
+    };
+
+    const include = {
+      id: true,
+      email: true,
+      status: true,
+      viewed_invite: true,
+      viewed_authorization: true,
+      transfer: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          status: true,
+          expiration_date: true,
+        },
+      },
+      inviter: {
+        select: {
+          id: true,
+          email: true,
+          profile_picture: true,
+        },
+      },
+    };
+
+    try {
+      const [invitations, paginationDetails] = await getPaginationResult({
+        modelName: 'Invites',
+        where,
+        page,
+        limit,
+        include,
+        orderBy: { created_at: 'desc' },
+      });
+      const enrichedInvitations = invitations.map((invite) => {
+        const enrichedInvite = {
+          ...invite,
+          isInviter: invite.inviter.id === userId,
+          isInvitee: invite.email === userEmail,
+          isAccepted: invite.status !== INVITE_STATUS.PENDING,
+          isPendingApproval: invite.status === INVITE_STATUS.ACCEPTED,
+        };
+        if (!enrichedInvite.isInviter) delete enrichedInvite.viewed_authorization;
+        return enrichedInvite;
+      });
+
+      res.status(StatusCodes.OK).json({ message: 'Invitations retrieved successfully', data: enrichedInvitations, pagination: paginationDetails });
+    } catch (error) {
+      this.transferLogger.error(error, 'Failed to get invitations');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+      return;
+    }
+  };
+
+  private getInvitationDetails = async (req: Request, res: Response) => {
+    const { invitationId } = req.params;
+    const { userId, email: userEmail } = req.session;
+    try {
+      const invite = await db.invites.findUnique({
+        where: { id: invitationId },
+        select: {
+          id: true,
+          email: true,
+          status: true,
+          created_at: true,
+          transfer: {
+            select: {
+              id: true,
+              status: true,
+              title: true,
+              expiration_date: true,
+              files: {
+                select: {
+                  name: true,
+                  size: true,
+                  content_type: true,
+                },
+              },
+            },
+          },
+          inviter: {
+            select: {
+              id: true,
+              email: true,
+            },
+          },
+          viewed_invite: true,
+          viewed_authorization: true,
+        },
+      });
+
+      // Check if invite exists
+      if (!invite) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Invite not found' });
+        return;
+      }
+
+      // Check permissions
+      if (invite.email !== userEmail && invite.inviter.id !== userId) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to view this invite' });
+        return;
+      }
+
+      // Don't return invites for invalid transfers
+      if (invite.transfer.status !== TRANSFER_STATUS.ACTIVE || invite.transfer.expiration_date < new Date()) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'Transfer is no longer valid' });
+        return;
+      }
+
+      // Remove viewed_authorization if the inviter is not the user
+      if (invite.inviter.id !== userId) {
+        delete invite.viewed_authorization;
+      }
+
+      res.status(StatusCodes.OK).json({ message: 'Invite found', data: invite });
+    } catch {
+      this.transferLogger.error('Failed to get invitation details from token');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+      return;
+    }
+  };
+
+  private getInvitationDetailsFromToken = async (req: Request, res: Response) => {
+    const { userId, email: userEmail } = req.session;
+    const { token } = req.body as BodyTypeToShape<'getInvitationDetailsFromToken'>;
+    let payload: JWTInvitePayload;
+    try {
+      try {
+        payload = jwt.verify(token, process.env.INVITE_TOKEN_SECRET!) as JWTInvitePayload;
+      } catch {
+        res.status(StatusCodes.BAD_REQUEST).json({ message: 'Invalid invite token' });
+        return;
+      }
+
+      const invite = await db.invites.findUnique({
+        where: { id: payload.id },
+        select: {
+          id: true,
+          email: true,
+          status: true,
+          created_at: true,
+          transfer: {
+            select: {
+              id: true,
+              status: true,
+              title: true,
+              expiration_date: true,
+              files: {
+                select: {
+                  name: true,
+                  size: true,
+                  content_type: true,
+                },
+              },
+            },
+          },
+          inviter: {
+            select: {
+              id: true,
+              email: true,
+            },
+          },
+          viewed_invite: true,
+          viewed_authorization: true,
+        },
+      });
+
+      // Check if invite exists
+      if (!invite) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Invite not found' });
+        return;
+      }
+
+      // Check permissions
+      if (invite.email !== userEmail && invite.inviter.id !== userId) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to view this invite' });
+        return;
+      }
+
+      // Don't return invites for invalid transfers
+      if (invite.transfer.status !== TRANSFER_STATUS.ACTIVE || invite.transfer.expiration_date < new Date()) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'Transfer is no longer valid' });
+        return;
+      }
+
+      res.status(StatusCodes.OK).json({ message: 'Invite found', data: invite });
+    } catch {
+      this.transferLogger.error('Failed to get invitation details from token');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+      return;
+    }
+  };
+
+  private acceptInvite = async (req: Request, res: Response) => {
+    const { token } = req.body as BodyTypeToShape<'acceptInvite'>;
+    const { email: userEmail } = req.session;
+    try {
+      let payload: JWTInvitePayload;
+      try {
+        payload = jwt.verify(token, process.env.INVITE_TOKEN_SECRET!) as JWTInvitePayload;
+      } catch {
+        res.status(StatusCodes.BAD_REQUEST).json({ message: 'Invalid invite token' });
+        return;
+      }
+      // Validate token and accept invite
+      const invite = await db.invites.findUnique({
+        where: { id: payload.id },
+        select: {
+          id: true,
+          email: true,
+          status: true,
+          transfer: {
+            select: {
+              id: true,
+              status: true,
+              title: true,
+              expiration_date: true,
+            },
+          },
+          inviter: {
+            select: {
+              id: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      // Check if invite exists
+      if (!invite) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Invite not found' });
+        return;
+      }
+
+      // Check if invite is for the current user
+      if (invite.email !== userEmail) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to accept this invite' });
+        return;
+      }
+
+      // Check if invite is already accepted
+      if (invite.status !== INVITE_STATUS.PENDING) {
+        res.status(StatusCodes.CONFLICT).json({ message: 'Invite has already been accepted' });
+        return;
+      }
+
+      // Check if transfer is still valid
+      if (invite.transfer.status !== TRANSFER_STATUS.ACTIVE || invite.transfer.expiration_date < new Date()) {
+        res.status(StatusCodes.CONFLICT).json({ message: 'Transfer is no longer valid' });
+        return;
+      }
+
+      // Update invite status
+      const updatedInvite = await db.invites.update({
+        where: { id: invite.id },
+        data: { status: INVITE_STATUS.ACCEPTED },
+      });
+
+      const acceptancePayload: JWTInvitePayload = {
+        id: invite.id,
+        email: invite.email,
+        transfer_id: invite.transfer.id,
+        iat: Math.floor(Date.now() / 1000),
+      };
+
+      const acceptanceToken = jwt.sign(acceptancePayload, process.env.INVITE_TOKEN_SECRET!);
+
+      // Send notification to inviter (non-blocking)
+      notificationService
+        .send_invite_accepted_notification(
+          invite.inviter.email,
+          {
+            recipient_email: invite.email,
+            transfer_id: invite.transfer.id,
+            transfer_title: invite.transfer.title,
+          },
+          acceptanceToken,
+        )
+        .catch((error) => {
+          this.transferLogger.warn(error, 'Failed to send invite accepted notification');
+        });
+
+      res.status(StatusCodes.OK).json({
+        message: 'Invite accepted successfully',
+        data: {
+          invite: {
+            id: invite.id,
+            email: invite.email,
+            status: updatedInvite.status,
+            transfer_id: invite.transfer.id,
+          },
+        },
+      });
+    } catch (error) {
+      this.transferLogger.error(error, 'Failed to accept invite');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  };
+
+  private approveInvite = async (req: Request, res: Response) => {
+    const { token, file_key } = req.body as BodyTypeToShape<'approveInvite'>;
+    const { userId, email: userEmail } = req.session;
+
+    let payload: JWTInvitePayload;
+    try {
+      try {
+        payload = jwt.verify(token, process.env.INVITE_TOKEN_SECRET!) as JWTInvitePayload;
+      } catch {
+        res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Invalid invite token' });
+        return;
+      }
+
+      const invite = await db.invites.findUnique({
+        where: { id: payload.id },
+        select: {
+          id: true,
+          email: true,
+          status: true,
+          inviter_id: true,
+          transfer: {
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              status: true,
+              expiration_date: true,
+            },
+          },
+        },
+      });
+
+      // Check if invite exists
+      if (!invite) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Invite not found' });
+        return;
+      }
+
+      // Check if user has permission to approve invite
+      if (userId !== invite.inviter_id) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to approve this invite' });
+        return;
+      }
+
+      // Check if invite is in proper ACCEPTED state
+      if (invite.status !== INVITE_STATUS.ACCEPTED) {
+        res.status(StatusCodes.CONFLICT).json({ message: 'Invite has not yet been accepted' });
+        return;
+      }
+
+      // Check if transfer is still valid
+      if (invite.transfer.status !== TRANSFER_STATUS.ACTIVE || invite.transfer.expiration_date < new Date()) {
+        res.status(StatusCodes.CONFLICT).json({ message: 'Transfer is no longer active' });
+        return;
+      }
+
+      // Check if email transfer for invitee already exists
+      const existingEmailTransfer = await db.emailTransfers.findFirst({
+        where: {
+          transfer_id: invite.transfer.id,
+          recipient_user: {
+            email: invite.email,
+          },
+        },
+      });
+
+      if (existingEmailTransfer) {
+        res.status(StatusCodes.CONFLICT).json({ message: 'Email transfer for invitee already exists' });
+        return;
+      }
+
+      // Create email transfer for invitee
+      await db.emailTransfers.create({
+        data: {
+          transfer: {
+            connect: {
+              id: invite.transfer.id,
+            },
+          },
+          recipient_user: {
+            connect: {
+              email: invite.email,
+            },
+          },
+          file_key,
+        },
+      });
+
+      // Notify invitee about the approval (non-blocking)
+      notificationService
+        .send_access_granted_notification(invite.email, {
+          transfer_id: invite.transfer.id,
+          transfer_title: invite.transfer.title,
+          granted_by: userEmail,
+          expires_at: invite.transfer.expiration_date,
+        })
+        .catch((error) => {
+          this.transferLogger.warn(error, 'Failed to send access granted notification');
+        });
+
+      res.status(StatusCodes.OK).json({ message: 'Invite approved' });
+    } catch (error) {
+      this.transferLogger.error(error, 'Failed to approve invite');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   };
 
@@ -506,6 +992,13 @@ class TransferController {
               },
             },
           },
+          invites: {
+            select: {
+              id: true,
+              email: true,
+              status: true,
+            },
+          },
           link_transfer: true,
           files: true,
         },
@@ -541,8 +1034,9 @@ class TransferController {
         delete transfer.owner_file_key;
       }
 
-      // Remove other email transfers if not owner requesting
+      // Remove invites and other email transfers if not owner requesting
       if (transfer.owner_user_id !== userId) {
+        delete transfer.invites;
         transfer.email_transfers = transfer.email_transfers.filter((email) => email.recipient_user.id === userId);
       }
 
@@ -864,8 +1358,6 @@ class TransferController {
   private validateBody = bodyValidator(this.getValidationSchema);
 }
 
-type BodyType = 'initiateLinkTransfer' | 'initiateEmailTransfer' | 'commitLinkTransfer' | 'commitEmailTransfer';
-
 const initiateEmailTransferSchema = z.object({
   recipients: z.array(z.string().email()).nonempty('At least one recipient is required'),
   title: z.string().max(100).optional(),
@@ -907,14 +1399,33 @@ const commitLinkTransferSchema = z.object({
   }),
 });
 
+const getInvitationDetailsFromTokenSchema = z.object({
+  token: z.string(),
+});
+
+const acceptInviteSchema = z.object({
+  token: z.string(),
+});
+
+const approveInviteSchema = z.object({
+  token: z.string(),
+  file_key: z.string().refine((val) => PGPValidator.isValidPGPMessage(val), {
+    message: 'Invalid PGP message format',
+  }),
+});
+
 const schemas = {
   initiateEmailTransfer: initiateEmailTransferSchema,
   initiateLinkTransfer: initiateLinkTransferSchema,
   commitEmailTransfer: commitEmailTransferSchema,
   commitLinkTransfer: commitLinkTransferSchema,
+  acceptInvite: acceptInviteSchema,
+  approveInvite: approveInviteSchema,
+  getInvitationDetailsFromToken: getInvitationDetailsFromTokenSchema,
 } as const;
 
 type SchemaMap = typeof schemas;
+type BodyType = keyof SchemaMap;
 type BodyTypeToShape<T extends BodyType> = z.infer<SchemaMap[T]>;
 
 export default TransferController;

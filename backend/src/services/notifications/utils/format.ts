@@ -8,3 +8,7 @@ export const formatFileSize = (size: number): string => {
   } while (size >= 1024 && unitIndex < units.length - 1);
   return `${size.toFixed(1)} ${units[unitIndex]}`;
 };
+
+export const getMailboxName = (email: string): string => {
+  return email.split('@')[0] || '';
+};
