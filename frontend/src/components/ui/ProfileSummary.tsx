@@ -1,5 +1,4 @@
-import { Avatar, AvatarFallback, AvatarImage } from "./avatar";
-import { FaUser } from "react-icons/fa6";
+import { StyledAvatar } from "./avatar";
 import { cn } from "@/lib/utils";
 
 const ProfileSummary = ({
@@ -18,12 +17,7 @@ const ProfileSummary = ({
   return (
     <div className={cn("flex items-center", className)} onClick={onClick}>
       <div className="flex items-center gap-2 overflow-hidden">
-        <Avatar className="rounded-md w-10 h-10">
-          <AvatarImage src={profile_url} />
-          <AvatarFallback className="bg-gray-200 text-gray-600 rounded-md">
-            <FaUser />
-          </AvatarFallback>
-        </Avatar>
+        <StyledAvatar profile_url={profile_url} />
         <div className="flex flex-col items-start flex-1 overflow-hidden">
           <span className="text-[14px] font-normal max-w-full truncate overflow-ellipsis">
             {email}

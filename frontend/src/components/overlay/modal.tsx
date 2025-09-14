@@ -29,7 +29,7 @@ const Modal = ({
   isOpen: boolean;
   onClose?: () => void;
   canClose?: boolean;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) => {
   return (
     <ModalContext.Provider
@@ -49,7 +49,7 @@ const ModalContent = ({
   children,
 }: {
   className?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) => {
   const { isOpen, onClose, canClose } = useModal();
   return (
@@ -95,9 +95,7 @@ const ModalBody = ({
   className,
   children,
 }: React.HTMLAttributes<HTMLDivElement>) => {
-  return (
-    <div className={cn("text-sm text-neutral-400", className)}>{children}</div>
-  );
+  return <div className={cn("text-sm", className)}>{children}</div>;
 };
 
 const ModalFooter = ({

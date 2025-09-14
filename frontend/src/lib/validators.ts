@@ -4,6 +4,12 @@ import {
   LINK_TRANSFER_ACCESS_CONTROL,
   TRANSFER_DURATIONS,
 } from "@/config/constants/transfers";
+import { useAuthStore } from "@/stores/authStore";
+import { CryptoBridge } from "./crypto/workers/CryptoBridge";
+import bcrypt from "bcryptjs";
+
+const primaryKeys = useAuthStore.getState().primaryKeys;
+const cryptoBridge = CryptoBridge.getInstance();
 
 export const signUpSchema = z
   .object({
@@ -33,6 +39,51 @@ export const signInSchema = z.object({
     .nonempty("Email is required"),
   password: z.string().nonempty("Password is required"),
 });
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().nonempty("Current password is required"),
+    newPassword: z
+      .string()
+      .min(12, "Password must be at least 12 characters long")
+      .regex(
+        passwordRegex,
+        "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"
+      )
+      .nonempty("Password is required"),
+    confirmPassword: z.string().nonempty("Kindly confirm your password"),
+    otp: z
+      .string()
+      .nonempty("OTP is required")
+      .regex(/^\d{6}$/, "OTP must be 6 digits long"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: "New password must be different from current password",
+    path: ["newPassword"],
+  })
+  .refine(
+    async (data) => {
+      if (!primaryKeys) return false;
+      const currentPassword = data.currentPassword;
+      const armoredPrivateKey = primaryKeys.private_key;
+      const passphrase = await bcrypt.hash(currentPassword, primaryKeys.salt);
+
+      const isValid = await cryptoBridge.testPassphrase(
+        armoredPrivateKey,
+        passphrase
+      );
+
+      return isValid;
+    },
+    {
+      message: "Current password is incorrect",
+      path: ["currentPassword"],
+    }
+  );
 
 const durationKeys = Object.keys(TRANSFER_DURATIONS) as [
   keyof typeof TRANSFER_DURATIONS,

@@ -6,12 +6,12 @@ import { v4 as uuid_v4 } from 'uuid';
 import express, { Request, Response } from 'express';
 import { z } from 'zod';
 import srpConfig from '../config/srp.config';
-import cache from '../services/cache';
+import cache, { deleteUserSessions } from '../services/cache';
 import jwt from 'jsonwebtoken';
 import jwtConfig from '../config/jwt.config';
 import otpConfig from '../config/otp.config';
 import { JWTAuthPayload, JWTOtpPayload, OtpRequest } from 'custom';
-import { verifyToken } from '../middlewares/auth.middleware';
+import { requireOtp, verifyToken } from '../middlewares/auth.middleware';
 import { bodyValidator } from '../middlewares/validation.middleware';
 import bcrypt from 'bcrypt';
 import { hashOTP, hashRefreshToken, verifyOTPHash } from '../utils/hashing.utils';
@@ -49,6 +49,7 @@ class AuthController {
       this.validateBody('confirmVerification'),
       this.confirmVerification,
     );
+    this.router.post('/change-password', verifyToken(), requireOtp('PASSWORD_RESET'), this.validateBody('changePassword'), this.changePassword);
     this.router.get('/sessions', verifyToken(), this.getSessions);
     this.router.get('/sessions/:id/revoke', verifyToken(), this.revokeSession);
     this.router.put('/sessions/local/key', verifyToken({ bypassVerification: true }), this.validateBody('putSessionKey'), this.putLocalSessionKey);
@@ -527,6 +528,64 @@ class AuthController {
     }
   };
 
+  private changePassword = async (req: Request, res: Response) => {
+    const { key, credentials } = req.body as BodyTypeToShape<'changePassword'>;
+    const { userId, sessionId } = req.session;
+    if (!userId) {
+      res.sendStatus(StatusCodesConfig.UNAUTHORIZED);
+      return;
+    }
+
+    try {
+      const user = await db.users.findUnique({ where: { id: userId } });
+      if (!user) {
+        res.sendStatus(StatusCodesConfig.UNAUTHORIZED);
+        return;
+      }
+      useSerializableTransaction(async (tx) => {
+        await tx.users.update({
+          where: { id: userId },
+          data: {
+            salt: credentials.salt,
+            verifier: credentials.verifier,
+          },
+        });
+
+        await tx.keys.update({
+          where: {
+            single_primary_key_pair_per_user: {
+              user_id: userId,
+              primary: true,
+            },
+          },
+          data: {
+            private_key: key.armored_private_key,
+            salt: key.salt,
+            version: { increment: 1 },
+          },
+        });
+
+        await tx.sessions.updateMany({
+          where: {
+            AND: [{ user_id: userId }, { id: { not: sessionId } }],
+          },
+          data: { revoked: true },
+        });
+
+        await deleteUserSessions(userId);
+      });
+
+      res.status(StatusCodesConfig.OK).json({
+        message: 'Password updated successfully',
+      });
+    } catch (error) {
+      this.authLogger.error(error, 'Error changing password');
+      res.status(StatusCodesConfig.INTERNAL_SERVER_ERROR).json({
+        message: 'Internal Server Error',
+      });
+    }
+  };
+
   private revokeSession = async (req: Request, res: Response) => {
     // TODO: Implement revoke logic
     res.send('Revoke session');
@@ -592,8 +651,6 @@ class AuthController {
   private validateBody = bodyValidator(this.getValidationSchema);
 }
 
-type BodyType = 'register' | 'challenge' | 'signIn' | 'requestVerification' | 'confirmVerification' | 'putSessionKey';
-
 const registerSchema = z.object({
   identifier: z.string().email('Expected email identifier'),
   salt: z.string().base64('Expected base64 string'),
@@ -626,6 +683,17 @@ const putSessionKeySchema = z.object({
   key: z.string(),
 });
 
+const changePasswordSchema = z.object({
+  credentials: z.object({
+    salt: z.string().base64('Expected base64 string'),
+    verifier: z.string().base64('Expected base64 string'),
+  }),
+  key: z.object({
+    armored_private_key: z.string(),
+    salt: z.string(),
+  }),
+});
+
 const schemas = {
   register: registerSchema,
   challenge: challengeSchema,
@@ -633,9 +701,11 @@ const schemas = {
   putSessionKey: putSessionKeySchema,
   requestVerification: requestVerificationSchema,
   confirmVerification: confirmVerificationSchema,
+  changePassword: changePasswordSchema,
 } as const;
 
 type SchemaMap = typeof schemas;
+type BodyType = keyof SchemaMap;
 type BodyTypeToShape<T extends BodyType> = z.infer<SchemaMap[T]>;
 
 export default AuthController;

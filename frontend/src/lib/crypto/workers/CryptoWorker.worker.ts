@@ -44,6 +44,21 @@ export class CryptoWorker implements CryptoApi {
     });
   }
 
+  async testPassphrase(
+    armoredKey: string,
+    passphrase: string
+  ): Promise<boolean> {
+    try {
+      const privateKey = await openpgp.decryptKey({
+        privateKey: await openpgp.readPrivateKey({ armoredKey }),
+        passphrase,
+      });
+      return privateKey.isDecrypted();
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Clears the currently held private key from memory.
    * Use this to explicitly remove sensitive material.
@@ -102,6 +117,38 @@ export class CryptoWorker implements CryptoApi {
       publicKey: publicKey,
       salt: salt,
     };
+  }
+
+  async changePrivateKeyPassphrase(
+    oldPassword: string,
+    oldKeySalt: string,
+    newPassword: string,
+    armoredPrivateKey: string
+  ): Promise<{ armoredKey: string; salt: string }> {
+    if (!this.privateKey) {
+      throw new Error("changePrivateKeyPassphrase(): Private key not loaded.");
+    }
+
+    const oldPassphrase = await bcrypt.hash(oldPassword, oldKeySalt);
+
+    // Decrypt the armored private key with the old password
+    const decryptedKey = await openpgp.decryptKey({
+      privateKey: await openpgp.readPrivateKey({
+        armoredKey: armoredPrivateKey,
+      }),
+      passphrase: oldPassphrase,
+    });
+
+    const salt = await bcrypt.genSalt(12);
+    const newPassphrase = await bcrypt.hash(newPassword, salt);
+
+    // If decryption is successful, re-encrypt the key with the new password
+    const newArmoredKey = await openpgp.encryptKey({
+      privateKey: decryptedKey,
+      passphrase: newPassphrase,
+    });
+
+    return { armoredKey: newArmoredKey.armor(), salt };
   }
 
   /**
