@@ -21,6 +21,8 @@ import {
   NotificationSettings,
   SettingsLayout,
 } from "./views/settings";
+import FileRequests from "./views/file-requests/FileRequests";
+import BrandSettings from "./views/brand-settings/BrandSettings";
 
 const router = createBrowserRouter([
   {
@@ -106,6 +108,14 @@ const router = createBrowserRouter([
                 ],
               },
             ],
+          },
+          {
+            path: "requests",
+            element: <FileRequests />,
+          },
+          {
+            path: "branding",
+            element: <BrandSettings />,
           },
         ],
       },

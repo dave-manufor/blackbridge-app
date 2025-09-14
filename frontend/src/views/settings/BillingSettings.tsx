@@ -1,5 +1,7 @@
+import ComingSoonState from "@/components/ui/ComingSoonState";
+
 const BillingSettings = () => {
-  return <div>BillingSettings</div>;
+  return <ComingSoonState />;
 };
 
 export default BillingSettings;

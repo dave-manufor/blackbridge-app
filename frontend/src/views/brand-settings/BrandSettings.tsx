@@ -1,7 +1,7 @@
 import ComingSoonState from "@/components/ui/ComingSoonState";
 
-const NotificationSettings = () => {
+const BrandSettings = () => {
   return <ComingSoonState />;
 };
 
-export default NotificationSettings;
+export default BrandSettings;

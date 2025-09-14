@@ -1,7 +1,7 @@
 import ComingSoonState from "@/components/ui/ComingSoonState";
 
-const NotificationSettings = () => {
+const FileRequests = () => {
   return <ComingSoonState />;
 };
 
-export default NotificationSettings;
+export default FileRequests;
