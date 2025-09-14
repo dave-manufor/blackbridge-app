@@ -1,7 +1,9 @@
+import { OTP_ACTION_TYPES } from "@/config/constants/otp";
 import API from "../API";
 import ApiRoutes from "../routes";
 
-export type OtpActionType = "ACCOUNT_VERIFICATION" | "PASSWORD_RESET";
+export type OtpActionType =
+  (typeof OTP_ACTION_TYPES)[keyof typeof OTP_ACTION_TYPES];
 export async function requestVerification(
   {
     action_type,

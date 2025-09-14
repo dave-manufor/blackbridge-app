@@ -1,7 +1,8 @@
-import * as React from "react"
-import * as AvatarPrimitive from "@radix-ui/react-avatar"
+import * as React from "react";
+import * as AvatarPrimitive from "@radix-ui/react-avatar";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
+import { FaUser } from "react-icons/fa6";
 
 function Avatar({
   className,
@@ -16,7 +17,7 @@ function Avatar({
       )}
       {...props}
     />
-  )
+  );
 }
 
 function AvatarImage({
@@ -29,7 +30,7 @@ function AvatarImage({
       className={cn("aspect-square size-full", className)}
       {...props}
     />
-  )
+  );
 }
 
 function AvatarFallback({
@@ -45,7 +46,21 @@ function AvatarFallback({
       )}
       {...props}
     />
-  )
+  );
+}
+function StyledAvatar({
+  className,
+  profile_url,
+  ...props
+}: React.ComponentProps<typeof Avatar> & { profile_url?: string }) {
+  return (
+    <Avatar className={cn("rounded-md w-10 h-10", className)} {...props}>
+      <AvatarImage src={profile_url} />
+      <AvatarFallback className="bg-gray-200 text-gray-600 rounded-md">
+        <FaUser />
+      </AvatarFallback>
+    </Avatar>
+  );
 }
 
-export { Avatar, AvatarImage, AvatarFallback }
+export { Avatar, AvatarImage, AvatarFallback, StyledAvatar };

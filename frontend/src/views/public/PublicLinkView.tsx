@@ -11,8 +11,8 @@ import { formatDistance } from "date-fns";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MdOutlineFileDownload } from "react-icons/md";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { FaSpinner, FaUser } from "react-icons/fa6";
+import { StyledAvatar } from "@/components/ui/avatar";
+import { FaSpinner } from "react-icons/fa6";
 import { Skeleton } from "@/components/ui/skeleton";
 import FileCardSkeleton from "@/components/ui/FileCardSkeleton";
 import {
@@ -338,14 +338,12 @@ const PublicLinkView = () => {
                   className={styles.profile_summary}
                 />
               </div>
-              <Avatar className="rounded-md w-10 h-10 hidden max-sm:flex">
-                <AvatarImage
-                  src={linkData.transfer.owner.profile_picture || ""}
-                />
-                <AvatarFallback className="bg-gray-200 text-gray-600 rounded-md">
-                  <FaUser />
-                </AvatarFallback>
-              </Avatar>
+              <StyledAvatar
+                profile_url={
+                  linkData.transfer.owner.profile_picture || undefined
+                }
+                className="hidden max-sm:flex"
+              />
             </div>
           </GridSection>
           <GridSection>

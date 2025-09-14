@@ -34,6 +34,24 @@ export const signInSchema = z.object({
   password: z.string().nonempty("Password is required"),
 });
 
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().nonempty("Current password is required"),
+    newPassword: z
+      .string()
+      .min(12, "Password must be at least 12 characters long")
+      .regex(
+        passwordRegex,
+        "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"
+      )
+      .nonempty("Password is required"),
+    confirmPassword: z.string().nonempty("Kindly confirm your password"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
+
 const durationKeys = Object.keys(TRANSFER_DURATIONS) as [
   keyof typeof TRANSFER_DURATIONS,
   ...(keyof typeof TRANSFER_DURATIONS)[]

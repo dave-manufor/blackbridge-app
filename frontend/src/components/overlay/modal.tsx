@@ -29,7 +29,7 @@ const Modal = ({
   isOpen: boolean;
   onClose?: () => void;
   canClose?: boolean;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) => {
   return (
     <ModalContext.Provider
@@ -49,7 +49,7 @@ const ModalContent = ({
   children,
 }: {
   className?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) => {
   const { isOpen, onClose, canClose } = useModal();
   return (

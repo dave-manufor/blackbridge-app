@@ -14,8 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { GoHome } from "react-icons/go";
 import { MdLogout } from "react-icons/md";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { FaUser } from "react-icons/fa6";
+import { StyledAvatar } from "@/components/ui/avatar";
 import { IoMenu } from "react-icons/io5";
 
 const PublicLayout = () => {
@@ -48,12 +47,10 @@ const PublicLayout = () => {
                   className="text-white cursor-pointer"
                 />
               </div>
-              <Avatar className="rounded-md w-10 h-10 hidden max-sm:flex cursor-pointer">
-                <AvatarImage src={user.profile_picture || ""} />
-                <AvatarFallback className="bg-gray-200 text-gray-600 rounded-md">
-                  <FaUser />
-                </AvatarFallback>
-              </Avatar>
+              <StyledAvatar
+                profile_url={user.profile_picture}
+                className="hidden max-sm:flex cursor-pointer"
+              />
             </DropdownMenuTrigger>
             <DropdownMenuContent side="bottom" className="p-2 mt-2 w-full">
               <DropdownMenuItem

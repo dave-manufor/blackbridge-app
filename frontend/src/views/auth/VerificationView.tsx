@@ -26,6 +26,7 @@ import {
 import { toast } from "react-hot-toast";
 import { SessionStorageService } from "@/lib/WebStorageService";
 import storageKeys from "@/config/constants/storageKeys";
+import { OTP_ACTION_TYPES } from "@/config/constants/otp";
 
 const VerificationView = () => {
   const storage = new SessionStorageService();
@@ -52,7 +53,7 @@ const VerificationView = () => {
   // 1. Request OTP on initial component mount
   useEffect(() => {
     requestVerificationMutation.mutate(
-      { action_type: "ACCOUNT_VERIFICATION" },
+      { action_type: OTP_ACTION_TYPES.ACCOUNT_VERIFICATION },
       {
         onSuccess: (data) => {
           if (data?.request_id) {
