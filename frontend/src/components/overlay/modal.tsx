@@ -2,7 +2,12 @@ import { cn } from "@/lib/utils";
 import { IoMdClose } from "react-icons/io";
 import BaseModal from "react-modal";
 import { Button } from "../ui/button";
-import { ComponentPropsWithoutRef, createContext, useContext } from "react";
+import {
+  ComponentPropsWithoutRef,
+  createContext,
+  useContext,
+  useEffect,
+} from "react";
 
 interface ModalContextType {
   canClose: boolean;
@@ -52,11 +57,24 @@ const ModalContent = ({
   children?: React.ReactNode;
 }) => {
   const { isOpen, onClose, canClose } = useModal();
+
+  useEffect(() => {
+    if (isOpen && typeof document !== "undefined") {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+    }
+
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, [isOpen]);
   return (
     <BaseModal
+      portalClassName="absolute z-[10000]"
       overlayClassName="fixed inset-0 bg-neutral-900/20 backdrop-blur-xs flex items-center justify-center"
       className={cn(
-        "m-auto w-2/3 max-sm:w-90/100 max-w-128 bg-card text-card-foreground flex flex-col gap-6 p-4 rounded-lg border border-zinc-400 shadow-md outline-none",
+        "m-auto w-2/3 max-sm:w-90/100 max-w-128 bg-card text-card-foreground flex flex-col gap-6 p-4 rounded-lg border border-zinc-400 shadow-md outline-none max-h-[90vh] overflow-y-auto",
         className
       )}
       isOpen={isOpen}
@@ -103,7 +121,12 @@ const ModalFooter = ({
   children,
 }: React.HTMLAttributes<HTMLDivElement>) => {
   return (
-    <div className={cn("flex justify-end items-center gap-2 mt-2", className)}>
+    <div
+      className={cn(
+        "flex justify-end items-center gap-2 mt-2 max-sm:flex-col-reverse max-sm:gap-3 [&>button]:max-sm:w-full",
+        className
+      )}
+    >
       {children}
     </div>
   );

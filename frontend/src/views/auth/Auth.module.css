@@ -1,8 +1,10 @@
+@import "tailwindcss";
 .container {
   position: relative;
   width: 100vw;
   height: 100vh;
   --banner-height: 40vh;
+  @apply max-sm:[--banner-height:30vh];
 }
 
 .banner {
@@ -10,7 +12,7 @@
   align-items: start;
   justify-content: start;
   padding: 32px;
-  width: 100%;
+  width: 100vw;
   height: var(--banner-height);
   background-color: oklch(0.205 0 0);
   position: absolute;
@@ -20,11 +22,13 @@
 }
 
 .formWrapper {
+  --margin: 160px;
   padding: 32px;
   max-width: 480px;
   margin-left: auto;
   margin-right: auto;
-  margin-top: calc(var(--banner-height) - 160px);
+  margin-top: calc(var(--banner-height) - var(--margin));
+  @apply max-sm:w-[90vw] max-sm:px-4 max-sm:[--margin:64px];
 }
 
 .formHeader {

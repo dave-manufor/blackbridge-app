@@ -100,11 +100,11 @@ const TransferDetailsView = () => {
     if (
       transferDetails &&
       transferDetails.transfer_type === TRANSFER_TYPES.EMAIL &&
-      !transferDetails.is_owner
+      transferDetails.email_transfers[0].recipient_user.id === user?.id
     ) {
       markTransferAsViewed({ transfer_id: transferDetails.id });
     }
-  }, [transferDetails, markTransferAsViewed]);
+  }, [transferDetails, markTransferAsViewed, user]);
 
   const handleDownloadAll = () => {
     if (!transferDetails) return;
@@ -228,9 +228,9 @@ const TransferDetailsView = () => {
             <section className={styles.details_section}>
               <ul className={styles.details_list}>
                 <li className={styles.detail}>
-                  <span className={styles.detail_name}>Owner</span>
-                  <div className="flex items-center gap-4">
-                    <Avatar className="rounded-md w-10 h-10">
+                  <span className={styles.detail_name}>Owner:</span>
+                  <div className="flex items-center gap-4 overflow-hidden">
+                    <Avatar className="rounded-md min-w-10 min-h-10 size-10 max-sm:min-w-8 max-sm:min-h-8 max-sm:size-8">
                       <AvatarImage
                         src={transferDetails.owner.profile_picture || ""}
                       />
@@ -238,17 +238,15 @@ const TransferDetailsView = () => {
                         <FaUser />
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col items-start">
-                      <span>
-                        {transferDetails.owner.email}
-                        {transferDetails.is_owner && " (You)"}
-                      </span>
+                    <div className="truncate">
+                      {transferDetails.owner.email}
+                      {transferDetails.is_owner && " (You)"}
                     </div>
                   </div>
                 </li>
                 <li className={styles.detail}>
                   <span className={`mb-auto ${styles.detail_name}`}>
-                    Description
+                    Description:
                   </span>
                   <p className="!text-black">
                     {transferDetails.description || "No description available"}
@@ -257,7 +255,7 @@ const TransferDetailsView = () => {
                 {transferDetails.transfer_type === "EMAIL" && (
                   <li className={styles.detail}>
                     <span className={`mb-auto ${styles.detail_name}`}>
-                      Shared with
+                      Shared with:
                     </span>
                     <div
                       className={`${styles.email_chips} scrollbar-always-visible`}

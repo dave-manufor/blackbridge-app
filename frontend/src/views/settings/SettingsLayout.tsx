@@ -15,17 +15,19 @@ const SettingsLayout = () => {
   return (
     <>
       <GridSection>
-        <NavigationTabs className="col-span-full">
-          <NavigationTabsTrigger to="/settings/account">
-            Account
-          </NavigationTabsTrigger>
-          <NavigationTabsTrigger to="/settings/billing">
-            Billing
-          </NavigationTabsTrigger>
-          <NavigationTabsTrigger to="/settings/notifications">
-            Notifications
-          </NavigationTabsTrigger>
-        </NavigationTabs>
+        <div className="col-span-full overflow-x-scroll pb-2">
+          <NavigationTabs>
+            <NavigationTabsTrigger to="/settings/account">
+              Account
+            </NavigationTabsTrigger>
+            <NavigationTabsTrigger to="/settings/billing">
+              Billing
+            </NavigationTabsTrigger>
+            <NavigationTabsTrigger to="/settings/notifications">
+              Notifications
+            </NavigationTabsTrigger>
+          </NavigationTabs>
+        </div>
       </GridSection>
       <Outlet />
     </>

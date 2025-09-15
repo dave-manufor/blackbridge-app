@@ -33,7 +33,7 @@ const GenericErrorState = ({
   return (
     <div
       className={cn(
-        "flex flex-col justify-center items-center p-8 text-center",
+        "flex flex-col justify-center items-center p-8 text-center max-sm:p-2",
         className
       )}
     >
@@ -42,7 +42,7 @@ const GenericErrorState = ({
         alt="No Transfers"
         className="w-48 max-w-3/4 h-48 mb-4"
       />
-      <div className="flex flex-col w-128 max-w-3/4 mb-4">
+      <div className="flex flex-col max-w-[512px] mb-4">
         <span className="text-xl font-semibold mb-2">
           {title ?? "Oops, something went wrong"}
         </span>

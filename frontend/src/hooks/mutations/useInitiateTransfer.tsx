@@ -245,6 +245,8 @@ const transfer = async (
   }
 
   await commitTransfer(commitPayload as CommitTransferPayload, signal);
+
+  return transferId;
 };
 
 interface InitiateTransferPayload {
@@ -255,13 +257,14 @@ const useInitiateTransfer = () => {
   const queryClient = useQueryClient();
   const controller = new AbortController();
   return useMutation({
-    mutationFn: (payload: InitiateTransferPayload) =>
-      transfer(
+    mutationFn: async (payload: InitiateTransferPayload) => {
+      return await transfer(
         {
           data: payload.data,
         },
         controller.signal
-      ),
+      );
+    },
     onSuccess: () => {
       uploadStore.setStatus("success");
       queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all });
