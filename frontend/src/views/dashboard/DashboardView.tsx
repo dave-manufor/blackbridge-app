@@ -36,18 +36,7 @@ import {
   TRANSFER_DURATIONS,
 } from "@/config/constants/transfers";
 import { Card } from "@/components/ui/card";
-import { FaEllipsis, FaRegBell, FaRegEye } from "react-icons/fa6";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuPortal,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-  DropdownMenuSubContent,
-} from "@/components/ui/dropdown-menu";
+import { FaCirclePlus, FaEllipsis, FaRegBell, FaRegEye } from "react-icons/fa6";
 import { Checkbox } from "@/components/ui/checkbox";
 import { z } from "zod";
 import useInitiateTransfer from "@/hooks/mutations/useInitiateTransfer";
@@ -56,11 +45,21 @@ import { devOnly } from "@/utils/dev";
 import { Progress } from "@/components/ui/progress";
 import { SimpleRadialChart } from "@/components/charts/SimpleRadialChart";
 import useAppHeader from "@hooks/context/useAppHeader";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { FaCheck } from "react-icons/fa6";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { IoIosArrowForward } from "react-icons/io";
+import { FaCheckCircle } from "react-icons/fa";
+import { useNavigate } from "react-router";
 
 const DashboardView = () => {
+  const navigate = useNavigate();
   const { setHeaderTitle } = useAppHeader();
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const { totalProgress, fileProgress } = useUploadStore(
     useShallow((state) => ({
       totalProgress: state.totalProgress,
@@ -127,9 +126,44 @@ const DashboardView = () => {
   const handleSubmit = (data: z.infer<typeof transferSchema>) => {
     devOnly(() => console.log("Submitting form", data));
     toast("Uploading Files...");
-    initiateTransfer({
-      data,
-    });
+    initiateTransfer(
+      {
+        data,
+      },
+      {
+        onSuccess: (transferId) => {
+          form.reset();
+          toast(
+            (t) => (
+              <div className="flex flex-col gap-2">
+                <span className="flex items-center gap-2">
+                  <FaCheckCircle className="text-green-500" /> Files uploaded
+                  successfully!
+                </span>
+                <span className="flex justify-end">
+                  <Button
+                    onClick={() => {
+                      toast.dismiss(t.id);
+                      navigate(`/transfers/${transferId}`);
+                    }}
+                  >
+                    View Transfer
+                  </Button>
+                </span>
+              </div>
+            ),
+            {
+              duration: Infinity,
+            }
+          );
+        },
+        onError: () => {
+          toast.error(
+            "Something went wrong while uploading your files. Please try again."
+          );
+        },
+      }
+    );
   };
 
   const getFileProgress = (fileIndex: number) => {
@@ -145,26 +179,51 @@ const DashboardView = () => {
       <GridSection>
         <Card className={styles.transfer_container}>
           <div className={`${styles.transfer_files} ${styles.card}`}>
-            <motion.div
-              className={`${styles.file_picker} ${
-                files.length > 0 ? styles.shrink : ""
-              }`}
-              layout
-              transition={{
-                type: "tween",
-                visualDuration: 0.4,
-                ease: "easeOut",
-              }}
-            >
-              <StyledFilePicker
-                variant="neutral"
-                onFileChange={handleFileChange}
-                draggable
-                multiple
-                className="text-center h-full"
-                error={formErrors.files?.message}
-              />
-            </motion.div>
+            {!isUploading && (
+              <>
+                {/* Mobile File Picker */}
+                <div className="w-full hidden max-sm:flex items-center justify-between ">
+                  <div className="flex flex-col items-start">
+                    <span className="text-black text-xl font-semibold">
+                      {files.length > 0 ? "Add" : "Upload"} Files
+                    </span>
+                    <span className="text-neutral-400 text-sm">
+                      Tap to select your files
+                    </span>
+                  </div>
+                  <StyledFilePicker
+                    onFileChange={handleFileChange}
+                    asChild
+                    multiple
+                    error={formErrors.files?.message}
+                  >
+                    <FaCirclePlus className="text-4xl" />
+                  </StyledFilePicker>
+                </div>
+                {/* Default File Picker */}
+                <motion.div
+                  className={`${styles.file_picker} ${
+                    files.length > 0 ? styles.shrink : ""
+                  } max-sm:hidden`}
+                  layout
+                  transition={{
+                    type: "tween",
+                    visualDuration: 0.4,
+                    ease: "easeOut",
+                  }}
+                >
+                  <StyledFilePicker
+                    variant="neutral"
+                    onFileChange={handleFileChange}
+                    draggable
+                    multiple
+                    className="text-center h-full"
+                    error={formErrors.files?.message}
+                  />
+                </motion.div>
+              </>
+            )}
+
             {files.length > 0 && (
               <motion.div
                 className={styles.file_list}
@@ -217,6 +276,9 @@ const DashboardView = () => {
                             <IoCloseCircleOutline />
                           </Button>
                         )}
+                        {isUploading && getFileProgress(index) >= 100 && (
+                          <FaCheckCircle className="text-green-500" />
+                        )}
                       </div>
                       {isUploading && getFileProgress(index) > 0 && (
                         <Progress
@@ -232,14 +294,21 @@ const DashboardView = () => {
           </div>
           <div className={styles.transfer_details}>
             {isUploading ? (
-              <SimpleRadialChart
-                className="h-[250px]"
-                numericValue={Math.floor(totalProgress)}
-                displayValue={`${Math.floor(totalProgress)}%`}
-                label="Total Progress"
-                startAngle={270}
-                endAngle={270 - (totalProgress / 100) * 360}
-              />
+              <div className="flex flex-col gap-4 items-center justify-center h-full w-full">
+                <SimpleRadialChart
+                  animateSpin
+                  className="w-3/4 max-w-[200px]"
+                  value={Math.floor(totalProgress)}
+                />
+                <div className="flex flex-col items-center text-center gap-1">
+                  <span className="text-2xl font-medium">
+                    Uploading Files...
+                  </span>
+                  <span className="text-sm text-neutral-400">
+                    Uploaded 1 of 3 files
+                  </span>
+                </div>
+              </div>
             ) : (
               <Tabs defaultValue={"email"}>
                 <TabsList className="w-full mb-4">
@@ -392,99 +461,97 @@ const DashboardView = () => {
                                 </SelectGroup>
                               </SelectContent>
                             </Select>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
+                            <Popover
+                              open={isPopoverOpen}
+                              onOpenChange={setIsPopoverOpen}
+                            >
+                              <PopoverTrigger asChild>
                                 <Button
                                   variant="ghost"
                                   className="col-span-1 border border-neutral-200"
                                 >
                                   <FaEllipsis />
                                 </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent
-                                side="top"
-                                className="w-48 text-neutral-600"
-                              >
-                                <DropdownMenuGroup>
-                                  <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger className="flex items-center gap-2">
+                              </PopoverTrigger>
+                              <PopoverContent className="w-48 text-neutral-600 flex flex-col p-0 overflow-hidden">
+                                <Popover>
+                                  <PopoverTrigger className="flex items-center justify-between w-full hover:bg-neutral-100 px-4 py-2 cursor-pointer">
+                                    <span className="flex items-center gap-2">
                                       <FaRegEye /> Access Control
-                                    </DropdownMenuSubTrigger>
-                                    <DropdownMenuPortal>
-                                      <DropdownMenuSubContent className="text-neutral-600">
-                                        <DropdownMenuItem
-                                          className="flex flex-col gap-0.5 items-start text-black"
-                                          onClick={() =>
-                                            setValue(
-                                              "access_control",
-                                              LINK_TRANSFER_ACCESS_CONTROL.PUBLIC
-                                            )
-                                          }
-                                        >
-                                          <span className="flex items-center gap-2">
-                                            {prettierLinkAccessControl(
-                                              LINK_TRANSFER_ACCESS_CONTROL.PUBLIC
-                                            )}{" "}
-                                            {access_control ===
-                                              LINK_TRANSFER_ACCESS_CONTROL.PUBLIC && (
-                                              <FaCheck className="text-xs" />
-                                            )}
-                                          </span>
-                                          <span className="text-xs text-neutral-400 max-w-72">
-                                            This link is open to everyone.
-                                            Anyone who has it can view the
-                                            content without needing to log in.
-                                          </span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          className="flex flex-col gap-0.5 items-start text-black"
-                                          onClick={() =>
-                                            setValue(
-                                              "access_control",
-                                              LINK_TRANSFER_ACCESS_CONTROL.REQUIRE_AUTH
-                                            )
-                                          }
-                                        >
-                                          <span className="flex items-center gap-2">
-                                            {prettierLinkAccessControl(
-                                              LINK_TRANSFER_ACCESS_CONTROL.REQUIRE_AUTH
-                                            )}{" "}
-                                            {access_control ===
-                                              LINK_TRANSFER_ACCESS_CONTROL.REQUIRE_AUTH && (
-                                              <FaCheck className="text-xs" />
-                                            )}
-                                          </span>
-                                          <span className="text-xs text-neutral-400 max-w-72">
-                                            Only people who sign in can open
-                                            this link. It&apos;s a safer option
-                                            if you want to keep access more
-                                            limited.
-                                          </span>
-                                        </DropdownMenuItem>
-                                      </DropdownMenuSubContent>
-                                    </DropdownMenuPortal>
-                                  </DropdownMenuSub>
-                                  <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger className="flex items-center gap-2">
+                                    </span>
+                                    <IoIosArrowForward />
+                                  </PopoverTrigger>
+                                  <PopoverContent
+                                    onClick={() => setIsPopoverOpen(false)}
+                                    className="p-0 overflow-hidden"
+                                  >
+                                    <div
+                                      className="flex flex-col gap-0.5 items-start text-black px-4 py-2 hover:bg-neutral-100 cursor-pointer"
+                                      onClick={() =>
+                                        setValue(
+                                          "access_control",
+                                          LINK_TRANSFER_ACCESS_CONTROL.PUBLIC
+                                        )
+                                      }
+                                    >
+                                      <span className="flex items-center gap-2">
+                                        {prettierLinkAccessControl(
+                                          LINK_TRANSFER_ACCESS_CONTROL.PUBLIC
+                                        )}{" "}
+                                        {access_control ===
+                                          LINK_TRANSFER_ACCESS_CONTROL.PUBLIC && (
+                                          <FaCheck className="text-xs" />
+                                        )}
+                                      </span>
+                                      <span className="text-xs text-neutral-400 max-w-72">
+                                        This link is open to everyone. Anyone
+                                        who has it can view the content without
+                                        needing to log in.
+                                      </span>
+                                    </div>
+                                    <div
+                                      className="flex flex-col gap-0.5 items-start text-black px-4 py-2 hover:bg-neutral-100 cursor-pointer"
+                                      onClick={() =>
+                                        setValue(
+                                          "access_control",
+                                          LINK_TRANSFER_ACCESS_CONTROL.REQUIRE_AUTH
+                                        )
+                                      }
+                                    >
+                                      <span className="flex items-center gap-2">
+                                        {prettierLinkAccessControl(
+                                          LINK_TRANSFER_ACCESS_CONTROL.REQUIRE_AUTH
+                                        )}{" "}
+                                        {access_control ===
+                                          LINK_TRANSFER_ACCESS_CONTROL.REQUIRE_AUTH && (
+                                          <FaCheck className="text-xs" />
+                                        )}
+                                      </span>
+                                      <span className="text-xs text-neutral-400 max-w-72">
+                                        Only people who sign in can open this
+                                        link. It&apos;s a safer option if you
+                                        want to keep access more limited.
+                                      </span>
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                                <Popover>
+                                  <PopoverTrigger className="flex items-center justify-between w-full hover:bg-neutral-100 px-4 py-2 cursor-pointer">
+                                    <span className="flex items-center gap-2 ">
                                       <FaRegBell /> Notifications
-                                    </DropdownMenuSubTrigger>
-                                    <DropdownMenuPortal>
-                                      <DropdownMenuSubContent className="text-neutral-600">
-                                        <DropdownMenuItem>
-                                          1 day before expiration
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem>
-                                          When viewed
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem>
-                                          When downloaded
-                                        </DropdownMenuItem>
-                                      </DropdownMenuSubContent>
-                                    </DropdownMenuPortal>
-                                  </DropdownMenuSub>
-                                </DropdownMenuGroup>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                                    </span>
+                                    <IoIosArrowForward />
+                                  </PopoverTrigger>
+                                  <PopoverContent
+                                    onClick={() => setIsPopoverOpen(false)}
+                                  >
+                                    <div>1 day before expiration</div>
+                                    <div>When viewed</div>
+                                    <div>When downloaded</div>
+                                  </PopoverContent>
+                                </Popover>
+                              </PopoverContent>
+                            </Popover>
                           </div>
                           <FormMessage />
                         </FormItem>

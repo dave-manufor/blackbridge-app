@@ -33,18 +33,20 @@ const TransferListLayout = () => {
   return (
     <>
       <GridSection>
-        <NavigationTabs className="col-span-full">
-          <NavigationTabsTrigger to="/transfers">All</NavigationTabsTrigger>
-          <NavigationTabsTrigger to="/transfers/sent">
-            Sent
-          </NavigationTabsTrigger>
-          <NavigationTabsTrigger to="/transfers/received">
-            Received
-          </NavigationTabsTrigger>
-          <NavigationTabsTrigger to="/transfers/links">
-            Links
-          </NavigationTabsTrigger>
-        </NavigationTabs>
+        <div className="col-span-full overflow-x-scroll pb-2">
+          <NavigationTabs className="w-full">
+            <NavigationTabsTrigger to="/transfers">All</NavigationTabsTrigger>
+            <NavigationTabsTrigger to="/transfers/sent">
+              Sent
+            </NavigationTabsTrigger>
+            <NavigationTabsTrigger to="/transfers/received">
+              Received
+            </NavigationTabsTrigger>
+            <NavigationTabsTrigger to="/transfers/links">
+              Links
+            </NavigationTabsTrigger>
+          </NavigationTabs>
+        </div>
       </GridSection>
       <GridSection>
         <SearchBar

@@ -134,6 +134,8 @@ export const StyledFilePicker = ({
   directory = false,
   draggable = false,
   onFileChange,
+  asChild = false,
+  children,
 }: {
   variant?: "primary" | "neutral" | "ghost";
   secondary?: boolean;
@@ -146,6 +148,8 @@ export const StyledFilePicker = ({
   directory?: boolean;
   draggable?: boolean;
   onFileChange: (files: FileList) => void;
+  asChild?: boolean;
+  children?: React.ReactNode;
 }) => {
   const DEFAULT_VARIANT = "primary";
   const variants = {
@@ -179,7 +183,9 @@ export const StyledFilePicker = ({
       draggable={draggable}
       onFileChange={onFileChange}
     >
-      {draggable ? (
+      {asChild ? (
+        children
+      ) : draggable ? (
         <>
           <div className={styles.upload}>
             <FaFileUpload />

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 .header_section {
-  @apply col-span-full flex items-start justify-between gap-12 mb-8 max-w-full;
+  @apply col-span-full flex items-start justify-between gap-12 mb-8 max-w-full max-sm:flex-col max-sm:items-stretch max-sm:gap-4;
 }
 
 .header_info {
@@ -9,7 +9,7 @@
 }
 
 .header_title {
-  @apply text-4xl font-semibold max-w-full truncate;
+  @apply text-4xl font-semibold max-w-full truncate max-xl:text-2xl max-xl:whitespace-normal max-xl:line-clamp-2 max-sm:line-clamp-3;
 }
 
 .header_meta {
@@ -21,7 +21,7 @@
 }
 
 .details_section {
-  @apply col-span-6 row-span-1 flex flex-col gap-6 mb-16;
+  @apply col-span-6 row-span-1 flex flex-col gap-6 mb-16 max-xl:col-span-10 max-xl:row-start-2 max-xl:mb-12 max-lg:col-span-full;
 }
 
 .details_list {
@@ -29,15 +29,15 @@
 }
 
 .detail {
-  @apply flex items-center gap-4 border-t border-neutral-200 py-4 px-2;
+  @apply flex items-center gap-4 border-t border-neutral-200 py-4 px-2 overflow-hidden;
 }
 
 .detail_name {
-  @apply text-neutral-400 min-w-[196px];
+  @apply text-neutral-400 min-w-[196px] max-xl:min-w-[120px] max-sm:min-w-[100px];
 }
 
 .files_section {
-  @apply col-span-4 -col-end-1 row-span-3 -mt-4;
+  @apply col-span-4 -col-end-1 row-span-3 -mt-4 max-xl:col-span-6 max-md:col-span-full;
 }
 
 .files_header {
@@ -81,7 +81,7 @@
 }
 
 .link_section {
-  @apply col-span-6 flex flex-col gap-4;
+  @apply col-span-6 flex flex-col gap-4 max-xl:col-span-10 max-xl:row-start-1 max-lg:col-span-full;
 }
 
 .link_header {
@@ -106,6 +106,7 @@
   display: flex;
   align-items: center;
   gap: 16px;
+  @apply max-[510px]:flex-col;
 }
 
 .link_container .qr_code {

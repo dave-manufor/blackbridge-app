@@ -11,6 +11,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "../../ui/sidebar";
 import Logo from "@/assets/img/blackbridge-logo.svg";
 import { GoHome, GoHomeFill } from "react-icons/go";
@@ -49,6 +50,7 @@ import { Fragment } from "react";
 import { useGetUnviewedTransferCountQuery } from "@/hooks/queries";
 import ProfileSummary from "@/components/ui/ProfileSummary";
 import { useShallow } from "zustand/react/shallow";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface MenuItemBase {
   label: string;
@@ -76,6 +78,13 @@ type FooterItem =
 
 const AppSideBar = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const { toggleSidebar: _toggleSidebar } = useSidebar();
+  const toggleSidebar = () => {
+    if (isMobile) {
+      _toggleSidebar();
+    }
+  };
   const { user, signOut } = useAuthStore(
     useShallow((state) => ({
       user: state.user,
@@ -202,7 +211,7 @@ const AppSideBar = () => {
         <SidebarContent>
           <SidebarGroup>
             <SidebarGroupContent>
-              <SidebarMenu>
+              <SidebarMenu onClick={toggleSidebar}>
                 {items.main.map((item) => (
                   <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton
@@ -275,7 +284,10 @@ const AppSideBar = () => {
               />
             </SidebarFooter>
           </DropdownMenuTrigger>
-          <DropdownMenuContent side="right" className="p-4">
+          <DropdownMenuContent
+            side={isMobile ? "top" : "right"}
+            className="p-4"
+          >
             <ProfileSummary
               email={user.email}
               profile_url={user.profile_picture}
@@ -286,9 +298,14 @@ const AppSideBar = () => {
             {items.footer.map((item) => (
               <Fragment key={item.label}>
                 <DropdownMenuItem
-                  onClick={
-                    item.isAction ? item.onClick : () => navigate(item.url)
-                  }
+                  onClick={() => {
+                    toggleSidebar();
+                    if (item.isAction) {
+                      item.onClick();
+                    } else {
+                      navigate(item.url);
+                    }
+                  }}
                   className="cursor-pointer"
                 >
                   <div className="flex items-center gap-2">

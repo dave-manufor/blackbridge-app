@@ -1,11 +1,5 @@
-import {
-  Label,
-  PolarGrid,
-  PolarRadiusAxis,
-  RadialBar,
-  RadialBarChart,
-} from "recharts";
-import { ChartConfig, ChartContainer } from "@/components/ui/chart";
+import { cn } from "@/lib/utils";
+import CircularProgress from "@mui/material/CircularProgress";
 
 export const description = "A radial chart with text";
 
@@ -21,85 +15,48 @@ export const description = "A radial chart with text";
 
 export function SimpleRadialChart({
   className,
-  numericValue,
-  displayValue,
+  animateSpin = false,
+  value,
   label,
-  startAngle,
-  endAngle,
+  labelClassName,
+  valueClassName,
 }: {
   className?: string;
-  numericValue: number;
-  displayValue: string;
-  label: string;
-  startAngle: number;
-  endAngle: number;
+  animateSpin?: boolean;
+  valueClassName?: string;
+  labelClassName?: string;
+  value: number;
+  label?: string;
 }) {
-  const chartData = [
-    {
-      numericValue: numericValue,
-      displayValue: displayValue,
-    },
-  ];
-  const chartConfig = {
-    displayValue: {
-      label: label,
-    },
-    numericValue: {
-      label: label,
-    },
-  } satisfies ChartConfig;
   return (
-    <ChartContainer
-      config={chartConfig}
-      className={`mx-auto aspect-square max-h-[250px] ${className}`}
+    <div
+      style={{ containerType: "inline-size" }}
+      className={cn(
+        "relative inline-flex items-center justify-center aspect-square",
+        className
+      )}
     >
-      <RadialBarChart
-        data={chartData}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        innerRadius={80}
-        outerRadius={110}
-      >
-        <PolarGrid
-          gridType="circle"
-          radialLines={false}
-          stroke="none"
-          className="first:fill-muted last:fill-background"
-          polarRadius={[86, 74]}
-        />
-        <RadialBar dataKey="numericValue" background cornerRadius={10} />
-        <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
-          <Label
-            content={({ viewBox }) => {
-              if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                return (
-                  <text
-                    x={viewBox.cx}
-                    y={viewBox.cy}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                  >
-                    <tspan
-                      x={viewBox.cx}
-                      y={viewBox.cy}
-                      className="fill-foreground text-4xl font-bold"
-                    >
-                      {chartData[0].displayValue.toLocaleString()}
-                    </tspan>
-                    <tspan
-                      x={viewBox.cx}
-                      y={(viewBox.cy || 0) + 24}
-                      className="fill-muted-foreground"
-                    >
-                      {label}
-                    </tspan>
-                  </text>
-                );
-              }
-            }}
-          />
-        </PolarRadiusAxis>
-      </RadialBarChart>
-    </ChartContainer>
+      <CircularProgress
+        thickness={3}
+        variant="determinate"
+        className={cn({ "animate-[spin_5s_linear_infinite]": animateSpin })}
+        value={value}
+        style={{
+          width: "100%",
+          height: "100%",
+          strokeLinecap: "round",
+          color: "var(--color-primary)",
+          ...(animateSpin ? { transform: "none" } : {}),
+        }}
+      />
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center text-[20cqw]">
+        <span
+          className={cn("text-[1em] font-semibold", valueClassName)}
+        >{`${value}%`}</span>
+        {label && (
+          <div className={cn("text-[0.3em]", labelClassName)}>{label}</div>
+        )}
+      </div>
+    </div>
   );
 }
