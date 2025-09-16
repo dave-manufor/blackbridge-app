@@ -12,6 +12,7 @@ import { getPublicKeys } from "@/api/services/userService";
 import { devOnly } from "@/utils/dev";
 import { useEffect, useMemo } from "react";
 import { CryptoBridge } from "@/lib/crypto/workers/CryptoBridge";
+import { TRANSFER_INVITATION_STATUS } from "@/config/constants/transfers";
 
 const useHandleGlobalAction = () => {
   const controller = useMemo(() => new AbortController(), []);
@@ -33,6 +34,7 @@ const useHandleGlobalAction = () => {
     };
     try {
       const invite = await getInvitationByToken({ token }, controller.signal);
+      if (invite.status !== TRANSFER_INVITATION_STATUS.PENDING) return;
       toast(
         (t) => (
           <div className="flex flex-col gap-4">
@@ -56,7 +58,9 @@ const useHandleGlobalAction = () => {
                   toast.dismiss(t.id);
                   toast.promise(handleAccept(), {
                     loading: "Accepting invite...",
-                    success: `Invite accepted! A notification has been sent to ${invite.inviter.email} to grant you access.`,
+                    success: (
+                      <span>{`Invite accepted! A notification has been sent to ${invite.inviter.email} to grant you access.`}</span>
+                    ),
                     error: "Failed to accept invite. Please try again later.",
                   });
                 }}
@@ -141,6 +145,7 @@ const useHandleGlobalAction = () => {
     let invite: Awaited<ReturnType<typeof getInvitationByToken>>;
     try {
       invite = await getInvitationByToken({ token }, controller.signal);
+      if (invite.status !== TRANSFER_INVITATION_STATUS.ACCEPTED) return;
     } catch (error) {
       if (
         isAxiosError(error) &&
@@ -184,8 +189,12 @@ const useHandleGlobalAction = () => {
                   handleAuthorize(invite.email, invite.transfer.id),
                   {
                     loading: "Authorizing",
-                    success: `${invite.email} has been authorized to access the transfer!`,
-                    error: `Failed to authorize ${invite.email}. Please try again later.`,
+                    success: (
+                      <span>{`${invite.email} has been authorized to access the transfer!`}</span>
+                    ),
+                    error: (
+                      <span>{`Failed to authorize ${invite.email}. Please try again later.`}</span>
+                    ),
                   }
                 );
               }}

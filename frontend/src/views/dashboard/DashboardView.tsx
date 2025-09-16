@@ -170,6 +170,10 @@ const DashboardView = () => {
     return fileProgress[fileIndex] || 0;
   };
 
+  const getTotalUploadedFiles = () => {
+    return fileProgress.filter((progress) => progress >= 100).length;
+  };
+
   useEffect(() => {
     setHeaderTitle("Dashboard");
   }, [setHeaderTitle]);
@@ -182,24 +186,31 @@ const DashboardView = () => {
             {!isUploading && (
               <>
                 {/* Mobile File Picker */}
-                <div className="w-full hidden max-sm:flex items-center justify-between ">
-                  <div className="flex flex-col items-start">
-                    <span className="text-black text-xl font-semibold">
-                      {files.length > 0 ? "Add" : "Upload"} Files
-                    </span>
-                    <span className="text-neutral-400 text-sm">
-                      Tap to select your files
-                    </span>
+                <div className="w-full">
+                  <div className="w-full hidden max-sm:flex items-center justify-between ">
+                    <div className="flex flex-col items-start">
+                      <span className="text-black text-xl font-semibold">
+                        {files.length > 0 ? "Add" : "Upload"} Files
+                      </span>
+                      <span className="text-neutral-400 text-sm">
+                        Tap to select your files
+                      </span>
+                    </div>
+                    <StyledFilePicker
+                      onFileChange={handleFileChange}
+                      asChild
+                      multiple
+                    >
+                      <FaCirclePlus className="text-4xl" />
+                    </StyledFilePicker>
                   </div>
-                  <StyledFilePicker
-                    onFileChange={handleFileChange}
-                    asChild
-                    multiple
-                    error={formErrors.files?.message}
-                  >
-                    <FaCirclePlus className="text-4xl" />
-                  </StyledFilePicker>
+                  {formErrors.files?.message && (
+                    <span className="small-text !text-red-500">
+                      {formErrors.files.message}
+                    </span>
+                  )}
                 </div>
+
                 {/* Default File Picker */}
                 <motion.div
                   className={`${styles.file_picker} ${
@@ -298,14 +309,14 @@ const DashboardView = () => {
                 <SimpleRadialChart
                   animateSpin
                   className="w-3/4 max-w-[200px]"
-                  value={Math.floor(totalProgress)}
+                  value={Math.floor(totalProgress) || 1} // Ensure at least 1% is shown when starting
                 />
                 <div className="flex flex-col items-center text-center gap-1">
                   <span className="text-2xl font-medium">
                     Uploading Files...
                   </span>
                   <span className="text-sm text-neutral-400">
-                    Uploaded 1 of 3 files
+                    Uploaded {getTotalUploadedFiles()} of {files.length} files
                   </span>
                 </div>
               </div>
