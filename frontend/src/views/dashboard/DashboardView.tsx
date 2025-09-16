@@ -305,7 +305,7 @@ const DashboardView = () => {
                 <SimpleRadialChart
                   animateSpin
                   className="w-3/4 max-w-[200px]"
-                  value={Math.floor(totalProgress)}
+                  value={Math.floor(totalProgress) || 1} // Ensure at least 1% is shown when starting
                 />
                 <div className="flex flex-col items-center text-center gap-1">
                   <span className="text-2xl font-medium">
