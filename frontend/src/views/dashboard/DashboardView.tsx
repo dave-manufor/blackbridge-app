@@ -170,6 +170,10 @@ const DashboardView = () => {
     return fileProgress[fileIndex] || 0;
   };
 
+  const getTotalUploadedFiles = () => {
+    return fileProgress.filter((progress) => progress >= 100).length;
+  };
+
   useEffect(() => {
     setHeaderTitle("Dashboard");
   }, [setHeaderTitle]);
@@ -312,7 +316,7 @@ const DashboardView = () => {
                     Uploading Files...
                   </span>
                   <span className="text-sm text-neutral-400">
-                    Uploaded 1 of 3 files
+                    Uploaded {getTotalUploadedFiles()} of {files.length} files
                   </span>
                 </div>
               </div>
