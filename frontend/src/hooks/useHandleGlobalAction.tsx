@@ -145,6 +145,7 @@ const useHandleGlobalAction = () => {
     let invite: Awaited<ReturnType<typeof getInvitationByToken>>;
     try {
       invite = await getInvitationByToken({ token }, controller.signal);
+      if (invite.status !== TRANSFER_INVITATION_STATUS.ACCEPTED) return;
     } catch (error) {
       if (
         isAxiosError(error) &&
@@ -188,8 +189,12 @@ const useHandleGlobalAction = () => {
                   handleAuthorize(invite.email, invite.transfer.id),
                   {
                     loading: "Authorizing",
-                    success: `${invite.email} has been authorized to access the transfer!`,
-                    error: `Failed to authorize ${invite.email}. Please try again later.`,
+                    success: (
+                      <span>{`${invite.email} has been authorized to access the transfer!`}</span>
+                    ),
+                    error: (
+                      <span>{`Failed to authorize ${invite.email}. Please try again later.`}</span>
+                    ),
                   }
                 );
               }}
