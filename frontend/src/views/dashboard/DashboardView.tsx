@@ -182,24 +182,31 @@ const DashboardView = () => {
             {!isUploading && (
               <>
                 {/* Mobile File Picker */}
-                <div className="w-full hidden max-sm:flex items-center justify-between ">
-                  <div className="flex flex-col items-start">
-                    <span className="text-black text-xl font-semibold">
-                      {files.length > 0 ? "Add" : "Upload"} Files
-                    </span>
-                    <span className="text-neutral-400 text-sm">
-                      Tap to select your files
-                    </span>
+                <div className="w-full">
+                  <div className="w-full hidden max-sm:flex items-center justify-between ">
+                    <div className="flex flex-col items-start">
+                      <span className="text-black text-xl font-semibold">
+                        {files.length > 0 ? "Add" : "Upload"} Files
+                      </span>
+                      <span className="text-neutral-400 text-sm">
+                        Tap to select your files
+                      </span>
+                    </div>
+                    <StyledFilePicker
+                      onFileChange={handleFileChange}
+                      asChild
+                      multiple
+                    >
+                      <FaCirclePlus className="text-4xl" />
+                    </StyledFilePicker>
                   </div>
-                  <StyledFilePicker
-                    onFileChange={handleFileChange}
-                    asChild
-                    multiple
-                    error={formErrors.files?.message}
-                  >
-                    <FaCirclePlus className="text-4xl" />
-                  </StyledFilePicker>
+                  {formErrors.files?.message && (
+                    <span className="small-text !text-red-500">
+                      {formErrors.files.message}
+                    </span>
+                  )}
                 </div>
+
                 {/* Default File Picker */}
                 <motion.div
                   className={`${styles.file_picker} ${
