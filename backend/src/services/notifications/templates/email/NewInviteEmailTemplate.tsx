@@ -30,8 +30,8 @@ const NewInviteEmailTemplate = (payload: Props) => {
       </Text>
       <Container>
         <Text>
-          <strong>{senderMailboxName}</strong> has sent you a secure file transfer with you via <strong>BlackBridge</strong>. To access it, you'll
-          need to create a free account.
+          <strong>{senderMailboxName}</strong> has shared a secure file transfer with you via <strong>BlackBridge</strong>. To access it, you'll need
+          to create a free account.
         </Text>
         <Container>
           <Heading as="h3">Transfer Details</Heading>
