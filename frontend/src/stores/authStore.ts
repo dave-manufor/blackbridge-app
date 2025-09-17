@@ -53,6 +53,7 @@ export const useAuthStore = create<AuthStore>()(
       clearAuthError: () => set({ authError: null }),
 
       signIn: async (email, password) => {
+        await cryptoBridge.spawn();
         devOnly(() => console.log("Signing in with", email));
         set({ authLoading: true });
         try {
@@ -154,6 +155,7 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       signUp: async (email, password) => {
+        await cryptoBridge.spawn();
         devOnly(() => console.log("Signing up with", email));
         set({ authLoading: true });
         try {
