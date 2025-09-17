@@ -62,7 +62,8 @@ class AuthController {
     const { identifier, salt, verifier, public_key, private_key, key_salt } = req.body as BodyTypeToShape<'register'>;
     try {
       if (isBetaTesting()) {
-        if (!isEnrolledTester(identifier)) {
+        const isEnrolled = await isEnrolledTester(identifier);
+        if (!isEnrolled) {
           res.status(StatusCodesConfig.FORBIDDEN).json({
             message: 'You are not an enrolled beta tester',
           });
