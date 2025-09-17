@@ -125,7 +125,6 @@ const DashboardView = () => {
 
   const handleSubmit = (data: z.infer<typeof transferSchema>) => {
     devOnly(() => console.log("Submitting form", data));
-    toast("Uploading Files...");
     initiateTransfer(
       {
         data,
@@ -153,7 +152,7 @@ const DashboardView = () => {
               </div>
             ),
             {
-              duration: Infinity,
+              duration: 5000,
             }
           );
         },
