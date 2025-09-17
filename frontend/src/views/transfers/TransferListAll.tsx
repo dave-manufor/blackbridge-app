@@ -37,7 +37,8 @@ const TransferListAll = () => {
             />
           )
         )}
-      {data?.data &&
+      {!isError &&
+        data?.data &&
         data.data.length > 0 &&
         data.data.map((transfer) => (
           <TransferSummaryCard
@@ -53,7 +54,7 @@ const TransferListAll = () => {
             transfer_type={transfer.transfer_type}
           />
         ))}
-      {!isPending && data?.data && data.data.length > 0 && (
+      {!isPending && !isError && data?.data && data.data.length > 0 && (
         <PaginationControls
           className={transferStyles.pagination_controls}
           currentPage={data?.pagination.page || 1}

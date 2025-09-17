@@ -6,15 +6,17 @@ import {
   getTransferDetails,
 } from "@/api/services/transferService";
 import toast from "react-hot-toast";
-import { isAxiosError } from "axios";
+import { isAxiosError, isCancel } from "axios";
 import { Button } from "@/components/ui/button";
 import { getPublicKeys } from "@/api/services/userService";
 import { devOnly } from "@/utils/dev";
 import { useEffect, useMemo } from "react";
 import { CryptoBridge } from "@/lib/crypto/workers/CryptoBridge";
 import { TRANSFER_INVITATION_STATUS } from "@/config/constants/transfers";
+import { useAuthStore } from "@/stores/authStore";
 
 const useHandleGlobalAction = () => {
+  const user = useAuthStore.getState().user;
   const controller = useMemo(() => new AbortController(), []);
   const [searchParams] = useSearchParams();
   useEffect(() => {
@@ -29,12 +31,31 @@ const useHandleGlobalAction = () => {
       console.warn("No invite token provided");
       return;
     }
-    const handleAccept = async () => {
-      await acceptTransferInvitation({ token }, controller.signal);
+    const handleAccept = async (inviterEmail: string) => {
+      const loadingToast = toast.loading("Accepting invite...");
+      try {
+        await acceptTransferInvitation({ token }, controller.signal);
+        toast.success(
+          <span>
+            <strong>Invite accepted!</strong> A notification has been sent to{" "}
+            <span className="underline">{inviterEmail}</span> to grant you
+            access.
+          </span>
+        );
+      } catch (error) {
+        toast.error("Failed to accept invite. Please try again later.");
+        devOnly(() => console.error("Error accepting invite: ", error));
+      } finally {
+        toast.dismiss(loadingToast);
+      }
     };
     try {
       const invite = await getInvitationByToken({ token }, controller.signal);
-      if (invite.status !== TRANSFER_INVITATION_STATUS.PENDING) return;
+      if (invite.status !== TRANSFER_INVITATION_STATUS.PENDING) {
+        toast.error("This invitation is no longer valid.");
+        return;
+      }
+      if (invite.email !== user?.email) return;
       toast(
         (t) => (
           <div className="flex flex-col gap-4">
@@ -56,13 +77,7 @@ const useHandleGlobalAction = () => {
               <Button
                 onClick={() => {
                   toast.dismiss(t.id);
-                  toast.promise(handleAccept(), {
-                    loading: "Accepting invite...",
-                    success: (
-                      <span>{`Invite accepted! A notification has been sent to ${invite.inviter.email} to grant you access.`}</span>
-                    ),
-                    error: "Failed to accept invite. Please try again later.",
-                  });
+                  handleAccept(invite.inviter.email);
                 }}
               >
                 Accept Invitation
@@ -73,6 +88,7 @@ const useHandleGlobalAction = () => {
         { duration: Infinity }
       );
     } catch (error) {
+      if (isCancel(error)) return;
       if (
         isAxiosError(error) &&
         error.response?.status !== 500 &&
@@ -95,6 +111,7 @@ const useHandleGlobalAction = () => {
     }
     const handleAuthorize = async (email: string, transferId: string) => {
       // TODO: More Verbose error handling (E.g invite not found, already authorized, etc)
+      const loadingToast = toast.loading("Authorizing invite...");
       try {
         // Get transfer details to check if user is owner
         const transfer = await getTransferDetails(
@@ -137,9 +154,20 @@ const useHandleGlobalAction = () => {
           { token, file_key: inviteeFileKey },
           controller.signal
         );
+        toast.success(
+          <span>{`${invite.email} has been authorized to access the transfer!`}</span>
+        );
       } catch (error) {
-        toast.error(`Failed to authorize ${email}. Please try again later.`);
+        toast.error(
+          <span>
+            Failed to authorize{" "}
+            <span className="underline">{invite.email}</span>. Please try again
+            later.
+          </span>
+        );
         devOnly(() => console.error("Error approving invite: ", error));
+      } finally {
+        toast.dismiss(loadingToast);
       }
     };
     let invite: Awaited<ReturnType<typeof getInvitationByToken>>;
@@ -147,6 +175,7 @@ const useHandleGlobalAction = () => {
       invite = await getInvitationByToken({ token }, controller.signal);
       if (invite.status !== TRANSFER_INVITATION_STATUS.ACCEPTED) return;
     } catch (error) {
+      if (isCancel(error)) return;
       if (
         isAxiosError(error) &&
         error.response?.status !== 500 &&
@@ -156,6 +185,7 @@ const useHandleGlobalAction = () => {
       } else {
         toast.error("Failed to authorize invite. Please try again later.");
       }
+      devOnly(() => console.error("Error fetching invite: ", error));
       return;
     }
     toast(
@@ -185,18 +215,7 @@ const useHandleGlobalAction = () => {
             <Button
               onClick={() => {
                 toast.dismiss(t.id);
-                toast.promise(
-                  handleAuthorize(invite.email, invite.transfer.id),
-                  {
-                    loading: "Authorizing",
-                    success: (
-                      <span>{`${invite.email} has been authorized to access the transfer!`}</span>
-                    ),
-                    error: (
-                      <span>{`Failed to authorize ${invite.email}. Please try again later.`}</span>
-                    ),
-                  }
-                );
+                handleAuthorize(invite.email, invite.transfer.id);
               }}
             >
               Authorize
