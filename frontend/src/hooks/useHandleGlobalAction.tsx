@@ -6,7 +6,7 @@ import {
   getTransferDetails,
 } from "@/api/services/transferService";
 import toast from "react-hot-toast";
-import { isAxiosError } from "axios";
+import { isAxiosError, isCancel } from "axios";
 import { Button } from "@/components/ui/button";
 import { getPublicKeys } from "@/api/services/userService";
 import { devOnly } from "@/utils/dev";
@@ -88,6 +88,7 @@ const useHandleGlobalAction = () => {
         { duration: Infinity }
       );
     } catch (error) {
+      if (isCancel(error)) return;
       if (
         isAxiosError(error) &&
         error.response?.status !== 500 &&
@@ -174,6 +175,7 @@ const useHandleGlobalAction = () => {
       invite = await getInvitationByToken({ token }, controller.signal);
       if (invite.status !== TRANSFER_INVITATION_STATUS.ACCEPTED) return;
     } catch (error) {
+      if (isCancel(error)) return;
       if (
         isAxiosError(error) &&
         error.response?.status !== 500 &&
@@ -183,6 +185,7 @@ const useHandleGlobalAction = () => {
       } else {
         toast.error("Failed to authorize invite. Please try again later.");
       }
+      devOnly(() => console.error("Error fetching invite: ", error));
       return;
     }
     toast(
