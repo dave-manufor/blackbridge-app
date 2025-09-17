@@ -19,6 +19,8 @@ import { authRateLimiter, otpVerificationLimiter } from '../middlewares/rateLimi
 import cacheConfig from '../config/cache.config';
 import { generateOTP } from '../utils/otp.utils';
 import notificationService from '../services/notifications';
+import { isBetaTesting } from 'utils/dev.utils';
+import { isEnrolledTester } from 'services/resend';
 
 class AuthController {
   public path = '/auth';
@@ -59,6 +61,15 @@ class AuthController {
   private register = async (req: Request, res: Response) => {
     const { identifier, salt, verifier, public_key, private_key, key_salt } = req.body as BodyTypeToShape<'register'>;
     try {
+      if (isBetaTesting()) {
+        if (!isEnrolledTester(identifier)) {
+          res.status(StatusCodesConfig.FORBIDDEN).json({
+            message: 'You are not an enrolled beta tester',
+          });
+          return;
+        }
+      }
+
       const normalizedIdentifier = identifier.toLowerCase().trim();
       useSerializableTransaction(async (tx) => {
         const existingUser = await tx.users.findUnique({
