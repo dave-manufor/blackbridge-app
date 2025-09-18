@@ -22,11 +22,29 @@ resource "aws_api_gateway_resource" "proxy" {
   path_part   = "{proxy+}"
 }
 
+resource "aws_api_gateway_method" "api_ec2_method" {
+  rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
+  resource_id   = aws_api_gateway_resource.api_resource.id
+  http_method   = "ANY"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_method" "proxy_s3_method" {
+  rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
+  resource_id   = aws_api_gateway_resource.proxy.id
+  http_method   = "GET"
+  authorization = "NONE"
+
+  request_parameters = {
+    "method.request.path.proxy" = true
+  }
+}
+
 # Integration for the /api path to the EC2 instance
 resource "aws_api_gateway_integration" "api_ec2_integration" {
   rest_api_id = aws_api_gateway_rest_api.blackbridge_production_api.id
   resource_id = aws_api_gateway_resource.api_resource.id
-  http_method = "ANY"
+  http_method = aws_api_gateway_method.api_ec2_method.http_method
   type        = "HTTP_PROXY"
   integration_http_method = "ANY"
   uri         = "http://${var.ec2_private_ip}/{proxy+}"
@@ -34,6 +52,7 @@ resource "aws_api_gateway_integration" "api_ec2_integration" {
   depends_on = [aws_api_gateway_rest_api.blackbridge_production_api]
 }
 
+# S3 IAM Role for API Gateway
 resource "aws_iam_role" "api_gateway_s3_access" {
   name = "${var.app_name}-api-gateway-s3-role"
 
@@ -73,7 +92,7 @@ resource "aws_iam_role_policy" "api_gateway_s3_policy" {
 resource "aws_api_gateway_integration" "proxy_s3_integration" {
   rest_api_id = aws_api_gateway_rest_api.blackbridge_production_api.id
   resource_id = aws_api_gateway_resource.proxy.id
-  http_method = "ANY"
+  http_method = aws_api_gateway_method.proxy_s3_method.http_method
   type        = "AWS"
   integration_http_method = "GET"
   uri         = "arn:aws:apigateway:${var.region}:s3:path/${var.react_bucket}/{proxy}"
@@ -113,25 +132,6 @@ resource "aws_api_gateway_gateway_response" "resource_not_found" {
   response_templates = {
   "text/html" = "$util.base64Encode($input.path('$'))"
 }
-}
-
-
-resource "aws_api_gateway_method" "api_ec2_method" {
-  rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
-  resource_id   = aws_api_gateway_resource.api_resource.id
-  http_method   = "ANY"
-  authorization = "NONE"
-}
-
-resource "aws_api_gateway_method" "proxy_s3_method" {
-  rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
-  resource_id   = aws_api_gateway_resource.proxy.id
-  http_method   = "ANY"
-  authorization = "NONE"
-
-  request_parameters = {
-    "method.request.path.proxy" = true
-  }
 }
 
 

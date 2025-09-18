@@ -12,7 +12,6 @@ resource "aws_db_subnet_group" "blackbridge_production_rds_sg" {
 
 resource "aws_db_instance" "blackbridge_production_rds" {
   engine             = "postgres"
-  engine_version     = "12.4"
   instance_class     = var.rds_instance_type
   allocated_storage  = 20
   storage_type       = "gp2"
