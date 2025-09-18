@@ -58,6 +58,7 @@ module "storage_cdn" {
 module "static_site" {
   source               = "./static_site"
   app_name             = var.app_name
+  aws_caller_account_id = data.aws_caller_identity.current.account_id
 }
 
 # Define the API Gateway

@@ -22,10 +22,18 @@ resource "aws_s3_bucket_policy" "blackbridge_production_react_app_policy" {
     Statement = [
       {
         Effect    = "Allow"
-        Principal = "*"
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        }
         Action    = "s3:GetObject"
         Resource  = "${aws_s3_bucket.blackbridge_production_react_app.arn}/*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = "arn:aws:cloudfront::${var.aws_caller_account_id}:distribution/${aws_cloudfront_distribution.blackbridge_production_react_app.id}"
+          }
+        }
       }
     ]
   })
 }
+
