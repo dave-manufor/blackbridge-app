@@ -51,6 +51,7 @@ resource "aws_iam_role" "api_gateway_s3_access" {
   })
 }
 
+# Policy to allow API Gateway to access S3
 resource "aws_iam_role_policy" "api_gateway_s3_policy" {
   name = "${var.app_name}-api-gateway-s3-policy"
   role = aws_iam_role.api_gateway_s3_access.id
@@ -82,6 +83,39 @@ resource "aws_api_gateway_integration" "proxy_s3_integration" {
   }
 }
 
+# Handle 403 Forbidden responses from S3
+resource "aws_api_gateway_gateway_response" "default_4xx" {
+  rest_api_id = aws_api_gateway_rest_api.blackbridge_production_api.id
+  response_type = "DEFAULT_4XX"
+
+  status_code = "200"
+
+  response_parameters = {
+    "gatewayresponse.header.Content-Type" = "'text/html'"
+  }
+
+  response_templates = {
+  "text/html" = "$util.base64Encode($input.path('$'))"
+}
+}
+
+# Handle 404 Not Found responses
+resource "aws_api_gateway_gateway_response" "resource_not_found" {
+  rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
+  response_type = "RESOURCE_NOT_FOUND"
+
+  status_code = "200"
+
+  response_parameters = {
+    "gatewayresponse.header.Content-Type" = "'text/html'"
+  }
+
+  response_templates = {
+  "text/html" = "$util.base64Encode($input.path('$'))"
+}
+}
+
+
 resource "aws_api_gateway_method" "api_ec2_method" {
   rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
   resource_id   = aws_api_gateway_resource.api_resource.id
@@ -94,7 +128,12 @@ resource "aws_api_gateway_method" "proxy_s3_method" {
   resource_id   = aws_api_gateway_resource.proxy.id
   http_method   = "ANY"
   authorization = "NONE"
+
+  request_parameters = {
+    "method.request.path.proxy" = true
+  }
 }
+
 
 resource "aws_api_gateway_deployment" "blackbridge_production_api_deployment" {
   rest_api_id = aws_api_gateway_rest_api.blackbridge_production_api.id
