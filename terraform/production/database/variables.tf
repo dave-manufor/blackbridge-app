@@ -1,7 +1,7 @@
 variable "rds_instance_type" {
   description = "The RDS instance type."
   type        = string
-  default     = "db.t2.micro" # Free tier eligible
+  default     = "db.t3.micro"
 }
 
 variable "rds_username" {

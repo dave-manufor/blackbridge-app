@@ -162,4 +162,12 @@ resource "aws_api_gateway_stage" "production" {
   deployment_id = aws_api_gateway_deployment.blackbridge_production_api_deployment.id
   rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
   stage_name    = "production"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  depends_on = [
+    aws_api_gateway_deployment.blackbridge_production_api_deployment
+  ]
 }
