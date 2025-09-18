@@ -5,6 +5,14 @@ terraform {
       version = "~> 6.0"
     }
   }
+
+  cloud {
+    organization = "ecee-file-transfer"
+
+    workspaces {
+      name = "blackbridge-production"
+    }
+  }
 }
 
 # Create application using aliased 'application' provider
