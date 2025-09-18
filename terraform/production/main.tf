@@ -24,7 +24,7 @@ provider "aws" {
 # Define the Service Catalog App Registry application
 resource "aws_servicecatalogappregistry_application" "blackbridge" {
   provider = aws.application
-  name        = "Blackbridge"
+  name        = "Blackbridge Production"
   description = "BlackBridge Application"
 }
 
