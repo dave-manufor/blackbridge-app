@@ -1,7 +1,7 @@
 variable "instance_type" {
   description = "The EC2 instance type."
   type        = string
-  default     = "t2.micro" # Free tier eligible
+  default     = "t2.medium"
 }
 
 variable "app_name" {
