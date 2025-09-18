@@ -17,7 +17,8 @@ terraform {
 
 # Create application using aliased 'application' provider
 provider "aws" {
-  alias = "application"
+  region = var.region
+  alias  = "application"
 }
 
 # Define the Service Catalog App Registry application
