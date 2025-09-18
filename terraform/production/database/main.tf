@@ -11,14 +11,13 @@ resource "aws_db_subnet_group" "blackbridge_production_rds_sg" {
 }
 
 resource "aws_db_instance" "blackbridge_production_rds" {
+  allocated_storage  = 10
   engine             = "postgres"
   instance_class     = var.rds_instance_type
-  allocated_storage  = 20
-  storage_type       = "gp2"
-  db_subnet_group_name = aws_db_subnet_group.blackbridge_production_rds_sg.name
-  skip_final_snapshot = true
   username           = var.rds_username
   password           = var.rds_password
+  db_subnet_group_name = aws_db_subnet_group.blackbridge_production_rds_sg.name
+  skip_final_snapshot = true
   vpc_security_group_ids = [var.rds_sg_id]
 
   depends_on = [ var.private_subnet_ids ]
