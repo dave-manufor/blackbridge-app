@@ -24,5 +24,8 @@ terraform.rc
 # Ignore .terraform directories except at root
 **/.terraform/*
 
+#Ignore .terraform.lock.hcl files
+**/.terraform.lock.hcl
+
 # Explicitly include the .terraform folder at the root
 !/.terraform/
