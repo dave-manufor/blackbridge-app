@@ -135,31 +135,39 @@ resource "aws_api_gateway_gateway_response" "resource_not_found" {
 }
 
 
-# resource "aws_api_gateway_deployment" "blackbridge_production_api_deployment" {
-#   rest_api_id = aws_api_gateway_rest_api.blackbridge_production_api.id
+resource "aws_api_gateway_deployment" "blackbridge_production_api_deployment" {
+  rest_api_id = aws_api_gateway_rest_api.blackbridge_production_api.id
 
-#   triggers = {
-#     redeployment = sha1(jsonencode([
-#       aws_api_gateway_rest_api.blackbridge_production_api.body,
-#       aws_api_gateway_resource.api_resource.id,
-#       aws_api_gateway_resource.proxy.id,
-#       aws_api_gateway_integration.api_ec2_integration.id,
-#       aws_api_gateway_integration.proxy_s3_integration.id,
-#       aws_api_gateway_method.api_ec2_method.id,
-#       aws_api_gateway_method.proxy_s3_method.id
-#     ]))
-#   }
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_rest_api.blackbridge_production_api.body,
+      aws_api_gateway_resource.api_resource.id,
+      aws_api_gateway_resource.proxy.id,
+      aws_api_gateway_integration.api_ec2_integration.id,
+      aws_api_gateway_integration.proxy_s3_integration.id,
+      aws_api_gateway_method.api_ec2_method.id,
+      aws_api_gateway_method.proxy_s3_method.id
+    ]))
+  }
 
-#   depends_on = [
-#     aws_api_gateway_integration.api_ec2_integration,
-#     aws_api_gateway_integration.proxy_s3_integration,
-#     aws_api_gateway_method.api_ec2_method,
-#     aws_api_gateway_method.proxy_s3_method
-#   ]
-# }
+  depends_on = [
+    aws_api_gateway_integration.api_ec2_integration,
+    aws_api_gateway_integration.proxy_s3_integration,
+    aws_api_gateway_method.api_ec2_method,
+    aws_api_gateway_method.proxy_s3_method
+  ]
+}
 
-# resource "aws_api_gateway_stage" "production" {
-#   deployment_id = aws_api_gateway_deployment.blackbridge_production_api_deployment.id
-#   rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
-#   stage_name    = "production"
-# }
+resource "aws_api_gateway_stage" "production" {
+  deployment_id = aws_api_gateway_deployment.blackbridge_production_api_deployment.id
+  rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
+  stage_name    = "production"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  depends_on = [
+    aws_api_gateway_deployment.blackbridge_production_api_deployment
+  ]
+}
