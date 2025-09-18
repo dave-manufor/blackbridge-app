@@ -1,3 +1,19 @@
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-x86_64"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = ["amazon"]
+}
+
 resource "tls_private_key" "ec2_ssh_key" {
   algorithm = "RSA"
   rsa_bits  = 4096
@@ -14,7 +30,7 @@ resource "aws_key_pair" "blackbridge_production_key" {
 }
 
 resource "aws_instance" "blackbridge_production_ec2" {
-  ami           = "ami-053b04d161d7634d2" # Example Ubuntu Server 20.04 LTS (HVM)
+  ami           = data.aws_ami.amazon_linux.id
   instance_type = var.instance_type
   key_name      = aws_key_pair.blackbridge_production_key.key_name
   vpc_security_group_ids = [var.ec2_sg_id]
