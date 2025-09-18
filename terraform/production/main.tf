@@ -5,15 +5,39 @@ terraform {
       version = "~> 6.0"
     }
   }
+
+  cloud {
+    organization = "ecee-file-transfer"
+
+    workspaces {
+      name = "blackbridge-production"
+    }
+  }
+}
+
+# Create application using aliased 'application' provider
+provider "aws" {
+  alias = "application"
+}
+
+# Define the Service Catalog App Registry application
+resource "aws_servicecatalogappregistry_application" "blackbridge" {
+  provider = aws.application
+  name        = "Blackbridge"
+  description = "BlackBridge Application"
 }
 
 # Define the AWS provider and the region
 provider "aws" {
   region = var.region
+  default_tags {
+    tags = aws_servicecatalogappregistry_application.blackbridge.application_tag
+  }
 }
 
 # Get the current AWS account details
 data "aws_caller_identity" "current" {}
+
 
 # Source the security groups, VPC and other core network components first
 module "networking" {
