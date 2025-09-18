@@ -53,12 +53,14 @@ resource "aws_cloudfront_distribution" "blackbridge_production_cdn" {
   }
 
   default_cache_behavior {
-    target_origin_id       = "s3_origin"
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    compress               = true
-  }
+  target_origin_id       = "s3_origin"
+  viewer_protocol_policy = "redirect-to-https"
+  allowed_methods        = ["GET", "HEAD"]
+  cached_methods         = ["GET", "HEAD"]
+  compress               = true
+
+  cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6" # AWS managed CachingOptimized policy
+}
 
   restrictions {
     geo_restriction {
