@@ -2,14 +2,24 @@ import cacheConfig from 'config/cache.config';
 import logger from '../lib/logger';
 import { createClient } from 'redis';
 
-let cache = createClient({
-  username: process.env.REDIS_USERNAME,
-  password: process.env.REDIS_PASSWORD,
-  socket: {
-    host: process.env.REDIS_HOST,
-    port: Number(process.env.REDIS_PORT),
-  },
-})
+const config =
+  process.env.REDIS_USERNAME && process.env.REDIS_PASSWORD
+    ? {
+        username: process.env.REDIS_USERNAME,
+        password: process.env.REDIS_PASSWORD,
+        socket: {
+          host: process.env.REDIS_HOST,
+          port: Number(process.env.REDIS_PORT),
+        },
+      }
+    : {
+        socket: {
+          host: process.env.REDIS_HOST,
+          port: Number(process.env.REDIS_PORT),
+        },
+      };
+
+let cache = createClient(config)
   .on('error', (err) => {
     console.error(err);
     logger.error(err, 'Redis Client Error');

@@ -8,7 +8,7 @@
     "email:dev": "email dev --dir src/services/notifications/templates/email",
     "build": "tsc && tsc-alias",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate",
+    "prisma:migrate": "prisma migrate deploy",
     "start": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "db:migrate": "npx prisma migrate dev && npx prisma generate",
