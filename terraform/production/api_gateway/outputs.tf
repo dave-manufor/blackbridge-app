@@ -1,0 +1,4 @@
+output "api_gateway_invoke_url" {
+  description = "The base URL to invoke the API Gateway."
+  value       = "https://${aws_api_gateway_rest_api.blackbridge_production_api.id}.execute-api.${var.region}.amazonaws.com/${aws_api_gateway_stage.production.stage_name}"
+}
