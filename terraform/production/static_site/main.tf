@@ -28,4 +28,33 @@ resource "aws_s3_bucket_public_access_block" "react_app_block" {
   restrict_public_buckets = true
 }
 
+resource "aws_iam_user" "react_deployer" {
+  name = "${var.app_name}-react-deployer"
+}
+
+resource "aws_iam_user_policy" "react_deployer_policy" {
+  name = "${var.app_name}-react-deployer-policy"
+  user = aws_iam_user.react_deployer.name
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = [
+          "s3:PutObject",
+          "s3:PutObjectAcl",
+          "s3:DeleteObject",
+          "s3:ListBucket"
+        ],
+        Resource = [
+          aws_s3_bucket.blackbridge_production_react_app.arn,
+          "${aws_s3_bucket.blackbridge_production_react_app.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
+
 
