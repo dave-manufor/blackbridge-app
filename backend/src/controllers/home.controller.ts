@@ -17,7 +17,7 @@ class HomeController {
   }
 
   private home(req: Request, res: Response) {
-    res.send('Server is running!');
+    res.send('Server is up!');
   }
 
   private health(req: Request, res: Response) {

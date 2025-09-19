@@ -159,7 +159,7 @@ resource "aws_api_gateway_deployment" "blackbridge_production_api_deployment" {
       aws_api_gateway_resource.proxy.id,
       aws_api_gateway_integration.api_ec2_integration.id,
       aws_api_gateway_integration.proxy_s3_integration.id,
-      aws_api_gateway_method.api_ec2_method.id,
+      aws_api_gateway_method.api_proxy_method.id,
       aws_api_gateway_method.proxy_s3_method.id
     ]))
   }
@@ -167,7 +167,7 @@ resource "aws_api_gateway_deployment" "blackbridge_production_api_deployment" {
   depends_on = [
     aws_api_gateway_integration.api_ec2_integration,
     aws_api_gateway_integration.proxy_s3_integration,
-    aws_api_gateway_method.api_ec2_method,
+    aws_api_gateway_method.api_proxy_method,
     aws_api_gateway_method.proxy_s3_method
   ]
 }
