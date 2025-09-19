@@ -91,7 +91,7 @@ module "api_gateway" {
   source               = "./api_gateway"
   ec2_instance_id      = module.compute.instance_id
   ec2_sg_id            = module.networking.ec2_sg_id
-  ec2_private_ip       = module.compute.private_ip
+  ec2_public_ip       = module.compute.public_ip
   react_bucket_id      = module.static_site.react_bucket_id
   react_bucket         = module.static_site.react_bucket
   app_name             = var.app_name
