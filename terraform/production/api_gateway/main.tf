@@ -15,6 +15,14 @@ resource "aws_api_gateway_resource" "api_resource" {
   path_part   = "api"
 }
 
+resource "aws_api_gateway_method" "api_root_method" {
+  rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
+  resource_id   = aws_api_gateway_resource.api_resource.id
+  http_method   = "ANY"
+  authorization = "NONE"
+}
+
+
 # New resource for /api/{proxy+}
 resource "aws_api_gateway_resource" "api_proxy" {
   rest_api_id = aws_api_gateway_rest_api.blackbridge_production_api.id
@@ -51,6 +59,16 @@ resource "aws_api_gateway_method" "proxy_s3_method" {
     "method.request.path.proxy" = true
   }
 }
+
+resource "aws_api_gateway_integration" "api_root_integration" {
+  rest_api_id             = aws_api_gateway_rest_api.blackbridge_production_api.id
+  resource_id             = aws_api_gateway_resource.api_resource.id
+  http_method             = aws_api_gateway_method.api_root_method.http_method
+  type                    = "HTTP_PROXY"
+  integration_http_method = "ANY"
+  uri                     = "http://${var.ec2_public_ip}/"
+}
+
 
 # Integration for /api/{proxy+} to the EC2 instance
 resource "aws_api_gateway_integration" "api_ec2_integration" {
@@ -157,17 +175,21 @@ resource "aws_api_gateway_deployment" "blackbridge_production_api_deployment" {
       aws_api_gateway_rest_api.blackbridge_production_api.body,
       aws_api_gateway_resource.api_resource.id,
       aws_api_gateway_resource.proxy.id,
+      aws_api_gateway_integration.api_root_integration.id, 
       aws_api_gateway_integration.api_ec2_integration.id,
       aws_api_gateway_integration.proxy_s3_integration.id,
       aws_api_gateway_method.api_proxy_method.id,
+      aws_api_gateway_method.api_root_method.id, 
       aws_api_gateway_method.proxy_s3_method.id
     ]))
   }
 
   depends_on = [
     aws_api_gateway_integration.api_ec2_integration,
+    aws_api_gateway_integration.api_root_integration, 
     aws_api_gateway_integration.proxy_s3_integration,
     aws_api_gateway_method.api_proxy_method,
+    aws_api_gateway_method.api_root_method, 
     aws_api_gateway_method.proxy_s3_method
   ]
 }
