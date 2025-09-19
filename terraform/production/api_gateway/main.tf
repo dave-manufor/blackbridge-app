@@ -15,6 +15,25 @@ resource "aws_api_gateway_resource" "api_resource" {
   path_part   = "api"
 }
 
+# New resource for /api/{proxy+}
+resource "aws_api_gateway_resource" "api_proxy" {
+  rest_api_id = aws_api_gateway_rest_api.blackbridge_production_api.id
+  parent_id   = aws_api_gateway_resource.api_resource.id
+  path_part   = "{proxy+}"
+}
+
+# ANY method for /api/{proxy+}
+resource "aws_api_gateway_method" "api_proxy_method" {
+  rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
+  resource_id   = aws_api_gateway_resource.api_proxy.id
+  http_method   = "ANY"
+  authorization = "NONE"
+
+  request_parameters = {
+    "method.request.path.proxy" = true
+  }
+}
+
 # The greedy path for the React app
 resource "aws_api_gateway_resource" "proxy" {
   rest_api_id = aws_api_gateway_rest_api.blackbridge_production_api.id
@@ -40,16 +59,18 @@ resource "aws_api_gateway_method" "proxy_s3_method" {
   }
 }
 
-# Integration for the /api path to the EC2 instance
+# Integration for /api/{proxy+} to the EC2 instance
 resource "aws_api_gateway_integration" "api_ec2_integration" {
-  rest_api_id = aws_api_gateway_rest_api.blackbridge_production_api.id
-  resource_id = aws_api_gateway_resource.api_resource.id
-  http_method = aws_api_gateway_method.api_ec2_method.http_method
-  type        = "HTTP_PROXY"
+  rest_api_id             = aws_api_gateway_rest_api.blackbridge_production_api.id
+  resource_id             = aws_api_gateway_resource.api_proxy.id
+  http_method             = aws_api_gateway_method.api_proxy_method.http_method
+  type                    = "HTTP_PROXY"
   integration_http_method = "ANY"
-  uri         = "http://${var.ec2_private_ip}/{proxy+}"
+  uri                     = "http://${var.ec2_public_ip}/{proxy}"
 
-  depends_on = [aws_api_gateway_rest_api.blackbridge_production_api]
+  request_parameters = {
+    "integration.request.path.proxy" = "method.request.path.proxy"
+  }
 }
 
 # S3 IAM Role for API Gateway
