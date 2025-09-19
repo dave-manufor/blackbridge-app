@@ -41,13 +41,6 @@ resource "aws_api_gateway_resource" "proxy" {
   path_part   = "{proxy+}"
 }
 
-resource "aws_api_gateway_method" "api_ec2_method" {
-  rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
-  resource_id   = aws_api_gateway_resource.api_resource.id
-  http_method   = "ANY"
-  authorization = "NONE"
-}
-
 resource "aws_api_gateway_method" "proxy_s3_method" {
   rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
   resource_id   = aws_api_gateway_resource.proxy.id
