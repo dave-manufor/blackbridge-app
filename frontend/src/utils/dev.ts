@@ -13,7 +13,6 @@ export const devOnlyAsync = async (fn: () => Promise<void>) => {
 export const isDevEnvironment = () => {
   return (
     !import.meta.env.VITE_ENVIRONMENT ||
-    import.meta.env.VITE_ENVIRONMENT === "dev" ||
-    import.meta.env.VITE_ENVIRONMENT === "development"
+    import.meta.env.VITE_ENVIRONMENT === "dev"
   );
 };
