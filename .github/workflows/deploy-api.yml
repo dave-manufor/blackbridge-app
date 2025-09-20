@@ -37,7 +37,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "dist/*"
+          source: "backend/dist/*"
           target: /var/www/blackbridge/
           rm: true
 
@@ -47,19 +47,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            APP_NAME="blackbridge"
-            APP_ENTRY="index.js"
-            cd /var/www/blackbridge
-            if pm2 list | grep -q "$APP_NAME"; then
-              echo "Reloading $APP_NAME..."
-              pm2 reload "$APP_NAME"
-            else
-              echo "Starting $APP_NAME..."
-              pm2 start "$APP_ENTRY" --name "$APP_NAME"
-              pm2 startup systemd || true
-              pm2 save || true
-            fi
+          script_path: .github/scripts/redeploy.sh
 
       # - name: Run deployment script on EC2
       #   uses: appleboy/ssh-action@v1.0.3
