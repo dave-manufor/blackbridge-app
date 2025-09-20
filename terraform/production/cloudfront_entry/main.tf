@@ -94,3 +94,29 @@ resource "aws_cloudfront_distribution" "app_distribution" {
    var.api_gateway
   ]
 }
+
+resource "aws_s3_bucket_policy" "react_bucket_policy" {
+  bucket = var.static_site.react_bucket
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        }
+        Action = "s3:GetObject"
+        Resource = "arn:aws:s3:::${var.static_site.react_bucket}/*"
+        Condition = {
+          StringEquals = {
+            "aws:SourceArn" = "arn:aws:cloudfront::${var.aws_caller_account_id}:distribution/${aws_cloudfront_distribution.app_distribution.id}"
+          }
+        }
+      }
+    ]
+  })
+
+  depends_on = [ aws_cloudfront_distribution.app_distribution ]
+}
+

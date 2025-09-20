@@ -46,3 +46,8 @@ variable "api_gateway" {
     type        = any
 }
 
+variable "aws_caller_account_id" {
+    description = "The AWS caller account ID"
+    type        = string
+}
+
