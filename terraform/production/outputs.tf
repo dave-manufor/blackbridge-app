@@ -40,7 +40,7 @@ output "api_gateway_invoke_url" {
   value       = module.api_gateway.api_gateway_invoke_url
 }
 
-# output "app_cloudfront_domain" {
-#   description = "The domain name of the CloudFront distribution for the app (React + /api -> API Gateway)."
-#   value       = module.cloudfront_entry.app_cloudfront_domain
-# }
+output "app_cloudfront_domain" {
+  description = "The domain name of the CloudFront distribution for the app (React + /api -> API Gateway)."
+  value       = module.cloudfront_entry.app_cloudfront_domain
+}
