@@ -86,26 +86,26 @@ module "static_site" {
   aws_caller_account_id = data.aws_caller_identity.current.account_id
 }
 
-# Define the API Gateway
-module "api_gateway" {
-  source               = "./api_gateway"
-  ec2_instance_id      = module.compute.instance_id
-  ec2_sg_id            = module.networking.ec2_sg_id
-  ec2_public_ip       = module.compute.public_ip
-  react_bucket_id      = module.static_site.react_bucket_id
-  react_bucket         = module.static_site.react_bucket
-  app_name             = var.app_name
-  region               = var.region
-}
+# # Define the API Gateway
+# module "api_gateway" {
+#   source               = "./api_gateway"
+#   ec2_instance_id      = module.compute.instance_id
+#   ec2_sg_id            = module.networking.ec2_sg_id
+#   ec2_public_ip       = module.compute.public_ip
+#   react_bucket_id      = module.static_site.react_bucket_id
+#   react_bucket         = module.static_site.react_bucket
+#   app_name             = var.app_name
+#   region               = var.region
+# }
 
-# Define the CloudFront distribution that serves the React app and proxies /api to API Gateway
-module "cloudfront_entry" {
-  source               = "./cloudfront_entry"
-  app_name             = var.app_name
-  static_site_domain_name = module.static_site.bucket_regional_domain_name
-  api_gateway_domain_name = module.api_gateway.api_gateway_domain_name
-  api_gateway_stage_name  = module.api_gateway.stage_name
-  static_site            = module.static_site
-  api_gateway           = module.api_gateway
-  aws_caller_account_id = data.aws_caller_identity.current.account_id
-}
+# # Define the CloudFront distribution that serves the React app and proxies /api to API Gateway
+# module "cloudfront_entry" {
+#   source               = "./cloudfront_entry"
+#   app_name             = var.app_name
+#   static_site_domain_name = module.static_site.bucket_regional_domain_name
+#   api_gateway_domain_name = module.api_gateway.api_gateway_domain_name
+#   api_gateway_stage_name  = module.api_gateway.stage_name
+#   static_site            = module.static_site
+#   api_gateway           = module.api_gateway
+#   aws_caller_account_id = data.aws_caller_identity.current.account_id
+# }

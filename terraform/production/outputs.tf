@@ -35,12 +35,12 @@ output "react_app_url" {
   value       = "http://${module.static_site.bucket_regional_domain_name}"
 }
 
-output "api_gateway_invoke_url" {
-  description = "The base URL to invoke the API Gateway."
-  value       = module.api_gateway.api_gateway_invoke_url
-}
+# output "api_gateway_invoke_url" {
+#   description = "The base URL to invoke the API Gateway."
+#   value       = module.api_gateway.api_gateway_invoke_url
+# }
 
-output "app_cloudfront_domain" {
-  description = "The domain name of the CloudFront distribution for the app (React + /api -> API Gateway)."
-  value       = module.cloudfront_entry.app_cloudfront_domain
-}
+# output "app_cloudfront_domain" {
+#   description = "The domain name of the CloudFront distribution for the app (React + /api -> API Gateway)."
+#   value       = module.cloudfront_entry.app_cloudfront_domain
+# }
