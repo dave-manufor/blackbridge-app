@@ -25,7 +25,6 @@ CryptoBridge.getInstance()
     useAuthStore.getState().signOut();
   });
 
-// TODO: Remove this line after testing
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
