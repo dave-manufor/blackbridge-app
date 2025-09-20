@@ -15,38 +15,38 @@ data "archive_file" "spa_rewrite_zip" {
   }
 }
 
-resource "aws_iam_role" "lambda_edge_role" {
-  name = "${var.app_name}-lambda-edge-role"
+# resource "aws_iam_role" "lambda_edge_role" {
+#   name = "${var.app_name}-lambda-edge-role"
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect = "Allow",
-        Action = "sts:AssumeRole",
-        Principal = {
-          Service = [
-            "lambda.amazonaws.com",
-            "edgelambda.amazonaws.com"
-          ]
-        }
-      }
-    ]
-  })
-}
+#   assume_role_policy = jsonencode({
+#     Version = "2012-10-17",
+#     Statement = [
+#       {
+#         Effect = "Allow",
+#         Action = "sts:AssumeRole",
+#         Principal = {
+#           Service = [
+#             "lambda.amazonaws.com",
+#             "edgelambda.amazonaws.com"
+#           ]
+#         }
+#       }
+#     ]
+#   })
+# }
 
-resource "aws_lambda_function" "spa_rewrite" {
-  function_name = "${var.app_name}-spa-rewrite"
-  role          = aws_iam_role.lambda_edge_role.arn
-  handler       = "index.handler"
-  runtime       = "nodejs18.x"
-  region       = "us-east-1"  # Lambda@Edge must be in us-east-1
+# resource "aws_lambda_function" "spa_rewrite" {
+#   function_name = "${var.app_name}-spa-rewrite"
+#   role          = aws_iam_role.lambda_edge_role.arn
+#   handler       = "index.handler"
+#   runtime       = "nodejs18.x"
+#   region       = "us-east-1"  # Lambda@Edge must be in us-east-1
 
-  filename         = data.archive_file.spa_rewrite_zip.output_path
-  source_code_hash = data.archive_file.spa_rewrite_zip.output_base64sha256
+#   filename         = data.archive_file.spa_rewrite_zip.output_path
+#   source_code_hash = data.archive_file.spa_rewrite_zip.output_base64sha256
 
-  publish = true
-}
+#   publish = true
+# }
 
 
 # CloudFront distribution that routes /api/* -> API Gateway, default -> React S3
@@ -95,11 +95,11 @@ resource "aws_cloudfront_distribution" "app_distribution" {
       }
     }
 
-    lambda_function_association {
-    event_type   = "origin-request"
-    lambda_arn   = aws_lambda_function.spa_rewrite.qualified_arn
-    include_body = false
-  }
+  #   lambda_function_association {
+  #   event_type   = "origin-request"
+  #   lambda_arn   = aws_lambda_function.spa_rewrite.qualified_arn
+  #   include_body = false
+  # }
 
   }
 
@@ -184,10 +184,10 @@ resource "aws_s3_bucket_policy" "react_bucket_policy" {
   depends_on = [ aws_cloudfront_distribution.app_distribution ]
 }
 
-resource "aws_lambda_permission" "cloudfront" {
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.spa_rewrite.function_name
-  principal     = "cloudfront.amazonaws.com"
-  source_arn    = aws_cloudfront_distribution.app_distribution.arn
-}
+# resource "aws_lambda_permission" "cloudfront" {
+#   action        = "lambda:InvokeFunction"
+#   function_name = aws_lambda_function.spa_rewrite.function_name
+#   principal     = "cloudfront.amazonaws.com"
+#   source_arn    = aws_cloudfront_distribution.app_distribution.arn
+# }
 
