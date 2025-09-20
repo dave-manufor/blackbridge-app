@@ -184,3 +184,10 @@ resource "aws_s3_bucket_policy" "react_bucket_policy" {
   depends_on = [ aws_cloudfront_distribution.app_distribution ]
 }
 
+resource "aws_lambda_permission" "cloudfront" {
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.spa_rewrite.function_name
+  principal     = "cloudfront.amazonaws.com"
+  source_arn    = aws_cloudfront_distribution.app_distribution.arn
+}
+
