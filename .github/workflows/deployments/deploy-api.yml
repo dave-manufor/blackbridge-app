@@ -12,16 +12,61 @@ jobs:
     runs-on: ubuntu-latest
     environment: Production
 
+    defaults:
+      run:
+        working-directory: backend
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run deployment script on EC2
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Server
+        run: npm run build
+
+      - name: Upload to server
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "dist/*"
+          target: /var/www/blackbridge/
+          rm: true
+
+      - name: Restart pm2 on server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd /home/ec2-user
-            ./start.sh
+            APP_NAME="blackbridge"
+            APP_ENTRY="index.js"
+            cd /var/www/blackbridge
+            if pm2 list | grep -q "$APP_NAME"; then
+              echo "Reloading $APP_NAME..."
+              pm2 reload "$APP_NAME"
+            else
+              echo "Starting $APP_NAME..."
+              pm2 start "$APP_ENTRY" --name "$APP_NAME"
+              pm2 startup systemd || true
+              pm2 save || true
+            fi
+
+      # - name: Run deployment script on EC2
+      #   uses: appleboy/ssh-action@v1.0.3
+      #   with:
+      #     host: ${{ secrets.EC2_HOST }}
+      #     username: ec2-user
+      #     key: ${{ secrets.EC2_SSH_KEY }}
+      #     script: |
+      #       cd /home/ec2-user
+      #       ./start.sh
