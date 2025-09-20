@@ -28,17 +28,16 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build React app
-        run: npm run build
-
       - name: Create .env file in dist
         run: |
-          cat <<EOF > dist/.env
-          VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+          cat <<EOF > .env
           VITE_ENVIRONMENT=${{ secrets.VITE_ENVIRONMENT }}
           VITE_APP_BASE_URL=${{ secrets.VITE_APP_BASE_URL }}
           VITE_USERBACK_API_KEY=${{ secrets.VITE_USERBACK_API_KEY }}
           EOF
+
+      - name: Build React app
+        run: npm run build
 
       - name: Sync to S3
         uses: jakejarvis/s3-sync-action@master
