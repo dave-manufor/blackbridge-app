@@ -15,7 +15,7 @@ import { readFileSync } from 'fs';
 import { isDevEnvironment } from './utils/dev.utils';
 import https from 'https';
 
-const port = Number(process.env.PORT) || 3000;
+const port = Number(process.env.PORT) || 4000;
 const crossOrigin = process.env.CROSS_ORIGIN ? process.env.CROSS_ORIGIN.split(',') : ['http://localhost:5174'];
 const corsOptions = {
   origin: crossOrigin,
