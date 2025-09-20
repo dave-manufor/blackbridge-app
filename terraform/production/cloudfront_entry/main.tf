@@ -40,6 +40,7 @@ resource "aws_lambda_function" "spa_rewrite" {
   role          = aws_iam_role.lambda_edge_role.arn
   handler       = "index.handler"
   runtime       = "nodejs18.x"
+  region       = "us-east-1"  # Lambda@Edge must be in us-east-1
 
   filename         = data.archive_file.spa_rewrite_zip.output_path
   source_code_hash = data.archive_file.spa_rewrite_zip.output_base64sha256
