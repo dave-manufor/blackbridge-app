@@ -37,7 +37,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "backend/dist/*,backend/package.json,backend/package-lock.json,backend/node_modules/*"
+          source: "backend/*"
           target: /var/www/blackbridge/
           rm: true
 
