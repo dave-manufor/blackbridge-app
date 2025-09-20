@@ -8,29 +8,22 @@ resource "aws_api_gateway_rest_api" "blackbridge_production_api" {
   }
 }
 
-# Resource for the /api path
-resource "aws_api_gateway_resource" "api_resource" {
-  rest_api_id = aws_api_gateway_rest_api.blackbridge_production_api.id
-  parent_id   = aws_api_gateway_rest_api.blackbridge_production_api.root_resource_id
-  path_part   = "api"
-}
-
+# ANY method for /
 resource "aws_api_gateway_method" "api_root_method" {
   rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
-  resource_id   = aws_api_gateway_resource.api_resource.id
+  resource_id   = aws_api_gateway_rest_api.blackbridge_production_api.root_resource_id
   http_method   = "ANY"
   authorization = "NONE"
 }
 
-
-# New resource for /api/{proxy+}
+# New resource for /{proxy+}
 resource "aws_api_gateway_resource" "api_proxy" {
   rest_api_id = aws_api_gateway_rest_api.blackbridge_production_api.id
-  parent_id   = aws_api_gateway_resource.api_resource.id
+  parent_id   = aws_api_gateway_rest_api.blackbridge_production_api.root_resource_id
   path_part   = "{proxy+}"
 }
 
-# ANY method for /api/{proxy+}
+# ANY method for /{proxy+}
 resource "aws_api_gateway_method" "api_proxy_method" {
   rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
   resource_id   = aws_api_gateway_resource.api_proxy.id
@@ -44,7 +37,7 @@ resource "aws_api_gateway_method" "api_proxy_method" {
 
 resource "aws_api_gateway_integration" "api_root_integration" {
   rest_api_id             = aws_api_gateway_rest_api.blackbridge_production_api.id
-  resource_id             = aws_api_gateway_resource.api_resource.id
+  resource_id             = aws_api_gateway_rest_api.blackbridge_production_api.root_resource_id
   http_method             = aws_api_gateway_method.api_root_method.http_method
   type                    = "HTTP_PROXY"
   integration_http_method = "ANY"
@@ -52,7 +45,7 @@ resource "aws_api_gateway_integration" "api_root_integration" {
 }
 
 
-# Integration for /api/{proxy+} to the EC2 instance
+# Integration for /{proxy+} to the EC2 instance
 resource "aws_api_gateway_integration" "api_ec2_integration" {
   rest_api_id             = aws_api_gateway_rest_api.blackbridge_production_api.id
   resource_id             = aws_api_gateway_resource.api_proxy.id
@@ -73,7 +66,6 @@ resource "aws_api_gateway_deployment" "blackbridge_production_api_deployment" {
   triggers = {
     redeployment = sha1(jsonencode([
       aws_api_gateway_rest_api.blackbridge_production_api.body,
-      aws_api_gateway_resource.api_resource.id,
       aws_api_gateway_integration.api_root_integration.id, 
       aws_api_gateway_integration.api_ec2_integration.id,
       aws_api_gateway_method.api_proxy_method.id,
