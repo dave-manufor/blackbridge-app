@@ -46,6 +46,24 @@ resource "aws_cloudfront_distribution" "app_distribution" {
   }
 
   ordered_cache_behavior {
+  path_pattern           = "/api"
+  target_origin_id       = var.api_gateway_origin_id
+  viewer_protocol_policy = "redirect-to-https"
+  allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+  cached_methods         = ["GET", "HEAD", "OPTIONS"]
+  compress               = true
+
+  forwarded_values {
+    query_string = true
+    headers      = var.allowed_api_headers
+    cookies {
+      forward = "all"
+    }
+  }
+  }
+
+
+  ordered_cache_behavior {
     path_pattern           = "/api/*"
     target_origin_id       = var.api_gateway_origin_id
     viewer_protocol_policy = "redirect-to-https"
@@ -60,18 +78,6 @@ resource "aws_cloudfront_distribution" "app_distribution" {
         forward = "all"
       }
     }
-  }
-
-  # SPA fallback: serve index.html for 404/403 so client-side routes work
-  custom_error_response {
-    error_code         = 404
-    response_code      = 200
-    response_page_path = "/index.html"
-  }
-  custom_error_response {
-    error_code         = 403
-    response_code      = 200
-    response_page_path = "/index.html"
   }
 
   restrictions {
