@@ -37,17 +37,34 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "backend/dist/*"
+          source: "backend/dist/*,backend/package.json,backend/package-lock.json,backend/node_modules/*"
           target: /var/www/blackbridge/
           rm: true
 
-      - name: Restart pm2 on server
+      - name: Redeploy server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          script_path: .github/scripts/redeploy.sh
+          script: |
+            APP_DIR="/var/www/blackbridge/backend"
+            APP_NAME="blackbridge-api"
+            APP_ENTRY="dist/index.js"
+            cd "$APP_DIR"
+            echo "Running database migrations..."
+            npm run prisma:migrate
+            npm run prisma:generate
+            if pm2 list | grep -q "$APP_NAME"; then
+              echo "Reloading $APP_NAME..."
+              pm2 reload "$APP_NAME"
+            else
+              echo "Starting $APP_NAME..."
+              pm2 start "$APP_ENTRY" --name "$APP_NAME"
+              pm2 startup systemd || true
+              pm2 save || true
+            fi
+            echo "Deployment complete."
 
       # - name: Run deployment script on EC2
       #   uses: appleboy/ssh-action@v1.0.3
