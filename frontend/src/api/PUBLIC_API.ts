@@ -14,7 +14,7 @@ const PUBLIC_API = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  baseURL: import.meta.env.VITE_API_BASE_URL || "",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "/api",
 });
 
 export default PUBLIC_API;
