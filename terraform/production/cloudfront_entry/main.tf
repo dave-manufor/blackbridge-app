@@ -57,6 +57,13 @@ resource "aws_cloudfront_distribution" "app_distribution" {
   origin {
     domain_name              = var.static_site_website_endpoint
     origin_id                = var.static_site_origin_id
+
+    custom_origin_config {
+    origin_protocol_policy = "http-only" # website endpoints don’t support HTTPS
+    http_port              = 80
+    https_port             = 443
+    origin_ssl_protocols   = ["TLSv1.2"]
+  }
   }
 
   origin {
