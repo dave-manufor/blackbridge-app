@@ -57,15 +57,15 @@ variable "aws_caller_account_id" {
     type        = string
 }
 
-# variable "app_cert_domain_name" {
-#   description = "The domain name for the ACM certificate for the entry CloudFront distribution."
-#   type        = string
+variable "app_cert_domain_name" {
+  description = "The domain name for the ACM certificate for the entry CloudFront distribution."
+  type        = string
   
-# }
+}
 
-# variable "app_cert_arn" {
-#   description = "The ARN of the ACM certificate for the entry CloudFront distribution."
-#   type        = string
+variable "app_cert_arn" {
+  description = "The ARN of the ACM certificate for the entry CloudFront distribution."
+  type        = string
   
-# }
+}
 
