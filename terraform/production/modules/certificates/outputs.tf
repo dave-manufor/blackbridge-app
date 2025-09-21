@@ -5,5 +5,5 @@ output "app_cert_arn" {
 
 output "app_cert_domain_name" {
   description = "Domain name on the certificate"
-  value       = aws_acm_certificate.app_cert.domain_name
+  value       = aws_acm_certificate.app_certificate.domain_name
 }
