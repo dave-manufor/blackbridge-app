@@ -53,7 +53,7 @@ module "networking" {
 
 # Define the EC2 instance, using the network components
 module "compute" {
-  source               = "./compute"
+  source               = "./modules/compute"
   vpc_id               = module.networking.vpc_id
   public_subnet_id     = module.networking.public_subnet_id
   ec2_sg_id            = module.networking.ec2_sg_id
@@ -62,7 +62,7 @@ module "compute" {
 
 # Define the RDS database instance
 module "database" {
-  source               = "./database"
+  source               = "./modules/database"
   private_subnet_ids   = module.networking.private_subnet_ids
   rds_sg_id            = module.networking.rds_sg_id
   rds_password         = var.rds_password
@@ -71,7 +71,7 @@ module "database" {
 
 # Define the Elasticache Redis cluster
 module "cache" {
-  source               = "./cache"
+  source               = "./modules/cache"
   private_subnet_ids   = module.networking.private_subnet_ids
   elasticache_sg_id    = module.networking.elasticache_sg_id
   app_name             = var.app_name
@@ -79,21 +79,21 @@ module "cache" {
 
 # Define the S3 bucket for user uploads and the CloudFront CDN
 module "storage_cdn" {
-  source               = "./storage_cdn"
+  source               = "./modules/storage_cdn"
   app_name             = var.app_name
   aws_caller_account_id = data.aws_caller_identity.current.account_id
 }
 
 # Define the S3 bucket for the static React application
 module "static_site" {
-  source               = "./static_site"
+  source               = "./modules/static_site"
   app_name             = var.app_name
   aws_caller_account_id = data.aws_caller_identity.current.account_id
 }
 
 # Define the API Gateway
 module "api_gateway" {
-  source               = "./api_gateway"
+  source               = "./modules/api_gateway"
   ec2_instance_id      = module.compute.instance_id
   ec2_sg_id            = module.networking.ec2_sg_id
   ec2_public_ip       = module.compute.public_ip
@@ -103,17 +103,18 @@ module "api_gateway" {
   region               = var.region
 }
 
-# module "certificates" {
-#   source               = "./certificates"
-#   app_entry_domain_name = var.app_entry_domain_name
-# }
+module "certificates" {
+  source                = "./modules/certificates"
+  app_entry_domain_name = var.app_entry_domain_name
+  hosted_zone_id        = var.hosted_zone_id
+}
 
 # Define the CloudFront distribution that serves the React app and proxies /api to API Gateway
 module "cloudfront_entry" {
-  source               = "./cloudfront_entry"
+  source               = "./modules/cloudfront_entry"
   app_name             = var.app_name
-  # app_cert_arn         = module.certificates.app_cert_arn
-  # app_cert_domain_name = module.certificates.app_cert_domain_name
+  app_cert_arn         = module.certificates.app_cert_arn
+  app_cert_domain_name = module.certificates.app_cert_domain_name
   static_site_domain_name = module.static_site.bucket_regional_domain_name
   static_site_website_endpoint = module.static_site.bucket_website_endpoint
   api_gateway_domain_name = module.api_gateway.api_gateway_domain_name
