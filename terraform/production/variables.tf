@@ -10,6 +10,12 @@ variable "app_entry_domain_name" {
   default     = "blackbridge-app.davman.dev"
 }
 
+variable "hosted_zone_id" {
+  description = "The Route 53 Hosted Zone ID."
+  type        = string
+  default     = "Z08547192ZLS95H6WEGCL"
+}
+
 variable "region" {
   description = "The AWS region."
   type        = string
@@ -40,15 +46,3 @@ variable "rds_password" {
   type        = string
   sensitive   = true
 }
-
-
-# variable "public_key" {
-#   description = "Public key to use for the EC2 instance."
-#   type = string
-# }
-
-# variable "private_key" {
-#   description = "Private key to use for the EC2 instance."
-#   type = string
-#   sensitive = true
-# }
