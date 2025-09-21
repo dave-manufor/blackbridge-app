@@ -1,54 +1,3 @@
-# Lambda@Edge function to rewrite SPA routes to index.html
-locals {
-  spa_rewrite_js = templatefile("${path.module}/spa-rewrite.js.tpl", {
-    s3_origin_id = var.static_site_origin_id
-  })
-}
-
-data "archive_file" "spa_rewrite_zip" {
-  type        = "zip"
-  output_path = "${path.module}/lambda/spa-rewrite.zip"
-
-  source {
-    content  = local.spa_rewrite_js
-    filename = "index.js"
-  }
-}
-
-resource "aws_iam_role" "lambda_edge_role" {
-  name = "${var.app_name}-lambda-edge-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect = "Allow",
-        Action = "sts:AssumeRole",
-        Principal = {
-          Service = [
-            "lambda.amazonaws.com",
-            "edgelambda.amazonaws.com"
-          ]
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_lambda_function" "spa_rewrite" {
-  function_name = "${var.app_name}-spa-rewrite"
-  role          = aws_iam_role.lambda_edge_role.arn
-  handler       = "index.handler"
-  runtime       = "nodejs18.x"
-  region       = "us-east-1"  # Lambda@Edge must be in us-east-1
-
-  filename         = data.archive_file.spa_rewrite_zip.output_path
-  source_code_hash = data.archive_file.spa_rewrite_zip.output_base64sha256
-
-  publish = true
-}
-
-
 # CloudFront distribution that routes /api/* -> API Gateway, default -> React S3
 resource "aws_cloudfront_distribution" "app_distribution" {
   enabled             = true
@@ -136,13 +85,8 @@ resource "aws_cloudfront_distribution" "app_distribution" {
     }
   }
 
-  aliases = [ var.app_cert_domain_name ]
-
-
   viewer_certificate {
-    acm_certificate_arn      = var.app_cert_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
+    cloudfront_default_certificate = true
   }
 
   tags = {
