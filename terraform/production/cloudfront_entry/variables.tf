@@ -14,6 +14,12 @@ variable "static_site_origin_id" {
     default     = "react_s3_origin"
 }
 
+variable "static_site_website_endpoint" {
+    description = "The website endpoint for the static site S3 bucket"
+    type        = string
+  
+}
+
 variable "api_gateway_domain_name" {
     description = "The domain name for the API Gateway"
     type        = string

@@ -32,7 +32,7 @@ output "cdn_domain_name" {
 
 output "react_app_url" {
   description = "The URL of the static React application."
-  value       = "http://${module.static_site.bucket_regional_domain_name}"
+  value       = "http://${module.static_site.bucket_website_endpoint}"
 }
 
 output "api_gateway_invoke_url" {
