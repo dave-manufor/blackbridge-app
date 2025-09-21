@@ -113,6 +113,7 @@ module "cloudfront_entry" {
   source               = "./cloudfront_entry"
   app_name             = var.app_name
   app_cert_arn         = module.certificates.app_cert_arn
+  app_cert_domain_name = module.certificates.app_cert_domain_name
   static_site_domain_name = module.static_site.bucket_regional_domain_name
   static_site_website_endpoint = module.static_site.bucket_website_endpoint
   api_gateway_domain_name = module.api_gateway.api_gateway_domain_name
