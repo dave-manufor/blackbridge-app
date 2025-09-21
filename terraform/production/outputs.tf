@@ -32,7 +32,7 @@ output "cdn_domain_name" {
 
 output "react_app_url" {
   description = "The URL of the static React application."
-  value       = "http://${module.static_site.bucket_regional_domain_name}"
+  value       = "http://${module.static_site.bucket_website_endpoint}"
 }
 
 output "api_gateway_invoke_url" {
@@ -43,4 +43,9 @@ output "api_gateway_invoke_url" {
 output "app_cloudfront_domain" {
   description = "The domain name of the CloudFront distribution for the app (React + /api -> API Gateway)."
   value       = module.cloudfront_entry.app_cloudfront_domain
+}
+
+output "app_domain_validation_options" {
+  description = "The domain validation options for the ACM certificate used by the CloudFront distribution."
+  value       = module.certificates.app_cert_domain_validation_options
 }

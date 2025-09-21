@@ -103,11 +103,18 @@ module "api_gateway" {
   region               = var.region
 }
 
+module "certificates" {
+  source               = "./certificates"
+  app_entry_domain_name = var.app_entry_domain_name
+}
+
 # Define the CloudFront distribution that serves the React app and proxies /api to API Gateway
 module "cloudfront_entry" {
   source               = "./cloudfront_entry"
   app_name             = var.app_name
+  app_cert_arn         = module.certificates.app_cert_arn
   static_site_domain_name = module.static_site.bucket_regional_domain_name
+  static_site_website_endpoint = module.static_site.bucket_website_endpoint
   api_gateway_domain_name = module.api_gateway.api_gateway_domain_name
   api_gateway_stage_name  = module.api_gateway.stage_name
   static_site            = module.static_site
