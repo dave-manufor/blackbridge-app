@@ -57,3 +57,9 @@ variable "aws_caller_account_id" {
     type        = string
 }
 
+variable "app_cert_arn" {
+  description = "The ARN of the ACM certificate for the entry CloudFront distribution."
+  type        = string
+  
+}
+

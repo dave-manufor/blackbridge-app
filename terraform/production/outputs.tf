@@ -44,3 +44,8 @@ output "app_cloudfront_domain" {
   description = "The domain name of the CloudFront distribution for the app (React + /api -> API Gateway)."
   value       = module.cloudfront_entry.app_cloudfront_domain
 }
+
+output "app_domain_validation_options" {
+  description = "The domain validation options for the ACM certificate used by the CloudFront distribution."
+  value       = module.certificates.app_cert_domain_validation_options
+}
