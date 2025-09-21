@@ -136,17 +136,14 @@ resource "aws_cloudfront_distribution" "app_distribution" {
     }
   }
 
-  # aliases = [ var.app_cert_domain_name ]
+  aliases = [ var.app_cert_domain_name ]
+
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    acm_certificate_arn      = var.app_cert_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
-
-  # viewer_certificate {
-  #   acm_certificate_arn      = var.app_cert_arn
-  #   ssl_support_method       = "sni-only"
-  #   minimum_protocol_version = "TLSv1.2_2021"
-  # }
 
   tags = {
     Name        = "${var.app_name} App CDN"

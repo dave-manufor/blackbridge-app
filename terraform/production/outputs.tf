@@ -45,7 +45,7 @@ output "app_cloudfront_domain" {
   value       = module.cloudfront_entry.app_cloudfront_domain
 }
 
-# output "app_domain_validation_options" {
-#   description = "The domain validation options for the ACM certificate used by the CloudFront distribution."
-#   value       = module.certificates.app_cert_domain_validation_options
-# }
+output "app_domain_validation_options" {
+  description = "The domain validation options for the ACM certificate used by the CloudFront distribution."
+  value       = module.certificates.app_cert_domain_validation_options
+}
