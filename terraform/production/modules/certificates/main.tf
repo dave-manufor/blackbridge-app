@@ -18,11 +18,14 @@ resource "aws_acm_certificate" "app_cert" {
 # Create DNS record for validation
 resource "aws_route53_record" "app_cert_validation" {
   zone_id = var.hosted_zone_id
-  name    = aws_acm_certificate.app_cert.domain_validation_options[0].resource_record_name
-  type    = aws_acm_certificate.app_cert.domain_validation_options[0].resource_record_type
-  records = [aws_acm_certificate.app_cert.domain_validation_options[0].resource_record_value]
-  ttl     = 60
+
+  name    = one(aws_acm_certificate.app_cert.domain_validation_options).resource_record_name
+  type    = one(aws_acm_certificate.app_cert.domain_validation_options).resource_record_type
+  records = [one(aws_acm_certificate.app_cert.domain_validation_options).resource_record_value]
+
+  ttl = 60
 }
+
 
 # Validate the cert with Route53 record
 resource "aws_acm_certificate_validation" "app_cert_validation" {

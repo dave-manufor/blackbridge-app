@@ -47,7 +47,7 @@ data "aws_caller_identity" "current" {}
 
 # Source the security groups, VPC and other core network components first
 module "networking" {
-  source = "./networking"
+  source = "./modules/networking"
   app_name = var.app_name
 }
 
