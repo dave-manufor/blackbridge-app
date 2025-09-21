@@ -118,7 +118,7 @@ resource "aws_cloudfront_distribution" "app_distribution" {
     target_origin_id       = var.api_gateway_origin_id
     viewer_protocol_policy = "redirect-to-https"
     allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
-    cached_methods         = ["HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD", "OPTIONS"]
     compress               = true
 
     forwarded_values {
@@ -136,13 +136,17 @@ resource "aws_cloudfront_distribution" "app_distribution" {
     }
   }
 
-  aliases = [ var.app_cert_domain_name ]
+  # aliases = [ var.app_cert_domain_name ]
 
   viewer_certificate {
-    acm_certificate_arn      = var.app_cert_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
+    cloudfront_default_certificate = true
   }
+
+  # viewer_certificate {
+  #   acm_certificate_arn      = var.app_cert_arn
+  #   ssl_support_method       = "sni-only"
+  #   minimum_protocol_version = "TLSv1.2_2021"
+  # }
 
   tags = {
     Name        = "${var.app_name} App CDN"
