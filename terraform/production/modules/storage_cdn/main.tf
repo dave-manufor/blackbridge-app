@@ -7,6 +7,29 @@ resource "aws_s3_bucket" "blackbridge_production_files" {
   }
 }
 
+resource "aws_s3_bucket_cors_configuration" "blackbridge_production_files_cors" {
+  bucket = aws_s3_bucket.blackbridge_production_files.id
+
+  cors_rule {
+    id = "allow-frontend-uploads"
+
+    # Your frontend origin(s)
+    allowed_origins = [var.app_entry_domain_name]
+
+    # Methods needed for presigned URLs
+    allowed_methods = ["PUT", "POST", "HEAD"]
+
+    # Allow headers browsers typically send
+    allowed_headers = ["*"]
+
+    # Expose headers you may want to read in JS
+    expose_headers = ["ETag"]
+
+    max_age_seconds = 3000
+  }
+}
+
+
 resource "aws_s3_bucket_accelerate_configuration" "blackbridge_production_files_accel" {
   bucket = aws_s3_bucket.blackbridge_production_files.id
   status = "Enabled"

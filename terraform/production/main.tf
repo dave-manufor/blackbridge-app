@@ -81,6 +81,7 @@ module "cache" {
 module "storage_cdn" {
   source               = "./modules/storage_cdn"
   app_name             = var.app_name
+  app_entry_domain_name = var.app_entry_domain_name
   aws_caller_account_id = data.aws_caller_identity.current.account_id
 }
 
