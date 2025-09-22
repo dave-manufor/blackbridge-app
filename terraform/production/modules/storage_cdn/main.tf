@@ -17,7 +17,7 @@ resource "aws_s3_bucket_cors_configuration" "blackbridge_production_files_cors" 
     allowed_origins = [var.app_entry_domain_name]
 
     # Methods needed for presigned URLs
-    allowed_methods = ["PUT", "POST", "HEAD"]
+    allowed_methods = ["PUT", "POST", "HEAD", "GET", "OPTIONS"]
 
     # Allow headers browsers typically send
     allowed_headers = ["*"]
