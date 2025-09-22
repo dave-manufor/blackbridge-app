@@ -30,6 +30,7 @@ import { CryptoBridge } from "@/lib/crypto/workers/CryptoBridge";
 import { devOnly } from "@/utils/dev";
 import useDownloader from "@/hooks/useDownloader";
 import { TRANSFER_TYPES } from "@/config/constants/transfers";
+import toast from "react-hot-toast";
 
 const PublicLinkView = () => {
   const downloader = useDownloader();
@@ -142,11 +143,20 @@ const PublicLinkView = () => {
   };
 
   const handleFileDownload = async (fileId: string) => {
-    if (!linkData) return;
+    const genericErrorMessage = "Unable to download file";
+    if (!linkData) {
+      devOnly(() => console.error(genericErrorMessage, "Link data not loaded"));
+      toast.error(genericErrorMessage);
+      return;
+    }
     const { isValid, passphrase } = await checkKey({
       sessionKey: linkData.file_key,
     });
     if (!isValid || !passphrase) {
+      toast.error(genericErrorMessage);
+      devOnly(() =>
+        console.error(genericErrorMessage, "Invalid or missing passphrase")
+      );
       return;
     }
     downloader.downloadFiles({
