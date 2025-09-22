@@ -107,7 +107,7 @@ const PublicLinkView = () => {
     if (!linkData || !password) return;
     setIsKeyDecrypting(true);
     setIsKeyDecryptFailed(false);
-    const isValid = await checkKey({
+    const { isValid } = await checkKey({
       sessionKey: linkData.file_key,
       password,
     });
@@ -121,11 +121,20 @@ const PublicLinkView = () => {
   };
 
   const handleDownloadAll = async () => {
-    if (!linkData) return;
+    const genericErrorMessage = "Unable to download files";
+    if (!linkData) {
+      devOnly(() => console.error("Link data not loaded"));
+      toast.error(genericErrorMessage);
+      return;
+    }
     const { isValid, passphrase } = await checkKey({
       sessionKey: linkData.file_key,
     });
     if (!isValid || !passphrase) {
+      toast.error(genericErrorMessage);
+      devOnly(() =>
+        console.error(genericErrorMessage, "Invalid or missing passphrase")
+      );
       return;
     }
     downloader.downloadFiles({

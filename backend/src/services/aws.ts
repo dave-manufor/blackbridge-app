@@ -72,7 +72,7 @@ export const getPresignedUrl = async (key: string, options: PresignedUrlOptions)
   } = {
     Bucket: bucketConfig.BUCKET_NAME,
     Key: key,
-    Expires: options.expiresIn || bucketConfig.presignedUrl[options.type].EXPIRES_IN,
+    Expires: options.expiresIn || bucketConfig.presignedUrl[options.type].EXPIRES_IN * 1000,
   };
 
   if (options.type === 'download') {
