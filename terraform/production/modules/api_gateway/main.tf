@@ -54,18 +54,16 @@ resource "aws_api_gateway_deployment" "blackbridge_production_api_deployment" {
   triggers = {
     redeployment = sha1(jsonencode([
       aws_api_gateway_rest_api.blackbridge_production_api.body,
-      aws_api_gateway_integration.api_root_integration.id, 
-      aws_api_gateway_integration.api_ec2_integration.id,
+      aws_api_gateway_resource.api_root.id,
       aws_api_gateway_method.api_proxy_method.id,
-      aws_api_gateway_method.api_root_method.id
+      aws_api_gateway_integration.api_subproxy_integration.id,
     ]))
   }
 
   depends_on = [
-    aws_api_gateway_integration.api_ec2_integration,
-    aws_api_gateway_integration.api_root_integration, 
-    aws_api_gateway_method.api_proxy_method,
-    aws_api_gateway_method.api_root_method
+    aws_api_gateway_resource.api_root,
+    aws_api_gateway_method.api_subproxy_method,
+    aws_api_gateway_integration.api_subproxy_integrati
   ]
 }
 
