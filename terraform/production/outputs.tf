@@ -30,6 +30,11 @@ output "cdn_domain_name" {
   value       = module.storage_cdn.cdn_domain_name
 }
 
+output "cdn_key_group_id" {
+  description = "The ID of the CloudFront key group for signed URLs."
+  value       = module.storage_cdn.cdn_key_group_id
+}
+
 output "react_app_url" {
   description = "The URL of the static React application."
   value       = "http://${module.static_site.bucket_website_endpoint}"
