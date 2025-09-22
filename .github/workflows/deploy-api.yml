@@ -60,6 +60,7 @@ jobs:
             {
               echo "AWS_CLOUDFRONT_URL=${{ secrets.AWS_CLOUDFRONT_URL }}"
               echo "STORAGE_CDN_PRIVATE_KEY=${{ secrets.STORAGE_CDN_PRIVATE_KEY }}"
+              echo "STORAGE_CDN_PRIVATE_KEY_BASE64=${{ secrets.STORAGE_CDN_PRIVATE_KEY_BASE64 }}"
               echo "AWS_CLOUDFRONT_KEY_PAIR_ID=${{ secrets.AWS_CLOUDFRONT_KEY_PAIR_ID }}"
             } >> .env
             echo "Running database migrations..."
