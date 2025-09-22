@@ -1,27 +1,40 @@
 # Cache policy for API Gateway to prevent caching
 resource "aws_cloudfront_cache_policy" "api_no_cache" {
-  name = "${var.app_name}-api-no-cache"
+  name        = "${var.app_name}-api-no-cache"
+  default_ttl = 0
+  max_ttl     = 0
+  min_ttl     = 0
 
   parameters_in_cache_key_and_forwarded_to_origin {
     headers_config {
-      header_behavior = "whitelist"
-      headers {
-        items = var.allowed_api_headers
-      }
+      header_behavior = "none"
     }
-
     query_strings_config {
       query_string_behavior = "all"
     }
-
     cookies_config {
       cookie_behavior = "all"
     }
   }
+}
 
-  default_ttl = 0
-  max_ttl     = 0
-  min_ttl     = 0
+resource "aws_cloudfront_origin_request_policy" "api_forward" {
+  name = "${var.app_name}-api-forward-all"
+
+  headers_config {
+    header_behavior = "whitelist"
+    headers {
+      items = var.allowed_api_headers
+    }
+  }
+
+  query_strings_config {
+    query_string_behavior = "all"
+  }
+
+  cookies_config {
+    cookie_behavior = "all"
+  }
 }
 
 
@@ -82,6 +95,7 @@ resource "aws_cloudfront_distribution" "app_distribution" {
   compress               = true
 
   cache_policy_id = aws_cloudfront_cache_policy.api_no_cache.id
+  origin_request_policy_id = aws_cloudfront_origin_request_policy.api_forward.id
   }
 
 
@@ -94,6 +108,7 @@ resource "aws_cloudfront_distribution" "app_distribution" {
     compress               = true
 
     cache_policy_id = aws_cloudfront_cache_policy.api_no_cache.id
+    origin_request_policy_id = aws_cloudfront_origin_request_policy.api_forward.id
   }
 
   restrictions {
