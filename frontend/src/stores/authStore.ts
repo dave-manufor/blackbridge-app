@@ -17,6 +17,7 @@ import {
   putLocalSessionKey,
 } from "@/api/services/authService";
 import queryClient from "@/lib/queryClient";
+import apiConfig from "@/config/api.config";
 
 const cryptoBridge = CryptoBridge.getInstance();
 
@@ -216,9 +217,7 @@ export const useAuthStore = create<AuthStore>()(
            *
            */
           await axios.post(
-            `${import.meta.env.VITE_API_BASE_URL || ""}${
-              ApiRoutes.auth.refresh
-            }`,
+            `${apiConfig.BASE_API_URL}${ApiRoutes.auth.refresh}`,
             null,
             {
               withCredentials: true,

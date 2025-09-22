@@ -6,6 +6,7 @@
  * @module PUBLIC_API
  */
 
+import apiConfig from "@/config/api.config";
 import axios from "axios";
 
 const PUBLIC_API = axios.create({
@@ -14,7 +15,7 @@ const PUBLIC_API = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  baseURL: import.meta.env.VITE_API_BASE_URL || "/api",
+  baseURL: apiConfig.BASE_API_URL,
 });
 
 export default PUBLIC_API;
