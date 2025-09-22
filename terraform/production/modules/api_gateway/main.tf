@@ -8,25 +8,23 @@ resource "aws_api_gateway_rest_api" "blackbridge_production_api" {
   }
 }
 
-# ANY method for /
-resource "aws_api_gateway_method" "api_root_method" {
-  rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
-  resource_id   = aws_api_gateway_rest_api.blackbridge_production_api.root_resource_id
-  http_method   = "ANY"
-  authorization = "NONE"
-}
-
-# New resource for /{proxy+}
-resource "aws_api_gateway_resource" "api_proxy" {
+# /api
+resource "aws_api_gateway_resource" "api_root" {
   rest_api_id = aws_api_gateway_rest_api.blackbridge_production_api.id
   parent_id   = aws_api_gateway_rest_api.blackbridge_production_api.root_resource_id
+  path_part   = "api"
+}
+
+# /api/{proxy+}
+resource "aws_api_gateway_resource" "api_subproxy" {
+  rest_api_id = aws_api_gateway_rest_api.blackbridge_production_api.id
+  parent_id   = aws_api_gateway_resource.api_root.id
   path_part   = "{proxy+}"
 }
 
-# ANY method for /{proxy+}
-resource "aws_api_gateway_method" "api_proxy_method" {
+resource "aws_api_gateway_method" "api_subproxy_method" {
   rest_api_id   = aws_api_gateway_rest_api.blackbridge_production_api.id
-  resource_id   = aws_api_gateway_resource.api_proxy.id
+  resource_id   = aws_api_gateway_resource.api_subproxy.id
   http_method   = "ANY"
   authorization = "NONE"
 
@@ -35,21 +33,10 @@ resource "aws_api_gateway_method" "api_proxy_method" {
   }
 }
 
-resource "aws_api_gateway_integration" "api_root_integration" {
+resource "aws_api_gateway_integration" "api_subproxy_integration" {
   rest_api_id             = aws_api_gateway_rest_api.blackbridge_production_api.id
-  resource_id             = aws_api_gateway_rest_api.blackbridge_production_api.root_resource_id
-  http_method             = aws_api_gateway_method.api_root_method.http_method
-  type                    = "HTTP_PROXY"
-  integration_http_method = "ANY"
-  uri                     = "http://${var.ec2_public_ip}/"
-}
-
-
-# Integration for /{proxy+} to the EC2 instance
-resource "aws_api_gateway_integration" "api_ec2_integration" {
-  rest_api_id             = aws_api_gateway_rest_api.blackbridge_production_api.id
-  resource_id             = aws_api_gateway_resource.api_proxy.id
-  http_method             = aws_api_gateway_method.api_proxy_method.http_method
+  resource_id             = aws_api_gateway_resource.api_subproxy.id
+  http_method             = aws_api_gateway_method.api_subproxy_method.http_method
   type                    = "HTTP_PROXY"
   integration_http_method = "ANY"
   uri                     = "http://${var.ec2_public_ip}/{proxy}"
@@ -58,6 +45,7 @@ resource "aws_api_gateway_integration" "api_ec2_integration" {
     "integration.request.path.proxy" = "method.request.path.proxy"
   }
 }
+
 
 
 resource "aws_api_gateway_deployment" "blackbridge_production_api_deployment" {
