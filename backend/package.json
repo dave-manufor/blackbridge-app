@@ -46,6 +46,7 @@
     "@types/jsonwebtoken": "^9.0.9",
     "@types/otp-generator": "^4.0.2",
     "@types/react": "^19.1.12",
+    "aws-cloudfront-sign": "^3.0.2",
     "aws-sdk": "^2.1692.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",

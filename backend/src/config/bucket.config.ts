@@ -11,6 +11,13 @@ export default {
   MAX_PART_SIZE: Number(process.env.MAX_PART_SIZE) || 15 * 1024 * 1024,
   /**Maximum bytes per block */
   MAX_BLOCK_SIZE: Number(process.env.MAX_BLOCK_SIZE) || 100 * 1024 * 1024,
+  /**Full Cloudfront URL https://...*/
+  AWS_CLOUDFRONT_URL: process.env.AWS_CLOUDFRONT_URL,
+  /**Cloudfront key pair id */
+  AWS_CLOUDFRONT_KEY_PAIR_ID: process.env.AWS_CLOUDFRONT_KEY_PAIR_ID,
+  /**Cloudfront private key */
+  STORAGE_CDN_PRIVATE_KEY: process.env.STORAGE_CDN_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  /**Presigned URL configurations */
   presignedUrl: {
     download: {
       /**Download presigned URL expiry in seconds */
