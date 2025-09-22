@@ -40,10 +40,13 @@ const useHandleGlobalAction = () => {
             <strong>Invite accepted!</strong> A notification has been sent to{" "}
             <span className="underline">{inviterEmail}</span> to grant you
             access.
-          </span>
+          </span>,
+          { duration: 5000 }
         );
       } catch (error) {
-        toast.error("Failed to accept invite. Please try again later.");
+        toast.error("Failed to accept invite. Please try again later.", {
+          duration: 5000,
+        });
         devOnly(() => console.error("Error accepting invite: ", error));
       } finally {
         toast.dismiss(loadingToast);
@@ -155,7 +158,8 @@ const useHandleGlobalAction = () => {
           controller.signal
         );
         toast.success(
-          <span>{`${invite.email} has been authorized to access the transfer!`}</span>
+          <span>{`${invite.email} has been authorized to access the transfer!`}</span>,
+          { duration: 5000 }
         );
       } catch (error) {
         toast.error(
@@ -163,7 +167,8 @@ const useHandleGlobalAction = () => {
             Failed to authorize{" "}
             <span className="underline">{invite.email}</span>. Please try again
             later.
-          </span>
+          </span>,
+          { duration: 5000 }
         );
         devOnly(() => console.error("Error approving invite: ", error));
       } finally {
