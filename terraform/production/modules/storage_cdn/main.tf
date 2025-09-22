@@ -13,7 +13,7 @@ resource "aws_s3_bucket_cors_configuration" "blackbridge_production_files_cors" 
   cors_rule {
     id = "allow-frontend-uploads"
 
-    # Your frontend origin(s)
+    # App domains allowed to make CORS requests
     allowed_origins = ["http://${var.app_entry_domain_name}", "https://${var.app_entry_domain_name}"]
 
     # Methods needed for presigned URLs
@@ -22,7 +22,7 @@ resource "aws_s3_bucket_cors_configuration" "blackbridge_production_files_cors" 
     # Allow headers browsers typically send
     allowed_headers = ["*"]
 
-    # Expose headers you may want to read in JS
+    # Expose ETag header so the frontend can read it
     expose_headers = ["ETag"]
 
     max_age_seconds = 3000
