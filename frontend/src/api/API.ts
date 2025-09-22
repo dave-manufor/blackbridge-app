@@ -8,6 +8,7 @@ import { useAuthStore } from "@/stores/authStore";
 import axios from "axios";
 import { ApiRoutes } from ".";
 import { devOnly } from "@/utils/dev";
+import apiConfig from "@/config/api.config";
 
 const API = axios.create({
   timeout: 10000, // 10 seconds.
@@ -15,7 +16,7 @@ const API = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  baseURL: import.meta.env.VITE_API_BASE_URL || "/api",
+  baseURL: apiConfig.BASE_API_URL,
 });
 
 let isRefreshingRef = false;
@@ -57,7 +58,7 @@ API.interceptors.response.use(
       try {
         devOnly(() => console.log("Refreshing access token..."));
         await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL || ""}${ApiRoutes.auth.refresh}`,
+          `${apiConfig.BASE_API_URL}${ApiRoutes.auth.refresh}`,
           null,
           {
             withCredentials: true,
