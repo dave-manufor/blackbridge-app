@@ -14,7 +14,7 @@ resource "aws_s3_bucket_cors_configuration" "blackbridge_production_files_cors" 
     id = "allow-frontend-uploads"
 
     # Your frontend origin(s)
-    allowed_origins = [var.app_entry_domain_name]
+    allowed_origins = ["http://${var.app_entry_domain_name}", "https://${var.app_entry_domain_name}"]
 
     # Methods needed for presigned URLs
     allowed_methods = ["PUT", "POST", "HEAD", "GET"]
