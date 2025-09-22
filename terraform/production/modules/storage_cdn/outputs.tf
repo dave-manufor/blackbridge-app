@@ -9,3 +9,9 @@ output "cdn_domain_name" {
   value       = aws_cloudfront_distribution.blackbridge_production_cdn.domain_name
   
 }
+
+output "cdn_key_group_id" {
+  description = "The ID of the CloudFront key group for signed URLs."
+  value       = aws_cloudfront_key_group.blackbridge_key_group.id
+  
+}

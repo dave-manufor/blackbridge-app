@@ -1,10 +1,18 @@
 import bucketConfig from '../config/bucket.config';
 import { S3 } from 'aws-sdk';
+import { getSignedUrl as getCloudfrontSignedURL } from 'aws-cloudfront-sign';
+import { isDevEnvironment } from 'utils/dev.utils';
 
 // TODO: S3 Delete Logic
 // Note to self: Use named exports for functions
 
 const bucket = new S3({ apiVersion: '2006-03-01', signatureVersion: 'v4', useAccelerateEndpoint: true });
+
+const assertCDNConfig = () => {
+  if (!bucketConfig.AWS_CLOUDFRONT_URL || !bucketConfig.AWS_CLOUDFRONT_KEY_PAIR_ID || !bucketConfig.STORAGE_CDN_PRIVATE_KEY) {
+    throw new Error('Cloudfront is not properly configured');
+  }
+};
 
 export const initiateMultiPartUpload = async (key: string, contentType: string) => {
   const params = {
@@ -68,7 +76,18 @@ export const getPresignedUrl = async (key: string, options: PresignedUrlOptions)
   };
 
   if (options.type === 'download') {
-    return await bucket.getSignedUrlPromise('getObject', params);
+    if (isDevEnvironment()) {
+      return await bucket.getSignedUrlPromise('getObject', params);
+    } else {
+      assertCDNConfig();
+      const url = `${bucketConfig.AWS_CLOUDFRONT_URL}/${key}`;
+      const expires_at = Math.floor(Date.now() / 1000) + params.Expires;
+      return getCloudfrontSignedURL(url, {
+        keypairId: bucketConfig.AWS_CLOUDFRONT_KEY_PAIR_ID!,
+        privateKeyString: bucketConfig.STORAGE_CDN_PRIVATE_KEY!,
+        expireTime: expires_at,
+      });
+    }
   } else if (options.type === 'upload' && !options.isMultiPart) {
     return await bucket.getSignedUrlPromise('putObject', params);
   } else if (options.type === 'upload' && options.isMultiPart) {
