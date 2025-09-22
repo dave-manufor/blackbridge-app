@@ -43,6 +43,18 @@ resource "aws_s3_bucket_policy" "blackbridge_production_files_policy" {
     ]
   })
 }
+# CloudFront key group and public key for signed URLs
+resource "aws_cloudfront_key_group" "blackbridge_key_group" {
+  items = [aws_cloudfront_public_key.blackbridge_public_key.id]
+  name  = "${var.app_name}-key-group"
+}
+
+resource "aws_cloudfront_public_key" "blackbridge_public_key" {
+  encoded_key = file("${path.module}/cloudfront_public_key.pem")
+  name        = "${var.app_name}-public-key"
+  comment     = "Used for signed URLs for downloads"
+}
+
 
 resource "aws_cloudfront_distribution" "blackbridge_production_cdn" {
   enabled = true
@@ -60,6 +72,7 @@ resource "aws_cloudfront_distribution" "blackbridge_production_cdn" {
   compress               = true
 
   cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6" # AWS managed CachingOptimized policy
+  trusted_key_groups     = [aws_cloudfront_key_group.blackbridge_key_group.id]
 }
 
   restrictions {
