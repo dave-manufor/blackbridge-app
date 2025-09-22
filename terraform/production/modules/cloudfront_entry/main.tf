@@ -103,3 +103,16 @@ resource "aws_cloudfront_distribution" "app_distribution" {
    var.api_gateway
   ]
 }
+
+#Add DNS record for the CloudFront distribution
+resource "aws_route53_record" "app_entry" {
+  zone_id = var.hosted_zone_id
+  name    = var.app_cert_domain_name
+  type    = "CNAME"
+  ttl     = 300
+  records = [aws_cloudfront_distribution.app_distribution.domain_name]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
