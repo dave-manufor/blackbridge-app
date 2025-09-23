@@ -1040,6 +1040,14 @@ class TransferController {
         transfer.email_transfers = transfer.email_transfers.filter((email) => email.recipient_user.id === userId);
       }
 
+      // Fetch download count for link transfers
+      if (transfer.link_transfer) {
+        const downloadCount = await db.linkTransferDownloads.count({
+          where: { link_transfer_id: transfer.link_transfer.id },
+        });
+        (transfer.link_transfer as any) = { ...transfer.link_transfer, download_count: downloadCount };
+      }
+
       const is_expired = (transfer: any) =>
         transfer.status === TRANSFER_STATUS.EXPIRED || Date.now() > new Date(String(transfer.expiration_date)).getTime();
 

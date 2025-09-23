@@ -129,6 +129,7 @@ const PublicLinkView = () => {
     }
     const { isValid, passphrase } = await checkKey({
       sessionKey: linkData.file_key,
+      password,
     });
     if (!isValid || !passphrase) {
       toast.error(genericErrorMessage);
@@ -160,6 +161,7 @@ const PublicLinkView = () => {
     }
     const { isValid, passphrase } = await checkKey({
       sessionKey: linkData.file_key,
+      password,
     });
     if (!isValid || !passphrase) {
       toast.error(genericErrorMessage);

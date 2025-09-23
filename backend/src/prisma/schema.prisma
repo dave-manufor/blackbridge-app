@@ -22,6 +22,7 @@ model Users{
   transfers Transfers[]
   transfers_received EmailTransfers[]
   link_accesses LinkAccess[]
+  link_downloads LinkTransferDownloads[]
   invites Invites[]
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -80,6 +81,7 @@ model Files {
   content_type String
   metadata Json? @db.JsonB
   blocks FileBlocks[]
+  link_downloads LinkTransferDownloads[]
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   user Users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
@@ -176,17 +178,15 @@ model LinkTransfers{
   encrypted_fragment String?
   access_control LINK_ACCESS_CONTROL @default(PUBLIC)
   is_password_protected Boolean @default(false)
-  download_limit Int?
-  download_count Int @default(0)
   last_accessed DateTime?
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   transfer Transfers @relation(fields: [transfer_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   link_accesses LinkAccess[]
+  link_downloads LinkTransferDownloads[]
   @@index([transfer_id], name: "idx_link_transfer_id")
   @@index([access_control], name: "idx_link_access_control")
   @@index([transfer_id, access_control], name: "idx_link_transfer_access")
-  @@index([download_count, download_limit], name: "idx_link_download_count_limit")
 }
 
 model LinkAccess {
@@ -205,6 +205,20 @@ enum INVITE_STATUS {
   PENDING
   ACCEPTED
   APPROVED
+}
+
+model LinkTransferDownloads {
+  id String @db.Uuid @id @default(uuid()) @unique
+  file_id String @db.Uuid
+  link_transfer_id String @db.Uuid
+  user_id String? @db.Uuid
+  created_at DateTime @default(now())
+  file Files @relation(fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user Users? @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  link_transfer LinkTransfers @relation(fields: [link_transfer_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  @@index([file_id], name: "idx_download_file_id")
+  @@index([user_id], name: "idx_download_user_id")
+  @@index([link_transfer_id], name: "idx_download_link_transfer_id")
 }
 
 model Invites {
