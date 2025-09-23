@@ -16,9 +16,7 @@ export default {
   /**Cloudfront key pair id */
   AWS_CLOUDFRONT_KEY_PAIR_ID: process.env.AWS_CLOUDFRONT_KEY_PAIR_ID,
   /**Cloudfront private key */
-  STORAGE_CDN_PRIVATE_KEY: process.env.STORAGE_CDN_PRIVATE_KEY_BASE64
-    ? Buffer.from(process.env.STORAGE_CDN_PRIVATE_KEY_BASE64, 'base64').toString('utf8')
-    : undefined,
+  STORAGE_CDN_PRIVATE_KEY: process.env.STORAGE_CDN_PRIVATE_KEY,
   /**Presigned URL configurations */
   presignedUrl: {
     download: {
