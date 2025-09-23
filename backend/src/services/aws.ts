@@ -72,7 +72,7 @@ export const getPresignedUrl = async (key: string, options: PresignedUrlOptions)
   } = {
     Bucket: bucketConfig.BUCKET_NAME,
     Key: key,
-    Expires: options.expiresIn || bucketConfig.presignedUrl[options.type].EXPIRES_IN * 1000,
+    Expires: options.expiresIn || bucketConfig.presignedUrl[options.type].EXPIRES_IN,
   };
 
   if (options.type === 'download') {
@@ -81,7 +81,7 @@ export const getPresignedUrl = async (key: string, options: PresignedUrlOptions)
     } else {
       assertCDNConfig();
       const url = `${bucketConfig.AWS_CLOUDFRONT_URL}/${key}`;
-      const expires_at = Math.floor(Date.now() / 1000) + params.Expires;
+      const expires_at = Date.now() + params.Expires * 1000;
       return getCloudfrontSignedURL(url, {
         keypairId: bucketConfig.AWS_CLOUDFRONT_KEY_PAIR_ID!,
         privateKeyString: bucketConfig.STORAGE_CDN_PRIVATE_KEY!,
