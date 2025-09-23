@@ -96,7 +96,6 @@ const PublicLinkView = () => {
         });
         return { isValid: true, passphrase };
       } catch (error) {
-        console.error("Failed to decrypt session key", error);
         devOnly(() => console.error("Failed to decrypt session key", error));
         return { isValid: false };
       }
@@ -130,6 +129,7 @@ const PublicLinkView = () => {
     }
     const { isValid, passphrase } = await checkKey({
       sessionKey: linkData.file_key,
+      password,
     });
     if (!isValid || !passphrase) {
       toast.error(genericErrorMessage);
@@ -155,17 +155,16 @@ const PublicLinkView = () => {
   const handleFileDownload = async (fileId: string) => {
     const genericErrorMessage = "Unable to download file";
     if (!linkData) {
-      console.error(genericErrorMessage, "Link data not loaded");
       devOnly(() => console.error(genericErrorMessage, "Link data not loaded"));
       toast.error(genericErrorMessage);
       return;
     }
     const { isValid, passphrase } = await checkKey({
       sessionKey: linkData.file_key,
+      password,
     });
     if (!isValid || !passphrase) {
       toast.error(genericErrorMessage);
-      console.error(genericErrorMessage, "Invalid or missing passphrase");
       devOnly(() =>
         console.error(genericErrorMessage, "Invalid or missing passphrase")
       );
