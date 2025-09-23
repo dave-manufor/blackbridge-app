@@ -1,6 +1,6 @@
 import bucketConfig from '../config/bucket.config';
 import { S3 } from 'aws-sdk';
-import { getSignedUrl as getCloudfrontSignedURL } from 'aws-cloudfront-sign';
+import { getSignedUrl as getCloudfrontSignedURL } from '@aws-sdk/cloudfront-signer';
 import { isDevEnvironment } from 'utils/dev.utils';
 
 // TODO: S3 Delete Logic
@@ -82,10 +82,11 @@ export const getPresignedUrl = async (key: string, options: PresignedUrlOptions)
       assertCDNConfig();
       const url = `${bucketConfig.AWS_CLOUDFRONT_URL}/${key}`;
       const expires_at = Date.now() + params.Expires * 1000;
-      return getCloudfrontSignedURL(url, {
-        keypairId: bucketConfig.AWS_CLOUDFRONT_KEY_PAIR_ID!,
-        privateKeyString: bucketConfig.STORAGE_CDN_PRIVATE_KEY!,
-        expireTime: expires_at,
+      return getCloudfrontSignedURL({
+        url,
+        dateLessThan: new Date(expires_at),
+        keyPairId: bucketConfig.AWS_CLOUDFRONT_KEY_PAIR_ID!,
+        privateKey: bucketConfig.STORAGE_CDN_PRIVATE_KEY!,
       });
     }
   } else if (options.type === 'upload' && !options.isMultiPart) {
