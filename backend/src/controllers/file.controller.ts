@@ -491,17 +491,27 @@ class FileController {
       const results = (await Promise.all(presignedUrlPromises)).filter(Boolean);
 
       // Log download event if it's a link transfer
-      await db.linkTransfers.update({
+      const linkTransfer = await db.linkTransfers.findUnique({
         where: { transfer_id: file.transfer_id },
-        data: {
-          link_downloads: {
-            create: {
-              file_id: file.id,
-              user_id: req.downloadRequest?.userId || null,
+      });
+      if (linkTransfer) {
+        this.fileLogger.info(
+          { fileId: file.id, linkTransferId: linkTransfer.id, userId: req.downloadRequest?.userId || 'anonymous' },
+          'File download initiated',
+        );
+
+        await db.linkTransfers.update({
+          where: { transfer_id: file.transfer_id },
+          data: {
+            link_downloads: {
+              create: {
+                file_id: file.id,
+                user_id: req.downloadRequest?.userId || null,
+              },
             },
           },
-        },
-      });
+        });
+      }
 
       res.status(StatusCodes.OK).json({
         message: 'Download URLs generated successfully',
