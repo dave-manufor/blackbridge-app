@@ -71,7 +71,7 @@ const ModalContent = ({
   }, [isOpen]);
   return (
     <BaseModal
-      portalClassName="absolute z-[10000]"
+      portalClassName="absolute z-[9998]"
       overlayClassName="fixed inset-0 bg-neutral-900/20 backdrop-blur-xs flex items-center justify-center"
       className={cn(
         "m-auto w-2/3 max-sm:w-90/100 max-w-128 bg-card text-card-foreground flex flex-col gap-6 p-4 rounded-lg border border-zinc-400 shadow-md outline-none max-h-[90vh] overflow-y-auto",
