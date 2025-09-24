@@ -7,8 +7,8 @@ import {
 import { useAuthStore } from "@/stores/authStore";
 import { CryptoBridge } from "./crypto/workers/CryptoBridge";
 import bcrypt from "bcryptjs";
+import { devOnly } from "@/utils/dev";
 
-const primaryKeys = useAuthStore.getState().primaryKeys;
 const cryptoBridge = CryptoBridge.getInstance();
 
 export const signUpSchema = z
@@ -67,7 +67,15 @@ export const changePasswordSchema = z
   })
   .refine(
     async (data) => {
-      if (!primaryKeys) return false;
+      const primaryKeys = useAuthStore.getState().primaryKeys;
+      if (!primaryKeys) {
+        devOnly(() =>
+          console.warn(
+            "Primary keys not found in store when validating current password"
+          )
+        );
+        return false;
+      }
       const currentPassword = data.currentPassword;
       const armoredPrivateKey = primaryKeys.private_key;
       const passphrase = await bcrypt.hash(currentPassword, primaryKeys.salt);
