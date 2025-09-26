@@ -2,12 +2,26 @@ import express from 'express';
 import { Application } from 'express';
 import logger from './lib/logger';
 import StatusCodes from './config/StatusCodes.config';
+import { isDevEnvironment } from 'utils/dev.utils';
+import { readFileSync } from 'fs';
+import https from 'https';
+import http from 'http';
+import { Server } from 'socket.io';
+import initializeSocket from 'lib/ws';
 
 class App {
   public app: Application;
+  public socket: Server;
+  public server: http.Server | https.Server;
   public port: number;
 
-  constructor(appInit: { port: number; trustProxy: boolean; middlewares: any[]; controllers: any[] }) {
+  constructor(appInit: {
+    port: number;
+    trustProxy: boolean;
+    middlewares: any[];
+    controllers: any[];
+    eventHandlers?: ((io: Server, socket: any) => void)[];
+  }) {
     this.app = express();
     this.port = appInit.port;
 
@@ -16,11 +30,23 @@ class App {
     this.initializeMiddlewares(appInit.middlewares);
     this.initializeControllers(appInit.controllers);
     this.initializeGlobalErrorHandler();
+
+    if (isDevEnvironment()) {
+      const certificateFile = readFileSync('./certs/cert.pem');
+      const keyFile = readFileSync('./certs/key.pem');
+      const credentials = { key: keyFile, cert: certificateFile };
+
+      this.server = https.createServer(credentials, this.app);
+    } else {
+      this.server = http.createServer(this.app);
+    }
+
+    this.socket = initializeSocket(this.server, appInit.eventHandlers);
   }
 
   public listen() {
-    this.app.listen(this.port, () => {
-      logger.info(`App listening on the port ${this.port}`);
+    this.server.listen(this.port, () => {
+      logger.info(`Server and socket listening on port ${this.port}`);
     });
   }
 

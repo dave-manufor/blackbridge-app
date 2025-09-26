@@ -11,15 +11,12 @@ import { HomeController, AuthController, UserController, FileController, Transfe
 import { initDB } from './services/db';
 import AWS from 'aws-sdk';
 import nocache from 'nocache';
-import { readFileSync } from 'fs';
-import { isDevEnvironment } from './utils/dev.utils';
-import https from 'https';
+import corsConfig from 'config/cors.config';
 
 const port = Number(process.env.PORT) || 4000;
-const crossOrigin = process.env.CROSS_ORIGIN ? process.env.CROSS_ORIGIN.split(',') : ['http://localhost:5174'];
 const corsOptions = {
-  origin: crossOrigin,
-  credentials: true,
+  origin: corsConfig.origins,
+  credentials: corsConfig.credentials,
 };
 
 AWS.config.update({
@@ -56,18 +53,7 @@ const server: App = new App({
 })()
   .then(() => {
     // Start the app
-    if (isDevEnvironment()) {
-      const certificateFile = readFileSync('./certs/cert.pem');
-      const keyFile = readFileSync('./certs/key.pem');
-
-      const credentials = { key: keyFile, cert: certificateFile };
-      const httpsServer = https.createServer(credentials, server.app);
-      httpsServer.listen(port, () => {
-        logger.info(`HTTPS Server listening on port ${port}`);
-      });
-    } else {
-      server.listen();
-    }
+    server.listen();
   })
   .catch((error) => {
     logger.error('Error during initialization:', error);
