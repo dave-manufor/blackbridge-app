@@ -12,6 +12,7 @@ import { initDB } from './services/db';
 import AWS from 'aws-sdk';
 import nocache from 'nocache';
 import corsConfig from 'config/cors.config';
+import { registerSignalingHandlers } from 'handlers';
 
 const port = Number(process.env.PORT) || 4000;
 const corsOptions = {
@@ -44,6 +45,7 @@ const server: App = new App({
     httpLogger,
   ],
   controllers: [new HomeController(), new AuthController(), new UserController(), new FileController(), new TransferController()],
+  eventHandlers: [registerSignalingHandlers()],
 });
 
 (async () => {

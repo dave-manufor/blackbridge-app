@@ -6,7 +6,7 @@ import { isDevEnvironment } from 'utils/dev.utils';
 import { readFileSync } from 'fs';
 import https from 'https';
 import http from 'http';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import initializeSocket from 'lib/ws';
 
 class App {
@@ -20,7 +20,7 @@ class App {
     trustProxy: boolean;
     middlewares: any[];
     controllers: any[];
-    eventHandlers?: ((io: Server, socket: any) => void)[];
+    eventHandlers?: ((io: Server, socket: Socket) => void)[];
   }) {
     this.app = express();
     this.port = appInit.port;
