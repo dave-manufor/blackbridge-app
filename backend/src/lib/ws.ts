@@ -14,7 +14,7 @@ const socketOptions: Partial<ServerOptions> = {
 const initializeSocket = (
   server: HttpServer,
   eventHandlers?: ((io: Server, socket: Socket) => void)[],
-  middlewares?: Parameters<InstanceType<typeof Server>['use']>,
+  middlewares?: ((socket: Socket, next: (err?: Error) => void) => void)[],
 ) => {
   const io = new Server(server, socketOptions);
 

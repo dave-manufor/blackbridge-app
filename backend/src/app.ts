@@ -21,6 +21,7 @@ class App {
     middlewares: any[];
     controllers: any[];
     eventHandlers?: ((io: Server, socket: Socket) => void)[];
+    eventMiddlewares?: ((socket: Socket, next: (err?: Error) => void) => void)[];
   }) {
     this.app = express();
     this.port = appInit.port;
@@ -41,7 +42,7 @@ class App {
       this.server = http.createServer(this.app);
     }
 
-    this.socket = initializeSocket(this.server, appInit.eventHandlers);
+    this.socket = initializeSocket(this.server, appInit.eventHandlers, appInit.eventMiddlewares);
   }
 
   public listen() {
