@@ -1,7 +1,7 @@
 import { Server, ServerOptions, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import corsConfig from 'config/cors.config';
-import logger from './logger';
+import logger, { socketLogger } from './logger';
 
 const socketOptions: Partial<ServerOptions> = {
   path: '/ws',
@@ -17,15 +17,15 @@ const initializeSocket = (
   middlewares?: Parameters<InstanceType<typeof Server>['use']>,
 ) => {
   const io = new Server(server, socketOptions);
+
+  // Attach logging middleware
+  socketLogger(io);
   middlewares?.forEach((middleware) => {
     io.use(middleware);
   });
   io.on('connection', (socket) => {
-    logger.trace(`New connection from: ${socket.id}`);
+    // Register event handlers
     eventHandlers.forEach((handler) => handler(io, socket));
-    socket.on('disconnect', () => {
-      logger.trace(`Socket disconnected: ${socket.id}`);
-    });
   });
   return io;
 };
