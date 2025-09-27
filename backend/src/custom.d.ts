@@ -56,6 +56,7 @@ export interface PaginatedResponse<T> {
 
 export interface SocketResponse<T = any> {
   isError: boolean;
+  code: number;
   message: string;
   data?: T;
 }
