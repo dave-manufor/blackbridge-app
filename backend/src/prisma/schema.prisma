@@ -249,7 +249,9 @@ model P2PSessions {
   id String @db.Uuid @id @default(uuid()) @unique
   room_id String @db.Uuid @unique
   sender_id String @db.Uuid
+  sender_socket_id String?
   receiver_id String @db.Uuid
+  receiver_socket_id String?
   status P2P_SESSION_STATUS @default(ACTIVE)
   files_meta Json[] @db.JsonB
   created_at DateTime @default(now())
