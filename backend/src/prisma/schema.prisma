@@ -24,6 +24,8 @@ model Users{
   link_accesses LinkAccess[]
   link_downloads LinkTransferDownloads[]
   invites Invites[]
+  p2p_sessions_sent P2PSessions[] @relation("SenderP2P")
+  p2p_sessions_received P2PSessions[] @relation("ReceiverP2P")
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   @@index([email], name: "idx_user_email")
@@ -236,4 +238,24 @@ model Invites {
   @@unique([email, transfer_id], name: "unique_email_transfer")
   @@index([transfer_id], name: "idx_invite_transfer_id")
   @@index([email], name: "idx_invite_email")
+}
+
+enum P2P_SESSION_STATUS {
+  ACTIVE
+  CLOSED
+}
+
+model P2PSessions {
+  id String @db.Uuid @id @default(uuid()) @unique
+  room_id String @db.Uuid @unique
+  sender_id String @db.Uuid
+  receiver_id String @db.Uuid
+  status P2P_SESSION_STATUS @default(ACTIVE)
+  files_meta Json[] @db.JsonB
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  sender Users @relation("SenderP2P", fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  receiver Users @relation("ReceiverP2P", fields: [receiver_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  @@index([sender_id], name: "idx_p2p_session_sender_id")
+  @@index([receiver_id], name: "idx_p2p_session_receiver_id")
 }
