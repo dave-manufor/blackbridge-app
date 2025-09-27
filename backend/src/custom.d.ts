@@ -54,6 +54,12 @@ export interface PaginatedResponse<T> {
   pagination: PaginationDetails;
 }
 
+export interface SocketResponse<T = any> {
+  isError: boolean;
+  message: string;
+  data?: T;
+}
+
 declare global {
   namespace Express {
     export interface Request {
