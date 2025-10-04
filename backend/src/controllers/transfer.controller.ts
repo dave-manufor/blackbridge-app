@@ -37,6 +37,7 @@ class TransferController {
     this.router.get('/unviewed/count', verifyToken(), this.getUnviewedEmailTransfersCount);
     this.router.post('/links/initiate', verifyToken(), this.validateBody('initiateLinkTransfer'), this.initiateLinkTransfer);
     this.router.post('/emails/initiate', verifyToken(), this.validateBody('initiateEmailTransfer'), this.initiateEmailTransfer);
+    this.router.post('/peers/initiate', verifyToken(), this.validateBody('initiatePeerTransfer'), this.initiatePeerTransfer);
     this.router.post('/links/commit/:id', verifyToken(), this.validateBody('commitLinkTransfer'), this.commitLinkTransfer);
     this.router.post('/emails/commit/:id', verifyToken(), this.validateBody('commitEmailTransfer'), this.commitEmailTransfer);
     this.router.get('/invitations', verifyToken(), this.getInvitations);
@@ -141,6 +142,53 @@ class TransferController {
       });
     } catch (error) {
       this.transferLogger.error({ error }, 'Failed to initiate email transfer');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  };
+
+  private initiatePeerTransfer = async (req: Request, res: Response) => {
+    const { userId, email: senderEmail } = req.session;
+    const { recipient_identifier, files } = req.body as BodyTypeToShape<'initiatePeerTransfer'>;
+
+    try {
+      // Check if recipient exists
+      const recipient = await db.users.findFirst({ where: { OR: [{ email: recipient_identifier }, { id: recipient_identifier }] } });
+
+      if (!recipient) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Recipient not found' });
+        return;
+      }
+
+      // Generate room id with prefix
+      const room_id = `signaling:${uuid_v4()}`;
+
+      // Create P2P session
+      const session = await db.p2PSessions.create({
+        data: {
+          room_id,
+          sender_id: userId,
+          receiver_id: recipient.id,
+          files_meta: files,
+        },
+      });
+
+      // Notify recipient (non-blocking)
+      notificationService
+        .send_peer_transfer_notification(recipient.email, {
+          session_id: session.id,
+          sender_email: senderEmail,
+          files: files.map((f) => ({ name: f.name, size: f.size })),
+        })
+        .catch((error) => {
+          this.transferLogger.warn(error, 'Error sending new peer transfer notification');
+        });
+
+      // Respond with session details
+      res.status(StatusCodes.CREATED).json({
+        session_id: session.id,
+      });
+    } catch (error) {
+      this.transferLogger.error({ error }, 'Failed to initiate peer transfer');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   };
@@ -1381,6 +1429,19 @@ const initiateLinkTransferSchema = z.object({
   access_control: z.enum(Object.values(LINK_ACCESS_CONTROL) as [string, ...string[]]).default(LINK_ACCESS_CONTROL.PUBLIC),
 });
 
+const initiatePeerTransferSchema = z.object({
+  recipient_identifier: z.string().email(),
+  files: z
+    .array(
+      z.object({
+        name: z.string().max(255),
+        size: z.number().min(1),
+        content_type: z.string().max(100),
+      }),
+    )
+    .nonempty('At least one file is required'),
+});
+
 const commitEmailTransferSchema = z.object({
   owner_key: z.string().refine((val) => PGPValidator.isValidPGPMessage(val), {
     message: 'Invalid PGP message format',
@@ -1425,6 +1486,7 @@ const approveInviteSchema = z.object({
 const schemas = {
   initiateEmailTransfer: initiateEmailTransferSchema,
   initiateLinkTransfer: initiateLinkTransferSchema,
+  initiatePeerTransfer: initiatePeerTransferSchema,
   commitEmailTransfer: commitEmailTransferSchema,
   commitLinkTransfer: commitLinkTransferSchema,
   acceptInvite: acceptInviteSchema,
