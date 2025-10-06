@@ -23,6 +23,10 @@ import {
 } from "./views/settings";
 import FileRequests from "./views/file-requests/FileRequests";
 import BrandSettings from "./views/brand-settings/BrandSettings";
+import {
+  NewPeerTransfer,
+  PeerTransferSession,
+} from "./views/transfers/peer-transfers";
 
 const router = createBrowserRouter([
   {
@@ -58,6 +62,19 @@ const router = createBrowserRouter([
           {
             index: true,
             element: <DashboardView />,
+          },
+          {
+            path: "peer",
+            children: [
+              {
+                index: true,
+                element: <NewPeerTransfer />,
+              },
+              {
+                path: ":sessionID",
+                element: <PeerTransferSession />,
+              },
+            ],
           },
           {
             path: "transfers",
