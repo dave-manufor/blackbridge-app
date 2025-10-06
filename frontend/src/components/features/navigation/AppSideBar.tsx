@@ -21,6 +21,7 @@ import {
   FaFolderOpen,
   FaRegFolderOpen,
 } from "react-icons/fa";
+import { RiP2pFill, RiP2pLine } from "react-icons/ri";
 import {
   MdLogout,
   MdDashboardCustomize,
@@ -102,6 +103,12 @@ const AppSideBar = () => {
         defaultIcon: GoHome,
         activeIcon: GoHomeFill,
         url: "/",
+      },
+      {
+        label: "Peer Transfer",
+        defaultIcon: RiP2pLine,
+        activeIcon: RiP2pFill,
+        url: "/peer",
       },
       {
         label: "Transfer History",
@@ -197,7 +204,7 @@ const AppSideBar = () => {
       },
     ],
   };
-  const { isActive } = useActivePath();
+  const { isActive, isPartiallyActive } = useActivePath();
   return (
     user && (
       <Sidebar collapsible="offcanvas">
@@ -218,11 +225,19 @@ const AppSideBar = () => {
                       asChild
                       size="lg"
                       className="text-neutral-400"
-                      isActive={isActive(item.url)}
+                      isActive={
+                        item.url === "/" || item.children
+                          ? isActive(item.url)
+                          : isPartiallyActive(item.url)
+                      }
                     >
                       <Link to={item.url}>
                         <span className="text-[18px]">
-                          {isActive(item.url) ? (
+                          {(
+                            item.url === "/"
+                              ? isActive(item.url)
+                              : isPartiallyActive(item.url)
+                          ) ? (
                             <item.activeIcon />
                           ) : (
                             <item.defaultIcon />
