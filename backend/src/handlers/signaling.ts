@@ -62,31 +62,37 @@ const registerSignalingHandlers = () => {
 
       const { room_id } = parseResult.data;
 
-      const { canAccess, session, error } = await canUserAccessSession(user_id, room_id);
+      try {
+        const { canAccess, session, error } = await canUserAccessSession(user_id, room_id);
 
-      if (!canAccess) {
-        callback?.(error);
+        if (!canAccess) {
+          callback?.(error);
+          return;
+        }
+
+        // Add user to the signaling room
+        socket.join(room_id);
+        socket.data.signaling = { room_id, sender_id: session.sender_id, receiver_id: session.receiver_id };
+
+        // Update user's socket ID in the session
+        await db.p2PSessions.update({
+          where: { id: session.id },
+          data: {
+            ...(session.sender_id === user_id ? { sender_socket_id: socket.id } : { receiver_socket_id: socket.id }),
+          },
+        });
+
+        // Notify other peer in the room about the new peer
+        socket.to(room_id).emit(SIGNALING_EVENTS.PEER_JOINED, { room_id, user_id });
+
+        // Send success response to the joining peer
+        const response = successResponse(session, 'Joined signaling session');
+        callback?.(response);
+      } catch (err) {
+        const response = errorResponse(StatusCodes.INTERNAL_SERVER_ERROR, 'Something went wrong');
+        callback?.(response);
         return;
       }
-
-      // Add user to the signaling room
-      socket.join(room_id);
-      socket.data.signaling = { room_id, sender_id: session.sender_id, receiver_id: session.receiver_id };
-
-      // Update user's socket ID in the session
-      await db.p2PSessions.update({
-        where: { id: session.id },
-        data: {
-          ...(session.sender_id === user_id ? { sender_socket_id: socket.id } : { receiver_socket_id: socket.id }),
-        },
-      });
-
-      // Notify other peer in the room about the new peer
-      socket.to(room_id).emit(SIGNALING_EVENTS.PEER_JOINED, { room_id, user_id });
-
-      // Send success response to the joining peer
-      const response = successResponse(session, 'Joined signaling session');
-      callback?.(response);
     };
 
     const handleOffer = async (payload: z.infer<typeof handleOfferSchema>, callback?: (response: SocketResponse) => void) => {
@@ -102,19 +108,25 @@ const registerSignalingHandlers = () => {
 
       const { room_id, offer } = parseResult.data;
 
-      const { canAccess, error } = await canUserAccessSession(user_id, room_id);
+      try {
+        const { canAccess, error } = await canUserAccessSession(user_id, room_id);
 
-      if (!canAccess) {
-        callback?.(error);
+        if (!canAccess) {
+          callback?.(error);
+          return;
+        }
+
+        // Broadcast the offer to the other peer in the room
+        socket.to(room_id).emit(SIGNALING_EVENTS.OFFER_SENT, { room_id, user_id, offer });
+
+        // Send success response to the sender
+        const response = successResponse(null, 'Offer sent');
+        callback?.(response);
+      } catch (err) {
+        const response = errorResponse(StatusCodes.INTERNAL_SERVER_ERROR, 'Something went wrong');
+        callback?.(response);
         return;
       }
-
-      // Broadcast the offer to the other peer in the room
-      socket.to(room_id).emit(SIGNALING_EVENTS.OFFER_SENT, { room_id, user_id, offer });
-
-      // Send success response to the sender
-      const response = successResponse(null, 'Offer sent');
-      callback?.(response);
     };
 
     const handleAnswer = async (payload: z.infer<typeof handleAnswerSchema>, callback?: (response: SocketResponse) => void) => {
@@ -130,19 +142,25 @@ const registerSignalingHandlers = () => {
 
       const { room_id, answer } = parseResult.data;
 
-      const { canAccess, error } = await canUserAccessSession(user_id, room_id);
+      try {
+        const { canAccess, error } = await canUserAccessSession(user_id, room_id);
 
-      if (!canAccess) {
-        callback?.(error);
+        if (!canAccess) {
+          callback?.(error);
+          return;
+        }
+
+        // Broadcast the answer to the other peer in the room
+        socket.to(room_id).emit(SIGNALING_EVENTS.ANSWER_SENT, { room_id, user_id, answer });
+
+        // Send success response to the sender
+        const response = successResponse(null, 'Answer sent');
+        callback?.(response);
+      } catch (err) {
+        const response = errorResponse(StatusCodes.INTERNAL_SERVER_ERROR, 'Something went wrong');
+        callback?.(response);
         return;
       }
-
-      // Broadcast the answer to the other peer in the room
-      socket.to(room_id).emit(SIGNALING_EVENTS.ANSWER_SENT, { room_id, user_id, answer });
-
-      // Send success response to the sender
-      const response = successResponse(null, 'Answer sent');
-      callback?.(response);
     };
 
     const handleCandidates = async (payload: z.infer<typeof handleCandidatesSchema>, callback?: (response: SocketResponse) => void) => {
@@ -158,19 +176,25 @@ const registerSignalingHandlers = () => {
 
       const { room_id, candidates } = parseResult.data;
 
-      const { canAccess, error } = await canUserAccessSession(user_id, room_id);
+      try {
+        const { canAccess, error } = await canUserAccessSession(user_id, room_id);
 
-      if (!canAccess) {
-        callback?.(error);
+        if (!canAccess) {
+          callback?.(error);
+          return;
+        }
+
+        // Broadcast the candidates to the other peer in the room
+        socket.to(room_id).emit(SIGNALING_EVENTS.CANDIDATES_SENT, { room_id, user_id, candidates });
+
+        // Send success response to the sender
+        const response = successResponse(null, 'Candidates sent');
+        callback?.(response);
+      } catch (err) {
+        const response = errorResponse(StatusCodes.INTERNAL_SERVER_ERROR, 'Something went wrong');
+        callback?.(response);
         return;
       }
-
-      // Broadcast the candidates to the other peer in the room
-      socket.to(room_id).emit(SIGNALING_EVENTS.CANDIDATES_SENT, { room_id, user_id, candidates });
-
-      // Send success response to the sender
-      const response = successResponse(null, 'Candidates sent');
-      callback?.(response);
     };
 
     const handleDisconnect = async () => {
@@ -181,29 +205,33 @@ const registerSignalingHandlers = () => {
       }
       const { room_id } = signalingData;
 
-      socket.leave(room_id);
+      try {
+        socket.leave(room_id);
 
-      // Clear user's socket ID in the session
-      const session = await db.p2PSessions.findFirst({ where: { room_id } });
-      if (session) {
-        await db.p2PSessions.update({
-          where: { id: session.id },
-          data: {
-            ...(session.sender_id === user_id ? { sender_socket_id: null } : { receiver_socket_id: null }),
-          },
-        });
+        // Clear user's socket ID in the session
+        const session = await db.p2PSessions.findFirst({ where: { room_id } });
+        if (session) {
+          await db.p2PSessions.update({
+            where: { id: session.id },
+            data: {
+              ...(session.sender_id === user_id ? { sender_socket_id: null } : { receiver_socket_id: null }),
+            },
+          });
+        }
+
+        // Notify other peers in the room about the disconnection
+        socket.to(room_id).emit(SIGNALING_EVENTS.PEER_DISCONNECTED, { room_id, user_id });
+      } catch (err) {
+        // Ignore errors during disconnect
       }
-
-      // Notify other peers in the room about the disconnection
-      socket.to(room_id).emit(SIGNALING_EVENTS.PEER_DISCONNECTED, { room_id, user_id });
     };
 
     socket.on(SIGNALING_EVENTS.JOIN_SESSION, joinSignalingSession);
     socket.on(SIGNALING_EVENTS.OFFER, handleOffer);
     socket.on(SIGNALING_EVENTS.ANSWER, handleAnswer);
     socket.on(SIGNALING_EVENTS.CANDIDATES, handleCandidates);
-    socket.on(SIGNALING_EVENTS.DISCONNECT, handleDisconnect);
-    socket.on('disconnect', handleDisconnect);
+    socket.on(SIGNALING_EVENTS.DISCONNECT, handleDisconnect); // Intentional disconnect event
+    socket.on('disconnect', handleDisconnect); // Unintentional disconnect
   };
 };
 
