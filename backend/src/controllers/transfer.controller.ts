@@ -17,6 +17,7 @@ import cacheConfig from '../config/cache.config';
 import cache from '../services/cache';
 import { v4 as uuid_v4 } from 'uuid';
 import notificationService from '../services/notifications';
+import { getPresignedUrl } from 'services/aws';
 
 class TransferController {
   public path = '/transfers';
@@ -152,7 +153,10 @@ class TransferController {
 
     try {
       // Check if recipient exists
-      const recipient = await db.users.findFirst({ where: { OR: [{ email: recipient_identifier }, { id: recipient_identifier }] } });
+      const recipient = await db.users.findFirst({
+        where: { OR: [{ email: recipient_identifier }, { id: recipient_identifier }] },
+        select: { id: true, email: true, profile_picture: true, keys: true },
+      });
 
       if (!recipient) {
         res.status(StatusCodes.NOT_FOUND).json({ message: 'Recipient not found' });
@@ -185,9 +189,18 @@ class TransferController {
           this.transferLogger.warn(error, 'Error sending new peer transfer notification');
         });
 
+      const profile_picture = recipient.profile_picture ? await getPresignedUrl(recipient.profile_picture, { type: 'download' }) : null;
+
       // Respond with session details
       res.status(StatusCodes.CREATED).json({
         session_id: session.id,
+        room_id: session.room_id,
+        recipient: {
+          id: recipient.id,
+          email: recipient.email,
+          profile_picture: profile_picture,
+          publicKey: recipient.keys.find((k) => k.primary)?.public_key || null,
+        },
       });
     } catch (error) {
       this.transferLogger.error({ error }, 'Failed to initiate peer transfer');
