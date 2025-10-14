@@ -151,3 +151,17 @@ export const transferSchema = z
       }
     }
   });
+
+export const p2pTransferSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  description: z.string().max(255).optional(),
+  files: z
+    .array(
+      z.object({
+        name: z.string().max(255),
+        size: z.number().min(1),
+        content_type: z.string().max(100),
+      })
+    )
+    .nonempty("At least one file is required"),
+});
