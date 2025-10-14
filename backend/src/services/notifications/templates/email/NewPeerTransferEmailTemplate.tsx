@@ -6,6 +6,7 @@ import { formatFileSize } from 'services/notifications/utils/format';
 type NewTransferEmailTemplateProps = {
   session_id: string;
   sender_email: string;
+  description?: string;
   files: Array<{
     name: string;
     size: number;
@@ -31,6 +32,12 @@ const NewPeerTransferEmailTemplate = (payload: NewTransferEmailTemplateProps) =>
           </StyledButton>
         </Section>
         <Container>
+          {payload.description && (
+            <>
+              <Heading as="h3">Description</Heading>
+              <Text className="mt-2">{payload.description}</Text>
+            </>
+          )}
           <Heading as="h3">Files</Heading>
           <Container>
             {payload.files?.map((file, index) => (

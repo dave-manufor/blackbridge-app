@@ -146,6 +146,7 @@ const notificationService = {
     transferDetails: {
       session_id: string;
       sender_email: string;
+      description?: string;
       files: Array<{
         name: string;
         size: number;
