@@ -148,7 +148,7 @@ class TransferController {
 
   private initiatePeerTransfer = async (req: Request, res: Response) => {
     const { userId, email: senderEmail } = req.session;
-    const { recipient_identifier, files } = req.body as BodyTypeToShape<'initiatePeerTransfer'>;
+    const { recipient_identifier, files, description } = req.body as BodyTypeToShape<'initiatePeerTransfer'>;
 
     try {
       // Check if recipient exists
@@ -169,12 +169,14 @@ class TransferController {
           sender_id: userId,
           receiver_id: recipient.id,
           files_meta: files,
+          description,
         },
       });
 
       // Notify recipient (non-blocking)
       notificationService
         .send_peer_transfer_notification(recipient.email, {
+          description,
           session_id: session.id,
           sender_email: senderEmail,
           files: files.map((f) => ({ name: f.name, size: f.size })),
@@ -1431,6 +1433,7 @@ const initiateLinkTransferSchema = z.object({
 
 const initiatePeerTransferSchema = z.object({
   recipient_identifier: z.string().email(),
+  description: z.string().max(500).optional(),
   files: z
     .array(
       z.object({

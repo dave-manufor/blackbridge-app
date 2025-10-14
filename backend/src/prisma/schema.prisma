@@ -247,6 +247,7 @@ enum P2P_SESSION_STATUS {
 
 model P2PSessions {
   id String @db.Uuid @id @default(uuid()) @unique
+  description String?
   room_id String @db.Uuid @unique
   sender_id String @db.Uuid
   sender_socket_id String?
