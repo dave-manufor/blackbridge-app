@@ -13,13 +13,13 @@ type BaseCard = {
 };
 
 type DownloadableCard = BaseCard & {
-  type?: "downloadable";
+  variant?: "downloadable";
   onDownload: () => void;
   onRemove?: () => void;
 };
 
 type FormCard = BaseCard & {
-  type: "form";
+  variant: "form";
   onDownload?: () => void;
   onRemove: () => void; // required
 };
@@ -27,7 +27,7 @@ type FormCard = BaseCard & {
 type FileCard = DownloadableCard | FormCard;
 
 const FileCard = ({
-  type,
+  variant,
   contentType,
   name,
   size,
@@ -36,7 +36,7 @@ const FileCard = ({
   onRemove,
   onClick,
 }: FileCard) => {
-  type = type || "downloadable"; // default to downloadable
+  variant = variant || "downloadable"; // default to downloadable
   const iconStyle = defaultStyles[contentType as keyof typeof defaultStyles];
   return (
     <div className={styles.file_item} onClick={onClick}>
@@ -51,12 +51,12 @@ const FileCard = ({
           </span>
         </div>
       </div>
-      {type === "downloadable" && allowDownload && (
+      {variant === "downloadable" && allowDownload && (
         <div className={styles.file_action_icon} onClick={onDownload}>
           <MdOutlineFileDownload />
         </div>
       )}
-      {type === "form" && (
+      {variant === "form" && (
         <div className={styles.file_action_icon} onClick={onRemove}>
           <IoCloseCircleOutline />
         </div>
