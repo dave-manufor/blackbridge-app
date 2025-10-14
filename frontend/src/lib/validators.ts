@@ -158,9 +158,9 @@ export const p2pTransferSchema = z.object({
   files: z
     .array(
       z.object({
-        name: z.string().max(255),
-        size: z.number().min(1),
-        content_type: z.string().max(100),
+        name: z.string(),
+        size: z.number(),
+        content_type: z.string(),
       })
     )
     .nonempty("At least one file is required"),
