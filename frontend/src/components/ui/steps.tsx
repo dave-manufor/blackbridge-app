@@ -282,17 +282,19 @@ export const StepsContent: React.FC<StepsContentProps> = ({
 
 export const StepActionButton: React.FC<{
   type?: ButtonHTMLAttributes<HTMLButtonElement>["type"];
-  action?: () => Promise<void>;
+  action?: (step: number) => Promise<boolean> | boolean;
   children?: ReactNode;
   className?: string;
 }> = ({ action, children, type = "button", className }) => {
   const [loading, setLoading] = useState(false);
-  const { markCompleteAndNext } = useSteps();
+  const { markCompleteAndNext, activeStep } = useSteps();
   const handleAction = async () => {
     setLoading(true);
     try {
-      await action?.();
-      markCompleteAndNext();
+      const isValid = await action?.(activeStep);
+      if (isValid) {
+        markCompleteAndNext();
+      }
     } catch (error) {
       devOnly(() =>
         console.error("Error occurred while performing action:", error)
