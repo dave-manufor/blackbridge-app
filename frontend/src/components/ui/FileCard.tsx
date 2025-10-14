@@ -2,23 +2,44 @@ import { formatFileSize } from "@/utils/format";
 import styles from "./FileCard.module.css";
 import { defaultStyles, FileIcon } from "react-file-icon";
 import { MdOutlineFileDownload } from "react-icons/md";
+import { IoCloseCircleOutline } from "react-icons/io5";
+
+type BaseCard = {
+  contentType: string;
+  name: string;
+  size: number;
+  allowDownload: boolean;
+  onClick?: () => void;
+};
+
+type DownloadableCard = BaseCard & {
+  type?: "downloadable";
+  onDownload: () => void;
+  onRemove?: () => void;
+};
+
+type FormCard = BaseCard & {
+  type: "form";
+  onDownload?: () => void;
+  onRemove: () => void; // required
+};
+
+type FileCard = DownloadableCard | FormCard;
 
 const FileCard = ({
+  type,
   contentType,
   name,
   size,
   allowDownload,
   onDownload,
-}: {
-  contentType: string;
-  name: string;
-  size: number;
-  allowDownload: boolean;
-  onDownload: () => void;
-}) => {
+  onRemove,
+  onClick,
+}: FileCard) => {
+  type = type || "downloadable"; // default to downloadable
   const iconStyle = defaultStyles[contentType as keyof typeof defaultStyles];
   return (
-    <div className={styles.file_item}>
+    <div className={styles.file_item} onClick={onClick}>
       <div className={styles.file_info}>
         <div className={styles.file_icon}>
           <FileIcon extension={name.split(".").pop()} {...iconStyle} />
@@ -30,9 +51,14 @@ const FileCard = ({
           </span>
         </div>
       </div>
-      {allowDownload && (
-        <div className={styles.file_download_icon} onClick={onDownload}>
+      {type === "downloadable" && allowDownload && (
+        <div className={styles.file_action_icon} onClick={onDownload}>
           <MdOutlineFileDownload />
+        </div>
+      )}
+      {type === "form" && (
+        <div className={styles.file_action_icon} onClick={onRemove}>
+          <IoCloseCircleOutline />
         </div>
       )}
     </div>
