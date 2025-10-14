@@ -107,17 +107,21 @@ const ComboBoxInput: React.FC<
 };
 
 const ComboBoxOptions: React.FC<{
+  shouldFilter?: boolean;
   searchable?: boolean;
-  isSearching?: boolean;
+  isLoading?: boolean;
   searchPlaceholder?: string;
   onSearchChange?: (value: string) => void;
-  emptyLabel?: string;
+  loadingElement?: React.ReactNode;
+  emptyElement?: React.ReactNode;
   className?: string;
   children?: React.ReactNode;
 }> = ({
-  emptyLabel,
+  shouldFilter = true,
+  loadingElement = null,
+  emptyElement = null,
   searchable,
-  isSearching = false,
+  isLoading = false,
   searchPlaceholder,
   onSearchChange,
   children,
@@ -129,7 +133,7 @@ const ComboBoxOptions: React.FC<{
       align="start"
       side="bottom"
     >
-      <Command className="w-full">
+      <Command className="w-full" shouldFilter={shouldFilter}>
         {searchable && (
           <CommandInput
             placeholder={searchPlaceholder}
@@ -137,15 +141,16 @@ const ComboBoxOptions: React.FC<{
           />
         )}
         <CommandList>
-          <CommandEmpty>
-            {isSearching ? (
-              <div className="flex justify-center items-center w-full">
-                <FaSpinner className="animate-spin" />
-              </div>
-            ) : (
-              emptyLabel ?? "No results found."
-            )}
-          </CommandEmpty>
+          {isLoading && (
+            <CommandEmpty>
+              {loadingElement ?? (
+                <div className="flex justify-center items-center w-full">
+                  <FaSpinner className="animate-spin" />
+                </div>
+              )}
+            </CommandEmpty>
+          )}
+          {emptyElement && <CommandEmpty>{emptyElement}</CommandEmpty>}
           <CommandGroup>{children}</CommandGroup>
         </CommandList>
       </Command>
@@ -155,15 +160,16 @@ const ComboBoxOptions: React.FC<{
 
 const ComboBoxOption: React.FC<{
   value: string;
+  disabled?: boolean;
   children: React.ReactNode;
-}> = ({ value, children }) => {
+}> = ({ value, disabled, children }) => {
   const { setValue, close } = useComboBox();
   const handleSelect = (value: string) => {
     setValue(value);
     close();
   };
   return (
-    <CommandItem onSelect={handleSelect} value={value}>
+    <CommandItem onSelect={handleSelect} value={value} disabled={disabled}>
       {children}
     </CommandItem>
   );
