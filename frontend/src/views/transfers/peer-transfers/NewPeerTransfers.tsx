@@ -15,7 +15,7 @@ import {
   StepsIndicators,
 } from "@/components/ui/steps";
 import useAppHeader from "@/hooks/context/useAppHeader";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { FaArrowRight } from "react-icons/fa6";
 import { StyledFilePicker } from "@/components/ui/file-picker";
@@ -32,9 +32,23 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { p2pTransferSchema } from "@/lib/validators";
 import { z } from "zod";
 import { devOnly } from "@/utils/dev";
+import useDebounceCallback from "@/hooks/utils/useDebounceCallback";
+import { useSearchUsersByEmail } from "@/hooks/queries";
+import Skeleton from "@mui/material/Skeleton";
 
 const NewPeerTransfer = () => {
   const { setHeaderTitle } = useAppHeader();
+  const [emailSearch, setEmailSearch] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const debouncedEmailSearch = useDebounceCallback(
+    (value: string) => setEmailSearch(value),
+    300
+  );
+  const {
+    data: emailResults,
+    isLoading: isEmailLoading,
+    isSuccess: isEmailSearchSuccess,
+  } = useSearchUsersByEmail({ query: emailSearch });
 
   const form = useForm({
     resolver: zodResolver(p2pTransferSchema),
@@ -46,6 +60,12 @@ const NewPeerTransfer = () => {
   });
 
   const handleFileChange = (fileList: FileList) => {
+    if (fileList.length === 0) return;
+
+    // Update local state for P2PTransferHandler
+    setFiles((prev) => [...prev, ...Array.from(fileList)]);
+
+    // Convert FileList to array and map to required structure for new session
     const newFiles = Array.from(fileList).map((file) => ({
       name: file.name,
       size: file.size,
@@ -84,6 +104,13 @@ const NewPeerTransfer = () => {
     toast.success("Form submitted");
   };
 
+  const handleEmailChange = (value: string) => {
+    form.setValue("email", value);
+  };
+
+  const shouldRenderEmails =
+    emailSearch && isEmailSearchSuccess && emailResults?.length > 0;
+
   useEffect(() => {
     setHeaderTitle("Peer Transfer");
   }, [setHeaderTitle]);
@@ -119,23 +146,34 @@ const NewPeerTransfer = () => {
                         <ComboBox
                           initialValue={form.getValues("email")}
                           onValueChange={(value) =>
-                            form.setValue("email", value ?? "")
+                            handleEmailChange(value ?? "")
                           }
                         >
                           <ComboBoxInput placeholder="Search for a user..." />
                           <ComboBoxOptions
                             searchable
-                            isSearching={true}
+                            shouldFilter={false}
+                            isLoading={isEmailLoading}
                             searchPlaceholder="Type to search..."
-                            onSearchChange={(value) => console.log(value)}
-                            emptyLabel="No users found."
+                            onSearchChange={(value) =>
+                              debouncedEmailSearch(value)
+                            }
+                            emptyElement="No user found"
                           >
-                            <ComboBoxOption value="johndoe@example.com">
-                              John Doe
-                            </ComboBoxOption>
-                            <ComboBoxOption value="janedoe@example.com">
-                              Jane Doe
-                            </ComboBoxOption>
+                            {!emailSearch && (
+                              <ComboBoxOption key={"loading"} value="" disabled>
+                                <Skeleton width="75%" height={24} />
+                              </ComboBoxOption>
+                            )}
+                            {shouldRenderEmails &&
+                              emailResults.map((user) => (
+                                <ComboBoxOption
+                                  key={user.id}
+                                  value={user.email}
+                                >
+                                  {user.email}
+                                </ComboBoxOption>
+                              ))}
                           </ComboBoxOptions>
                         </ComboBox>
                       </FormControl>
