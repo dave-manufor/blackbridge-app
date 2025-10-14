@@ -13,4 +13,7 @@ export default {
     details: (id: string) => ["/transfers", "details", id],
     publicLinkDetails: (slug: string) => ["/transfers", "public_link", slug],
   },
+  users: {
+    searchByEmail: (query: string) => ["/users", "search", query],
+  },
 };

@@ -14,6 +14,7 @@ export default {
   },
   user: {
     me: "/users/me",
+    searchUsersByEmail: "/users/search",
     verifyAccount: "/users/me/verify",
     getPublicKeys: "/users/keys",
   },

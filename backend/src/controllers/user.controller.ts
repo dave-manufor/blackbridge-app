@@ -6,6 +6,7 @@ import { requireOtp, verifyToken } from '../middlewares/auth.middleware';
 import db from '../services/db';
 import { bodyValidator } from '../middlewares/validation.middleware';
 import notificationService from '../services/notifications';
+import { prettyZodErrors } from 'utils/zod.utils';
 
 class UserController {
   public path = '/users';
@@ -18,7 +19,7 @@ class UserController {
   }
 
   private initializeRoutes() {
-    // GET /search - Search users by email
+    this.router.get('/search', verifyToken(), this.searchUsersByEmail);
     this.router.get('/me', verifyToken({ bypassVerification: true }), this.getCurrentUser);
     this.router.post('/me/verify', verifyToken({ bypassVerification: true }), requireOtp('ACCOUNT_VERIFICATION'), this.verifyCurrentUserAccount);
     this.router.post('/keys', verifyToken(), this.validateBody('getPublicKeys'), this.getPublicKeys);
@@ -26,6 +27,46 @@ class UserController {
     // PUT /me/password - Update current user password
     // GET /:id/keys - Get public key of a user by ID
   }
+
+  private searchUsersByEmail = async (req: Request, res: Response) => {
+    const query = req.query;
+
+    const querySchema = z.object({
+      search: z.string(),
+    });
+
+    const parseResult = querySchema.safeParse(query);
+    if (!parseResult.success) {
+      const errors = prettyZodErrors(parseResult.error);
+      res.status(StatusCodesConfig.BAD_REQUEST).json({ message: 'Invalid query parameters', errors });
+      return;
+    }
+
+    const { search } = parseResult.data;
+
+    try {
+      const users = await db.users.findMany({
+        where: {
+          email: {
+            startsWith: search,
+          },
+        },
+        select: {
+          id: true,
+          email: true,
+        },
+        take: 10,
+      });
+
+      res.status(StatusCodesConfig.OK).json({
+        message: 'Users retrieved successfully',
+        data: users,
+      });
+    } catch (error) {
+      this.userLogger.error(error, 'Error searching users by email');
+      res.status(StatusCodesConfig.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error' });
+    }
+  };
 
   private getCurrentUser = async (req: Request, res: Response) => {
     const { userId } = req.session;
