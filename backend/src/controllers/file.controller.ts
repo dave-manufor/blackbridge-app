@@ -64,6 +64,15 @@ class FileController {
         return;
       }
 
+      // Check if size is within limits
+      // TODO: Use plan-specific limits
+      if (size > bucketConfig.MAX_FILE_SIZE) {
+        res.status(StatusCodes.BAD_REQUEST).json({
+          message: `File size exceeds maximum limit of ${bucketConfig.MAX_FILE_SIZE} bytes`,
+        });
+        return;
+      }
+
       // Generate file ID
       const fileId = uuid_v4();
 
