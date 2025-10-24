@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import {
   LINK_TRANSFER_ACCESS_CONTROL,
+  MAX_TRANSFER_FILE_SIZE,
   TRANSFER_DURATIONS,
 } from "@/config/constants/transfers";
 import { Card } from "@/components/ui/card";
@@ -98,8 +99,19 @@ const DashboardView = () => {
     "access_control",
   ]);
 
-  const handleFileChange = async (newFiles: FileList) => {
-    setValue("files", [...files, ...Array.from(newFiles)]);
+  const handleFileChange = async (_newFiles: FileList) => {
+    const newFiles = Array.from(_newFiles);
+    const validFiles = newFiles.filter(
+      (file) => file.size <= MAX_TRANSFER_FILE_SIZE
+    );
+    if (validFiles.length < newFiles.length) {
+      toast.error(
+        `Some files were not added because they exceed the maximum size of ${formatFileSize(
+          MAX_TRANSFER_FILE_SIZE
+        )}.`
+      );
+    }
+    setValue("files", [...files, ...validFiles]);
   };
   const handleFileRemove = (index: number) => {
     setValue(
