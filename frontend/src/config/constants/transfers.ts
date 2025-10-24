@@ -44,4 +44,4 @@ export const BASE_SHAREABLE_URL = `${
   import.meta.env.VITE_APP_BASE_URL
 }/p/shares/`;
 
-export const MAX_TRANSFER_FILE_SIZE = 10 * 1024 * 1024; // 10 GB in bytes
+export const MAX_TRANSFER_FILE_SIZE = 10 * 1024 * 1024 * 1024; // 10 GB in bytes
