@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@davemanufor/env-manager": "^1.0.2",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@hookform/resolvers": "^5.0.1",
@@ -25,6 +26,7 @@
     "@radix-ui/react-select": "^2.2.5",
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-tooltip": "^1.2.7",
     "@tailwindcss/vite": "^4.1.3",
@@ -56,6 +58,7 @@
     "react-qr-code": "^2.0.18",
     "react-router": "^7.5.0",
     "recharts": "^2.15.4",
+    "socket.io-client": "^4.8.1",
     "streamsaver": "^2.0.6",
     "tailwind-merge": "^3.1.0",
     "tailwindcss": "^4.1.11",

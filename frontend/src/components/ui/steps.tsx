@@ -289,18 +289,29 @@ export const StepActionButton: React.FC<{
   const [loading, setLoading] = useState(false);
   const { markCompleteAndNext, activeStep } = useSteps();
   const handleAction = async () => {
-    setLoading(true);
-    try {
-      const isValid = await action?.(activeStep);
-      if (isValid) {
-        markCompleteAndNext();
-      }
-    } catch (error) {
-      devOnly(() =>
-        console.error("Error occurred while performing action:", error)
-      );
-    } finally {
-      setLoading(false);
+    if (!action) {
+      markCompleteAndNext();
+      return;
+    }
+
+    const result = action(activeStep);
+    if (result instanceof Promise) {
+      devOnly(() => console.log("Performing async step action..."));
+      setLoading(true);
+      result
+        .then((isValid) => {
+          if (isValid) {
+            markCompleteAndNext();
+          }
+        })
+        .catch((error) => {
+          devOnly(() =>
+            console.error("Error occurred while performing action:", error)
+          );
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     }
   };
   return (

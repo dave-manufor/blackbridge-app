@@ -154,12 +154,12 @@ const AppSideBar = () => {
         activeIcon: IoFileTray,
         url: "/requests",
       },
-      {
-        label: "Branding Settings",
-        defaultIcon: MdOutlineDashboardCustomize,
-        activeIcon: MdDashboardCustomize,
-        url: "/branding",
-      },
+      // {
+      //   label: "Branding Settings",
+      //   defaultIcon: MdOutlineDashboardCustomize,
+      //   activeIcon: MdDashboardCustomize,
+      //   url: "/branding",
+      // },
     ],
     footer: [
       {

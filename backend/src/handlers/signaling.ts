@@ -50,6 +50,7 @@ const canUserAccessSession = async (
 const registerSignalingHandlers = () => {
   return (io: Server, socket: Socket) => {
     const joinSignalingSession = async (payload: z.infer<typeof joinSignalingSessionSchema>, callback?: (response: SocketResponse) => void) => {
+      console.log('joinSignalingSession payload', payload);
       const parseResult = joinSignalingSessionSchema.safeParse(payload);
       if (!parseResult.success) {
         const errors = prettyZodErrors(parseResult.error);
@@ -220,7 +221,7 @@ const registerSignalingHandlers = () => {
         }
 
         // Notify other peers in the room about the disconnection
-        socket.to(room_id).emit(SIGNALING_EVENTS.PEER_DISCONNECTED, { room_id, user_id });
+        socket.to(room_id).emit(SIGNALING_EVENTS.PEER_LEFT, { room_id, user_id });
       } catch (err) {
         // Ignore errors during disconnect
       }
@@ -235,22 +236,24 @@ const registerSignalingHandlers = () => {
   };
 };
 
+const roomIdRegex = /^signaling:[0-9a-fA-F-]{36}$/; // UUID v4 format with 'signaling:' prefix
+
 const joinSignalingSessionSchema = z.object({
-  room_id: z.string().uuid(),
+  room_id: z.string().regex(roomIdRegex, 'Invalid signaling room id format'),
 });
 
 const handleOfferSchema = z.object({
-  room_id: z.string().uuid(),
+  room_id: z.string().regex(roomIdRegex, 'Invalid signaling room id format'),
   offer: z.string().refine((val) => PGPValidator.isValidPGPMessage(val), { message: 'Invalid PGP armored message' }),
 });
 
 const handleAnswerSchema = z.object({
-  room_id: z.string().uuid(),
+  room_id: z.string().regex(roomIdRegex, 'Invalid signaling room id format'),
   answer: z.string().refine((val) => PGPValidator.isValidPGPMessage(val), { message: 'Invalid PGP armored message' }),
 });
 
 const handleCandidatesSchema = z.object({
-  room_id: z.string().uuid(),
+  room_id: z.string().regex(roomIdRegex, 'Invalid signaling room id format'),
   candidates: z.array(z.string().refine((val) => PGPValidator.isValidPGPMessage(val), { message: 'Invalid PGP armored message' })),
 });
 

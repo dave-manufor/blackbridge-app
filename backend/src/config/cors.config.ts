@@ -5,6 +5,6 @@ if (!process.env.CROSS_ORIGIN) {
 }
 
 export default {
-  origins: process.env.CROSS_ORIGIN ? process.env.CROSS_ORIGIN.split(',') : ['http://localhost:5174'],
+  origins: process.env.CROSS_ORIGIN ? process.env.CROSS_ORIGIN.split(',') : ['https://localhost:5174'],
   credentials: true,
 };

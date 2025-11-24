@@ -24,8 +24,11 @@ model Users{
   link_accesses LinkAccess[]
   link_downloads LinkTransferDownloads[]
   invites Invites[]
+  brand_settings BrandSettings?
   p2p_sessions_sent P2PSessions[] @relation("SenderP2P")
   p2p_sessions_received P2PSessions[] @relation("ReceiverP2P")
+  transfer_requests_made TransferRequests[] @relation("RequesterTransferRequests")
+  transfer_requests_received TransferRequests[] @relation("RecipientTransferRequests")
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   @@index([email], name: "idx_user_email")
@@ -137,6 +140,7 @@ model Transfers{
   updated_at DateTime @updatedAt
   email_transfers EmailTransfers[]
   link_transfer LinkTransfers?
+  request TransferRequests?
   files Files[]
   invites Invites[]
   owner Users @relation(fields: [owner_user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
@@ -247,8 +251,10 @@ enum P2P_SESSION_STATUS {
 
 model P2PSessions {
   id String @db.Uuid @id @default(uuid()) @unique
+  owner_key String?
+  receiver_key String?
   description String?
-  room_id String @db.Uuid @unique
+  room_id String @unique
   sender_id String @db.Uuid
   sender_socket_id String?
   receiver_id String @db.Uuid
@@ -261,4 +267,44 @@ model P2PSessions {
   receiver Users @relation("ReceiverP2P", fields: [receiver_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   @@index([sender_id], name: "idx_p2p_session_sender_id")
   @@index([receiver_id], name: "idx_p2p_session_receiver_id")
+}
+
+enum TRANSFER_REQUEST_STATUS {
+  PENDING
+  FULFILLED
+  REJECTED
+}
+
+model TransferRequests {
+  id String @db.Uuid @id @default(uuid()) @unique
+  title String
+  requester_id String @db.Uuid
+  recipient_id String @db.Uuid
+  transfer_id String? @db.Uuid @unique
+  description String?
+  files Json @db.JsonB
+  status TRANSFER_REQUEST_STATUS @default(PENDING)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  requester Users @relation("RequesterTransferRequests", fields: [requester_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  recipient Users @relation("RecipientTransferRequests", fields: [recipient_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  transfer Transfers? @relation(fields: [transfer_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  @@unique([requester_id, transfer_id], name: "unique_requester_per_transfer")
+  @@index([transfer_id], name: "idx_transfer_request_transfer_id")
+  @@index([recipient_id], name: "idx_transfer_request_recipient_id")
+  @@index([requester_id], name: "idx_transfer_request_requester_id")
+  @@index([status], name: "idx_transfer_request_status")
+}
+
+model BrandSettings {
+  id String @db.Uuid @id @default(uuid()) @unique
+  enabled Boolean @default(false)
+  user_id String @db.Uuid @unique
+  name String
+  logo String?
+  primary_color String?
+  secondary_color String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  owner Users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 }

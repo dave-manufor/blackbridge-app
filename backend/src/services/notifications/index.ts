@@ -153,7 +153,7 @@ const notificationService = {
       }>;
     },
   ) => {
-    const url = `${baseAppUrl}/transfers/peer/${transferDetails.session_id}`;
+    const url = `${baseAppUrl}/peer/${transferDetails.session_id}`;
     await resend.emails.send({
       from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
       to: email,

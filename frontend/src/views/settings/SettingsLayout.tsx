@@ -20,6 +20,9 @@ const SettingsLayout = () => {
             <NavigationTabsTrigger to="/settings/account">
               Account
             </NavigationTabsTrigger>
+            <NavigationTabsTrigger to="/settings/brand">
+              Brand
+            </NavigationTabsTrigger>
             <NavigationTabsTrigger to="/settings/billing">
               Billing
             </NavigationTabsTrigger>
