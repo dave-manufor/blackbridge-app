@@ -13,7 +13,7 @@ model Users{
   id String @db.Uuid @id @default(uuid()) @unique
   email String @unique
   verified Boolean @default(false)
-  profile_picture String? @db.Uuid
+  profile_picture String?
   salt String
   verifier String
   sessions Sessions[]
@@ -25,8 +25,8 @@ model Users{
   link_downloads LinkTransferDownloads[]
   invites Invites[]
   brand_settings BrandSettings?
-  p2p_sessions_sent P2PSessions[] @relation("SenderP2P")
-  p2p_sessions_received P2PSessions[] @relation("ReceiverP2P")
+  p2p_sessions_sent PeerTransferSessions[] @relation("sender")
+  p2p_sessions_received PeerTransferSessions[] @relation("receiver")
   transfer_requests_made TransferRequests[] @relation("RequesterTransferRequests")
   transfer_requests_received TransferRequests[] @relation("RecipientTransferRequests")
   created_at DateTime @default(now())
@@ -249,24 +249,27 @@ enum P2P_SESSION_STATUS {
   CLOSED
 }
 
-model P2PSessions {
-  id String @db.Uuid @id @default(uuid()) @unique
-  owner_key String?
-  receiver_key String?
-  description String?
-  room_id String @unique
-  sender_id String @db.Uuid
-  sender_socket_id String?
-  receiver_id String @db.Uuid
-  receiver_socket_id String?
-  status P2P_SESSION_STATUS @default(ACTIVE)
-  files_meta Json[] @db.JsonB
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  sender Users @relation("SenderP2P", fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  receiver Users @relation("ReceiverP2P", fields: [receiver_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  @@index([sender_id], name: "idx_p2p_session_sender_id")
-  @@index([receiver_id], name: "idx_p2p_session_receiver_id")
+model PeerTransferSessions {
+  id                  String             @id @default(uuid()) @db.Uuid
+  room_id             String             @unique
+  sender_id           String             @db.Uuid
+  receiver_id         String             @db.Uuid
+  owner_key           String
+  recipient_key       String
+  files_meta          Json?
+  sender_socket_id    String?
+  receiver_socket_id  String?
+  status              P2P_SESSION_STATUS @default(ACTIVE)
+  dismissed_at        DateTime?
+  created_at          DateTime           @default(now())
+  updated_at          DateTime           @updatedAt
+  sender              Users              @relation("sender", fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  receiver            Users              @relation("receiver", fields: [receiver_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([sender_id], name: "idx_p2p_sender_id")
+  @@index([receiver_id], name: "idx_p2p_receiver_id")
+  @@index([status], name: "idx_p2p_status")
+  @@map("peer_transfer_sessions")
 }
 
 enum TRANSFER_REQUEST_STATUS {
@@ -297,14 +300,18 @@ model TransferRequests {
 }
 
 model BrandSettings {
-  id String @db.Uuid @id @default(uuid()) @unique
-  enabled Boolean @default(false)
-  user_id String @db.Uuid @unique
-  name String
-  logo String?
-  primary_color String?
-  secondary_color String?
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  owner Users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id              String   @id @default(uuid()) @db.Uuid
+  user_id         String   @unique @db.Uuid
+  name            String
+  logo            String?
+  logo_mark       String?
+  primary_color   String
+  secondary_color String
+  enabled         Boolean  @default(true)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  user Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("brand_settings")
 }

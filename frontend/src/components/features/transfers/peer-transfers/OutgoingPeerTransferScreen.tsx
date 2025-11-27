@@ -4,11 +4,20 @@ import PeerTransferManager, {
   PeerTransferMode,
   PeerTransferState,
 } from "@/lib/transfer/PeerTransferManager";
-import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { LuLoaderCircle } from "react-icons/lu";
-import { FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
+import { LuLoaderCircle, LuWifi } from "react-icons/lu";
+import { FaCheckCircle, FaExclamationCircle, FaFile } from "react-icons/fa";
 import { devOnly, isDevEnvironment } from "@/utils/dev";
+import { Card } from "@/components/ui/card";
+import { P2PSessionProgress } from "@/lib/storage/p2pStorageKeys";
+
+const formatSize = (bytes: number) => {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+};
 
 const OutgoingPeerTransferScreen = ({
   transferData,
@@ -27,7 +36,14 @@ const OutgoingPeerTransferScreen = ({
     PeerTransferState.IDLE
   );
   const [progress, setProgress] = useState(0); // 0.0 to 1.0
+  const [progressDetails, setProgressDetails] = useState<P2PSessionProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [speed, setSpeed] = useState<string>("0 MB/s");
+  const [eta, setEta] = useState<string>("--");
+
+  // Speed calculation refs
+  const lastBytesRef = useRef<number>(0);
+  const lastTimeRef = useRef<number>(Date.now());
 
   useEffect(() => {
     // Ensure this effect runs only once on mount
@@ -38,8 +54,33 @@ const OutgoingPeerTransferScreen = ({
       onStateChange: (newState: PeerTransferState) => {
         setStatus(newState);
       },
-      onProgress: (newProgress: number) => {
+      onProgress: (newProgress: number, details?: P2PSessionProgress) => {
         setProgress(newProgress);
+        if (details) {
+          setProgressDetails(details);
+          
+          // Calculate speed and ETA
+          const now = Date.now();
+          const timeDiff = (now - lastTimeRef.current) / 1000; // seconds
+          
+          if (timeDiff >= 1) { // Update every second
+            const bytesDiff = details.overallBytesTransferred - lastBytesRef.current;
+            const bytesPerSec = bytesDiff / timeDiff;
+            
+            setSpeed(`${formatSize(bytesPerSec)}/s`);
+            
+            if (bytesPerSec > 0) {
+              const remainingBytes = details.overallTotalBytes - details.overallBytesTransferred;
+              const secondsRemaining = remainingBytes / bytesPerSec;
+              setEta(secondsRemaining < 60 
+                ? `${Math.ceil(secondsRemaining)}s` 
+                : `${Math.ceil(secondsRemaining / 60)}m`);
+            }
+
+            lastBytesRef.current = details.overallBytesTransferred;
+            lastTimeRef.current = now;
+          }
+        }
       },
       onError: (err: Error) => {
         devOnly(() => console.error("Peer Transfer Error:", err));
@@ -61,6 +102,9 @@ const OutgoingPeerTransferScreen = ({
     );
 
     // 3. Start the transfer
+    if (manager.current.hasResumedState()) {
+      devOnly(() => console.log("Resuming outgoing transfer..."));
+    }
     manager.current.startTransfer();
 
     // 4. Return cleanup function
@@ -72,73 +116,180 @@ const OutgoingPeerTransferScreen = ({
     };
   }, [files, transferData]);
 
-  // Helper to render UI based on state
-  const renderStatus = () => {
+  const getStatusColor = () => {
     switch (status) {
-      case PeerTransferState.CONNECTING_SIGNALING:
-        return (
-          <div className="flex items-center gap-2 text-neutral-500">
-            <LuLoaderCircle className="animate-spin" />
-            Connecting to signaling server...
-          </div>
-        );
-      case PeerTransferState.WAITING_FOR_PEER:
-        return (
-          <div className="flex items-center gap-2 text-neutral-500">
-            <LuLoaderCircle className="animate-spin" />
-            Waiting for recipient to join...
-          </div>
-        );
-      case PeerTransferState.CONNECTING_WEBRTC:
-        return (
-          <div className="flex items-center gap-2 text-neutral-500">
-            <LuLoaderCircle className="animate-spin" />
-            Establishing secure P2P connection...
-          </div>
-        );
-      case PeerTransferState.TRANSFER_IN_PROGRESS:
-        return (
-          <div className="flex flex-col items-center gap-4 w-full">
-            <span className="text-xl font-medium">Sending files...</span>
-            <Progress value={progress * 100} className="w-full" />
-            <span className="text-sm text-neutral-500">
-              {Math.round(progress * 100)}%
-            </span>
-          </div>
-        );
-      case PeerTransferState.COMPLETED:
-        return (
-          <div className="flex items-center gap-2 text-green-600">
-            <FaCheckCircle />
-            Transfer complete!
-          </div>
-        );
-      case PeerTransferState.FAILED:
-        return (
-          <div className="flex items-center gap-2 text-red-600">
-            <FaExclamationCircle />
-            Transfer failed: {error}
-          </div>
-        );
-      case PeerTransferState.CLOSED:
-        return <span className="text-neutral-500">Connection closed.</span>;
-      default:
-        return null;
+      case PeerTransferState.COMPLETED: return "text-green-500";
+      case PeerTransferState.FAILED: return "text-red-500";
+      case PeerTransferState.TRANSFER_IN_PROGRESS: return "text-blue-500";
+      default: return "text-neutral-500";
+    }
+  };
+
+  const getStatusMessage = () => {
+    switch (status) {
+      case PeerTransferState.IDLE: return "Initializing...";
+      case PeerTransferState.CONNECTING_SIGNALING: return "Connecting to signaling server...";
+      case PeerTransferState.WAITING_FOR_PEER: return "Waiting for recipient to join...";
+      case PeerTransferState.CONNECTING_WEBRTC: return "Establishing secure P2P connection...";
+      case PeerTransferState.CONNECTION_ESTABLISHED: return "Connected! Starting transfer...";
+      case PeerTransferState.TRANSFER_IN_PROGRESS: return "Sending files...";
+      case PeerTransferState.COMPLETED: return "Transfer complete!";
+      case PeerTransferState.FAILED: return "Transfer failed";
+      case PeerTransferState.CLOSED: return "Connection closed";
+      default: return "";
     }
   };
 
   return (
-    <div className="w-full max-w-lg mx-auto p-8 flex flex-col items-center gap-6">
-      <h2 className="text-2xl font-semibold">Sending Transfer</h2>
-      <div className="p-4">{renderStatus()}</div>
-      <Button
-        variant="outline"
-        onClick={() => {
-          manager.current?.close();
-        }}
-      >
-        Cancel
-      </Button>
+    <div className="w-full max-w-4xl mx-auto p-6 space-y-8">
+      {/* Header Status */}
+      <div className="text-center space-y-2">
+        <h2 className="text-2xl font-bold text-neutral-900">Sending Transfer</h2>
+        <div className={`flex items-center justify-center gap-2 ${getStatusColor()}`}>
+          {status === PeerTransferState.TRANSFER_IN_PROGRESS ? (
+            <LuLoaderCircle className="animate-spin w-5 h-5" />
+          ) : status === PeerTransferState.COMPLETED ? (
+            <FaCheckCircle className="w-5 h-5" />
+          ) : status === PeerTransferState.FAILED ? (
+            <FaExclamationCircle className="w-5 h-5" />
+          ) : (
+            <LuWifi className="w-5 h-5" />
+          )}
+          <span className="font-medium">{getStatusMessage()}</span>
+        </div>
+        {error && <p className="text-red-500 text-sm">{error}</p>}
+      </div>
+
+      {/* Main Progress Card */}
+      <Card className="p-8 bg-white border-neutral-200 shadow-sm">
+        <div className="flex flex-col md:flex-row items-center gap-8">
+          {/* Circular Progress */}
+          <div className="relative w-48 h-48 flex-shrink-0">
+            <svg className="w-full h-full transform -rotate-90">
+              <circle
+                cx="96"
+                cy="96"
+                r="88"
+                className="stroke-neutral-100"
+                strokeWidth="12"
+                fill="none"
+              />
+              <circle
+                cx="96"
+                cy="96"
+                r="88"
+                className="stroke-primary-600 transition-all duration-500 ease-out"
+                strokeWidth="12"
+                fill="none"
+                strokeDasharray={2 * Math.PI * 88}
+                strokeDashoffset={2 * Math.PI * 88 * (1 - progress)}
+                strokeLinecap="round"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-4xl font-bold text-neutral-900 tabular-nums">
+                {Math.round(progress * 100)}%
+              </span>
+              <span className="text-sm text-neutral-500 mt-1 tabular-nums">
+                {status === PeerTransferState.COMPLETED ? "Done" : eta + " remaining"}
+              </span>
+            </div>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="flex-1 grid grid-cols-2 gap-6 w-full">
+            <div className="space-y-1">
+              <p className="text-sm text-neutral-500">Transfer Speed</p>
+              <p className="text-2xl font-semibold text-neutral-900 tabular-nums">
+                {status === PeerTransferState.TRANSFER_IN_PROGRESS ? speed : "--"}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-neutral-500">Data Transferred</p>
+              <p className="text-2xl font-semibold text-neutral-900 tabular-nums">
+                {progressDetails 
+                  ? `${formatSize(progressDetails.overallBytesTransferred)} / ${formatSize(progressDetails.overallTotalBytes)}`
+                  : "--"}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-neutral-500">Files Completed</p>
+              <p className="text-2xl font-semibold text-neutral-900 tabular-nums">
+                {progressDetails 
+                  ? `${progressDetails.files.filter(f => f.status === 'complete').length} / ${progressDetails.files.length}`
+                  : "--"}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-neutral-500">Connection Quality</p>
+              <div className="flex items-center gap-2 text-green-600">
+                <LuWifi className="w-5 h-5" />
+                <span className="font-medium">Excellent</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* File List */}
+      {progressDetails && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-neutral-900">Files</h3>
+          <div className="grid gap-3">
+            {progressDetails.files.map((file, index) => (
+              <div 
+                key={index}
+                className={`p-4 rounded-lg border flex items-center justify-between transition-colors ${
+                  file.status === 'transferring' 
+                    ? 'bg-primary-50 border-primary-200' 
+                    : 'bg-white border-neutral-200'
+                }`}
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`p-2 rounded-full ${
+                    file.status === 'complete' ? 'bg-green-100 text-green-600' :
+                    file.status === 'transferring' ? 'bg-primary-100 text-primary-600' :
+                    'bg-neutral-100 text-neutral-400'
+                  }`}>
+                    <FaFile className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-neutral-900">{file.name}</p>
+                    <p className="text-xs text-neutral-500 tabular-nums">
+                      {formatSize(file.bytesTransferred)} / {formatSize(file.totalBytes)}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  {file.status === 'transferring' && (
+                    <span className="text-xs font-medium text-primary-600 animate-pulse">
+                      Sending...
+                    </span>
+                  )}
+                  {file.status === 'complete' && (
+                    <FaCheckCircle className="w-5 h-5 text-green-500" />
+                  )}
+                  {file.status === 'queued' && (
+                    <span className="text-xs text-neutral-400">Queued</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-center">
+        <Button
+          variant="outline"
+          onClick={() => {
+            manager.current?.close();
+          }}
+        >
+          Cancel Transfer
+        </Button>
+      </div>
     </div>
   );
 };

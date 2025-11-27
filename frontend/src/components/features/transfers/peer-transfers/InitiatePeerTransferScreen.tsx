@@ -290,6 +290,7 @@ const InitiatePeerTransferScreen = ({
                     .map((file, index) => (
                       <FileCard
                         key={`${file.name}-${index}`}
+                        className="my-2"
                         variant="form"
                         contentType={file.content_type}
                         name={file.name}

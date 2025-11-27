@@ -12,7 +12,7 @@ const ToastWrapper = () => {
         duration: 5000,
         style: {
           background: "var(--surface-foreground)",
-          color: "var(--neutral-500)",
+          color: "var(--neutral-0)",
         },
 
         // Default options for specific types

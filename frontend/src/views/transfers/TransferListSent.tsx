@@ -1,9 +1,7 @@
-import transferStyles from "./TransferStyles.module.css";
 import TransferListEmptyState from "@/components/features/transfers/TransferListEmptyState";
 import TransferSummaryCard from "@/components/features/transfers/TransferSummaryCard";
 import TransferSummaryCardSkeleton from "@/components/features/transfers/TransferSummaryCardSkeleton";
 import GenericErrorState from "@/components/ui/GenericErrorState";
-import GridSection from "@/components/ui/GridSection";
 import { PaginationControls } from "@/components/ui/pagination";
 import {
   TRANSFER_DIRECTION,
@@ -26,40 +24,44 @@ const TransferListSent = () => {
   };
   const { isPending, isError, data } = useGetTransfersQuery(query);
   return (
-    <GridSection>
-      {isError && <GenericErrorState className={transferStyles.state} />}
+    <div className="flex flex-col gap-8">
+      {isError && <GenericErrorState className="col-span-full" />}
       {!isPending && data?.data && data.data.length === 0 && (
-        <TransferListEmptyState className={transferStyles.state} />
+        <TransferListEmptyState className="col-span-full" />
       )}
-      {isPending &&
-        Array.from({ length: limit ? Math.min(8, limit) : 8 }).map(
-          (_, index) => (
-            <TransferSummaryCardSkeleton
-              className={transferStyles.transfer_card}
-              key={index}
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {isPending &&
+          Array.from({ length: limit ? Math.min(8, limit) : 8 }).map(
+            (_, index) => (
+              <TransferSummaryCardSkeleton
+                className="w-full"
+                key={index}
+              />
+            )
+          )}
+        {!isError &&
+          data?.data &&
+          data.data.length > 0 &&
+          data.data.map((transfer) => (
+            <TransferSummaryCard
+              className="w-full"
+              key={transfer.id}
+              id={transfer.id}
+              is_viewed={transfer.is_viewed}
+              is_owner={transfer.is_owner}
+              recommended_title={transfer.recommended_title}
+              files={transfer.files}
+              total_files_size_bytes={transfer.total_files_size_bytes}
+              status={transfer.status}
+              transfer_type={transfer.transfer_type}
             />
-          )
-        )}
-      {!isError &&
-        data?.data &&
-        data.data.length > 0 &&
-        data.data.map((transfer) => (
-          <TransferSummaryCard
-            className={transferStyles.transfer_card}
-            key={transfer.id}
-            id={transfer.id}
-            is_viewed={transfer.is_viewed}
-            is_owner={transfer.is_owner}
-            recommended_title={transfer.recommended_title}
-            files={transfer.files}
-            total_files_size_bytes={transfer.total_files_size_bytes}
-            status={transfer.status}
-            transfer_type={transfer.transfer_type}
-          />
-        ))}
+          ))}
+      </div>
+
       {!isPending && !isError && data?.data && data.data.length > 0 && (
         <PaginationControls
-          className={transferStyles.pagination_controls}
+          className="mt-4"
           currentPage={data?.pagination.page || 1}
           hasPreviousPage={data?.pagination.hasPreviousPage || false}
           hasNextPage={data?.pagination.hasNextPage || false}
@@ -69,7 +71,7 @@ const TransferListSent = () => {
           onSetPage={(page) => pageDispatch({ type: "SET", payload: page })}
         />
       )}
-    </GridSection>
+    </div>
   );
 };
 

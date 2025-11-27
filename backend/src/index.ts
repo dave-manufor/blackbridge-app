@@ -7,7 +7,7 @@ import cookieParser from 'cookie-parser';
 import useragent from 'express-useragent';
 import { initCache } from './services/cache';
 import logger, { httpLogger } from './lib/logger';
-import { HomeController, AuthController, UserController, FileController, TransferController } from './controllers';
+import { HomeController, AuthController, UserController, FileController, TransferController, ImageController } from './controllers';
 import { initDB } from './services/db';
 import AWS from 'aws-sdk';
 import nocache from 'nocache';
@@ -45,7 +45,14 @@ const server: App = new App({
     useragent.express(),
     httpLogger,
   ],
-  controllers: [new HomeController(), new AuthController(), new UserController(), new FileController(), new TransferController()],
+  controllers: [
+    new HomeController(),
+    new AuthController(),
+    new UserController(),
+    new FileController(),
+    new TransferController(),
+    new ImageController(),
+  ],
   eventHandlers: [registerSignalingHandlers()],
   eventMiddlewares: [verifyTokenSocket()],
 });

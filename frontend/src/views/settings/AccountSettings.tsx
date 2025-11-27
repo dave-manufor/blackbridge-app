@@ -6,8 +6,8 @@ import {
   ModalFooter,
   ModalHeader,
 } from "@/components/overlay/modal";
-import { StyledAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   Form,
   FormField,
@@ -15,7 +15,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import GridSection from "@/components/ui/GridSection";
 import { PasswordInput } from "@/components/ui/input";
 import {
   InputOTP,
@@ -39,77 +38,96 @@ import { toast } from "react-hot-toast";
 import { LuLoaderCircle } from "react-icons/lu";
 import { MdOutlinePassword } from "react-icons/md";
 import { z } from "zod";
+import useAppHeader from "@/hooks/context/useAppHeader";
+import { ImageUpload } from "@/components/ui/ImageUpload";
+import { useUploadProfilePicture, useDeleteProfilePicture } from "@/hooks/mutations/useUploadProfilePicture";
 
 const AccountSettings = () => {
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const user = useAuthStore((state) => state.user);
+  const { setHeaderTitle } = useAppHeader();
+  const uploadProfilePicture = useUploadProfilePicture();
+  const deleteProfilePicture = useDeleteProfilePicture();
+
   const handleOpenPasswordModal = () => {
     setShowChangePasswordModal(true);
   };
   const handleClosePasswordModal = () => {
     setShowChangePasswordModal(false);
   };
+
+  useEffect(() => {
+    setHeaderTitle("Account Settings");
+  }, [setHeaderTitle]);
+
   return (
-    <>
-      <GridSection>
-        <div className="col-span-full flex flex-col items-center">
-          <div className="flex items-center gap-4 mb-8 max-sm:flex-col sm:gap-2">
-            <StyledAvatar
-              className="size-18"
-              profile_url={user?.profile_picture || undefined}
-            />
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <Button>Upload Image</Button>
-                <Button variant="secondary">Remove Image</Button>
-              </div>
-              <span className="text-[14px] text-neutral-400 font-light">
-                We support JPEG and PNG under 2MB
-              </span>
-            </div>
+    <div className="space-y-8">
+      <div className="flex flex-col gap-2">
+        <h2 className="text-xl font-semibold text-neutral-900">Account Settings</h2>
+        <p className="text-sm text-neutral-500">Manage your account preferences and security.</p>
+      </div>
+
+      {/* Profile Picture Section */}
+      <Card className="p-6">
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold text-neutral-900">Profile Picture</h3>
+            <p className="text-sm text-neutral-500 mt-1">Upload a profile picture to personalize your account</p>
           </div>
-          <div className=" flex gap-12">
-            <div className="flex flex-col gap-1 text-center max-sm:text-left">
-              <h4>Email</h4>
-              <span className="text-[14px] text-neutral-400">
+          <ImageUpload
+            currentImageUrl={user?.profile_picture_url}
+            onUpload={async (file) => { await uploadProfilePicture.mutateAsync(file); }}
+            onDelete={async () => await deleteProfilePicture.mutateAsync()}
+            isUploading={uploadProfilePicture.isPending}
+            isDeleting={deleteProfilePicture.isPending}
+            maxSizeMB={5}
+          />
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <div className="flex flex-col items-center">
+          <div className="flex gap-16 w-full justify-center border-t border-neutral-100 pt-6">
+            <div className="flex flex-col gap-1 text-center">
+              <h4 className="font-medium text-neutral-900">Email</h4>
+              <span className="text-sm text-neutral-500">
                 {user?.email}
               </span>
             </div>
-            <div className="flex flex-col gap-1 text-center max-sm:text-left">
-              <h4>Current Plan</h4>
-              <span className="text-[14px] text-neutral-400">
+            <div className="flex flex-col gap-1 text-center">
+              <h4 className="font-medium text-neutral-900">Current Plan</h4>
+              <span className="text-sm text-neutral-500">
                 {"Free Plan"}
               </span>
             </div>
           </div>
         </div>
-      </GridSection>
-      <GridSection>
-        <div className="col-span-full">
-          <hr className="h-[1px] text-neutral-200 w-full" />
+      </Card>
+
+      <div className="flex flex-col gap-4">
+        <h3 className="text-lg font-semibold text-neutral-900">Security</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <ActionCard
+            title="Change Password"
+            description="If you suspect your account has been compromised, update your password immediately to protect your files and data. This will log you out of all other devices."
+            actionLabel="Change Password"
+            onAction={handleOpenPasswordModal}
+          />
+          <ActionCard
+            title="Delete Account"
+            description="This action is irreversible. Deleting your account will permanently remove all your data, including files, settings, and preferences."
+            actionLabel="Delete Account"
+            isDestructive
+            disabled
+            onAction={() => {}}
+          />
         </div>
-      </GridSection>
-      <GridSection>
-        <ActionCard
-          title="Change Password"
-          description="If you suspect your account has been compromised, update your password immediately to protect your files and data. This will log you out of all other devices."
-          actionLabel="Change Password"
-          onAction={handleOpenPasswordModal}
-        />
-        <ActionCard
-          title="Delete Account"
-          description="This action is irreversible. Deleting your account will permanently remove all your data, including files, settings, and preferences."
-          actionLabel="Delete Account"
-          isDestructive
-          disabled
-          onAction={() => {}}
-        />
-      </GridSection>
+      </div>
       <ChangePasswordModal
         isOpen={showChangePasswordModal}
         onClose={handleClosePasswordModal}
       />
-    </>
+    </div>
   );
 };
 
@@ -129,21 +147,22 @@ const ActionCard = ({
   onAction: () => void;
 }) => {
   return (
-    <div className="col-span-full max-w-[652px] mx-auto border border-neutral-200 rounded-lg overflow-hidden">
-      <div className="w-full flex flex-col gap-4 p-4 border-b border-neutral-200">
-        <span className="text-xl font-semibold mb-2">{title}</span>
-        <p className="text-[14px] text-neutral-400">{description}</p>
+    <Card className="flex flex-col h-full overflow-hidden">
+      <div className="flex-1 p-6 flex flex-col gap-3">
+        <span className="text-lg font-semibold text-neutral-900">{title}</span>
+        <p className="text-sm text-neutral-500 leading-relaxed">{description}</p>
       </div>
-      <div className="flex justify-end p-2">
+      <div className="p-4 bg-surface-50 border-t border-neutral-100 flex justify-end">
         <Button
           disabled={disabled}
-          variant={isDestructive ? "destructive" : "default"}
+          variant={isDestructive ? "destructive" : "outline"}
           onClick={onAction}
+          className={!isDestructive ? "bg-white" : ""}
         >
           {actionLabel}
         </Button>
       </div>
-    </div>
+    </Card>
   );
 };
 

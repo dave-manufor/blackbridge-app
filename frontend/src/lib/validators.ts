@@ -168,7 +168,6 @@ export const p2pTransferSchema = z.object({
 
 export const brandSettingsSchema = z.object({
   name: z.string().min(1, "Brand name is required"),
-  logo: z.string().url("Invalid URL").optional().or(z.literal("")),
   primary_color: z.string().optional(),
   secondary_color: z.string().optional(),
   enabled: z.boolean().optional(),

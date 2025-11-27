@@ -19,8 +19,7 @@ const ProfileSummary = ({
   return (
     <div className={cn("flex items-center", className)} onClick={onClick}>
       <div className="flex items-center gap-2 overflow-hidden">
-        <StyledAvatar profile_url={profile_url} />
-        <div
+        <StyledAvatar className="size-14" profile_url={profile_url} />  <div
           className={cn("flex flex-col items-start flex-1 overflow-hidden", {
             "text-white": !dark,
           })}

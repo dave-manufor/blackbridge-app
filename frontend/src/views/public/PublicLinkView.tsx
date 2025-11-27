@@ -1,7 +1,5 @@
 import { cn, getContrastingTextColor } from "@/lib/utils";
 import FileCard from "@/components/ui/FileCard";
-import styles from "./PublicLinkView.module.css";
-import GridSection from "@/components/ui/GridSection";
 import ProfileSummary from "@/components/ui/ProfileSummary";
 import storageKeys from "@/config/constants/storageKeys";
 import { useGetLinkDetails } from "@/hooks/queries";
@@ -46,6 +44,7 @@ import {
 import { GoHome } from "react-icons/go";
 import { MdLogout } from "react-icons/md";
 import { IoMenu } from "react-icons/io5";
+import { Card } from "@/components/ui/card";
 
 const PublicLinkView = () => {
   const downloader = useDownloader();
@@ -87,7 +86,7 @@ const PublicLinkView = () => {
     navigate("/sign-in");
   };
 
-  const displayLogo = linkData?.brand_settings?.logo || LogoWhite;
+  const displayLogo = linkData?.brand_settings?.logo_url || LogoWhite;
   const headerBackgroundColor =
     linkData?.brand_settings?.primary_color || "bg-sidebar";
   const headerTextColor = getContrastingTextColor(headerBackgroundColor);
@@ -281,13 +280,13 @@ const PublicLinkView = () => {
   }
 
   return (
-    <div className="w-screen">
+    <div className="w-screen min-h-screen bg-surface-50">
       <header
         className="w-full px-6 h-22 flex items-center justify-between"
         style={{
           backgroundColor: headerBackgroundColor.startsWith("#")
             ? headerBackgroundColor
-            : "",
+            : "#000",
         }}
       >
         <img
@@ -301,14 +300,14 @@ const PublicLinkView = () => {
               <div className="max-sm:hidden cursor-pointer">
                 <ProfileSummary
                   email={user.email}
-                  profile_url={user.profile_picture}
+                  profile_url={user.profile_picture_url || undefined}
                   subText="Free plan"
                   className="text-white cursor-pointer"
                   dark={headerTextColor === "#000000"}
                 />
               </div>
               <StyledAvatar
-                profile_url={user.profile_picture}
+                profile_url={user.profile_picture_url || undefined}
                 className="hidden max-sm:flex cursor-pointer"
               />
             </DropdownMenuTrigger>
@@ -382,7 +381,7 @@ const PublicLinkView = () => {
         )}
       </header>
       <main className="w-full max-w-[1504px] mx-auto px-8 py-8 max-sm:px-6">
-        <div className="w-full">
+        <div className="w-full max-w-4xl mx-auto">
           {/* Skeleton loading UI - Show while data is still fetching or key is yet to be decrypted without error*/}
           {(isPending || !isKeyDecrypted) &&
             !isError &&
@@ -474,14 +473,14 @@ const PublicLinkView = () => {
             )}
           {/* Ready to view UI - Show when all conditions are met and data is loaded*/}
           {readyToView && linkData && (
-            <>
-              <GridSection>
-                <div className={styles.header}>
-                  <div className={styles.header_info}>
-                    <span className={styles.header_title}>
+            <div className="flex flex-col gap-8">
+              <Card className="p-6">
+                <div className="flex items-center justify-between gap-16 border-b border-neutral-200 pb-2 max-md:flex-wrap-reverse max-md:gap-x-8 max-md:gap-y-4">
+                  <div className="flex-grow flex flex-col items-start">
+                    <span className="max-w-[90%] text-2xl font-semibold line-clamp-2 max-lg:max-w-full max-sm:line-clamp-3 max-sm:text-xl">
                       {linkData.recommended_title}
                     </span>
-                    <span className={styles.header_meta}>
+                    <span className="text-sm font-normal text-neutral-400">
                       Created{" "}
                       {formatDistance(
                         new Date(linkData.created_at),
@@ -500,37 +499,38 @@ const PublicLinkView = () => {
                         linkData.transfer.owner.email
                       }
                       profile_url={
-                        linkData.brand_settings?.logo ||
-                        linkData.transfer.owner.profile_picture ||
+                        linkData.brand_settings?.logo_mark_url ||
+                        linkData.transfer.owner.profile_picture_url ||
                         ""
                       }
-                      className={styles.profile_summary}
+                      className="text-neutral-900"
                     />
                   </div>
                   <StyledAvatar
                     profile_url={
-                      linkData.brand_settings?.logo ||
-                      linkData.transfer.owner.profile_picture ||
+                      linkData.brand_settings?.logo_mark_url ||
+                      linkData.transfer.owner.profile_picture_url ||
                       undefined
                     }
                     className="hidden max-sm:flex"
                   />
                 </div>
-              </GridSection>
-              <GridSection>
+              </Card>
+              
+              <Card className="p-6 flex flex-col gap-8">
                 {linkData.transfer.description && (
-                  <div className={styles.description_wrapper}>
-                    <h4 className={styles.description_title}>Description</h4>
-                    <p className={styles.description_text}>
+                  <div className="text-center max-w-2xl mx-auto">
+                    <h4 className="text-lg font-semibold mb-2">Description</h4>
+                    <p className="text-base font-normal text-neutral-400">
                       {linkData.transfer.description}
                     </p>
                   </div>
                 )}
-                <div className={styles.files_section}>
-                  <div className={styles.files_header}>
-                    <h3 className={styles.files_title}>Files</h3>
-                    <div className={styles.files_info}>
-                      <div className={styles.files_summary}>
+                <div className="w-full max-w-2xl mx-auto">
+                  <div className="w-full flex flex-col items-start border-b border-neutral-200 pb-2 mb-2">
+                    <h3 className="text-lg font-semibold">Files</h3>
+                    <div className="w-full flex items-center justify-between gap-4 text-neutral-400 -mt-1">
+                      <div className="flex items-center gap-2">
                         <span>
                           {linkData.total_files_count}{" "}
                           {`file${linkData.total_files_count !== 1 ? "s" : ""}`}
@@ -541,14 +541,14 @@ const PublicLinkView = () => {
                         </span>
                       </div>
                       <div
-                        className={styles.files_download_icon}
+                        className="text-2xl text-black p-2 rounded-md cursor-pointer hover:bg-neutral-100"
                         onClick={handleDownloadAll}
                       >
                         <MdOutlineFileDownload />
                       </div>
                     </div>
                   </div>
-                  <div className={styles.files_list}>
+                  <div className="flex flex-col gap-2 w-full">
                     {linkData.transfer.files.map((file) => (
                       <FileCard
                         key={file.id}
@@ -563,8 +563,8 @@ const PublicLinkView = () => {
                     ))}
                   </div>
                 </div>
-              </GridSection>
-            </>
+              </Card>
+            </div>
           )}
         </div>
       </main>
@@ -574,48 +574,47 @@ const PublicLinkView = () => {
 
 const SkeletonUI = () => {
   return (
-    <>
-      <GridSection>
-        <div className={styles.header}>
-          <div className={styles.header_info}>
-            <span className={styles.header_title}>
+    <div className="flex flex-col gap-8">
+      <Card className="p-6">
+        <div className="flex items-center justify-between gap-16 border-b border-neutral-200 pb-2 max-md:flex-wrap-reverse max-md:gap-x-8 max-md:gap-y-4">
+          <div className="flex-grow flex flex-col items-start">
+            <span className="max-w-[90%] text-2xl font-semibold line-clamp-2 max-lg:max-w-full max-sm:line-clamp-3 max-sm:text-xl">
               <Skeleton className="h-8 w-64 mb-2" />
             </span>
-            <span className={styles.header_meta}>
+            <span className="text-sm font-normal text-neutral-400">
               <Skeleton className="h-4 w-32" />
             </span>
           </div>
           <div className="max-sm:hidden">
-            <div className={styles.profile_summary}>
-              <div className="flex items-center gap-3">
-                <Skeleton className="size-12 rounded-md" />
-                <div className="flex flex-col items-start flex-1 overflow-hidden">
-                  <Skeleton className="h-4 w-32" />
-                </div>
+            <div className="flex items-center gap-3">
+              <Skeleton className="size-12 rounded-md" />
+              <div className="flex flex-col items-start flex-1 overflow-hidden">
+                <Skeleton className="h-4 w-32" />
               </div>
             </div>
           </div>
           <Skeleton className="size-12 rounded-md hidden max-sm:flex" />
         </div>
-      </GridSection>
-      <GridSection>
-        <div className={styles.description_wrapper}>
-          <h4 className={styles.description_title}>
-            <Skeleton className="h-6 w-24 mx-auto" />
+      </Card>
+      
+      <Card className="p-6 flex flex-col gap-8">
+        <div className="text-center max-w-2xl mx-auto w-full">
+          <h4 className="text-lg font-semibold mb-2 flex justify-center">
+            <Skeleton className="h-6 w-24" />
           </h4>
-          <div className={styles.description_text}>
-            <Skeleton className="h-4 w-full mx-auto mb-2" />
-            <Skeleton className="h-4 w-2/3 mx-auto mb-2" />
-            <Skeleton className="h-4 w-1/2 mx-auto" />
+          <div className="text-base font-normal text-neutral-400 flex flex-col items-center">
+            <Skeleton className="h-4 w-full mb-2" />
+            <Skeleton className="h-4 w-2/3 mb-2" />
+            <Skeleton className="h-4 w-1/2" />
           </div>
         </div>
-        <div className={styles.files_section}>
-          <div className={styles.files_header}>
-            <h3 className={styles.files_title}>
+        <div className="w-full max-w-2xl mx-auto">
+          <div className="w-full flex flex-col items-start border-b border-neutral-200 pb-2 mb-2">
+            <h3 className="text-lg font-semibold">
               <Skeleton className="h-6 w-24" />
             </h3>
-            <div className={styles.files_info}>
-              <div className={styles.files_summary}>
+            <div className="w-full flex items-center justify-between gap-4 text-neutral-400 -mt-1">
+              <div className="flex items-center gap-2">
                 <span>
                   <Skeleton className="h-4 w-16" />
                 </span>
@@ -624,19 +623,19 @@ const SkeletonUI = () => {
                   <Skeleton className="h-4 w-24" />
                 </span>
               </div>
-              <div className={styles.files_download_icon}>
+              <div className="text-2xl text-black p-2 rounded-md">
                 <Skeleton className="h-8 w-8" />
               </div>
             </div>
           </div>
-          <div className={styles.files_list}>
+          <div className="flex flex-col gap-2 w-full">
             {Array.from({ length: 4 }).map((_, index) => (
               <FileCardSkeleton key={index} />
             ))}
           </div>
         </div>
-      </GridSection>
-    </>
+      </Card>
+    </div>
   );
 };
 

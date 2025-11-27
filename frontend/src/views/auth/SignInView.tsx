@@ -1,8 +1,6 @@
-import authStyles from "./Auth.module.css";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signInSchema } from "@/lib/validators";
-import Logo from "@/assets/img/blackbridge-logo.svg";
 import {
   Form,
   FormControl,
@@ -19,15 +17,10 @@ import { z } from "zod";
 import { Navigate } from "react-router";
 import { useAuthStore } from "@/stores/authStore";
 import { useShallow } from "zustand/react/shallow";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card";
 import { Link } from "react-router";
 import { SessionStorageService } from "@/lib/WebStorageService";
 import storageKeys from "@/config/constants/storageKeys";
+import AuthLayout from "@/layouts/AuthLayout";
 
 const SignIn = () => {
   const storage = new SessionStorageService();
@@ -69,65 +62,79 @@ const SignIn = () => {
   }
 
   return (
-    <div className={authStyles.container}>
-      <div className={authStyles.banner}>
-        <img
-          src={Logo}
-          alt="Blackbridge Logo"
-          className="max-w-[70%] h-auto mb-4"
-        />
+    <AuthLayout
+      title="Welcome back"
+      subtitle="Enter your details to access your account"
+    >
+      <Form {...form}>
+        <form
+          className="flex flex-col gap-5"
+          onSubmit={form.handleSubmit(onSubmit)}
+        >
+          <FormField
+            name="email"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-neutral-700">Email</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="email" 
+                    placeholder="name@company.com" 
+                    {...field} 
+                    className="h-12 bg-neutral-50 border-neutral-200 focus:border-primary-300 focus:ring-primary-100 rounded-xl"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            name="password"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex items-center justify-between">
+                  <FormLabel className="text-neutral-700">Password</FormLabel>
+                  <Link
+                    to="/forgot-password"
+                    className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <FormControl>
+                  <PasswordInput 
+                    placeholder="Enter your password" 
+                    {...field} 
+                    className="h-12 bg-neutral-50 border-neutral-200 focus:border-primary-300 focus:ring-primary-100 rounded-xl"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          <Button 
+            disabled={authLoading} 
+            type="submit"
+            className="h-12 text-base font-medium rounded-xl shadow-lg shadow-primary-600/20 transition-all mt-2"
+          >
+            {authLoading ? "Signing in..." : "Sign In"}
+          </Button>
+        </form>
+      </Form>
+
+      <div className="text-center text-sm">
+        <span className="text-neutral-500">Don't have an account? </span>
+        <Link 
+          to="/sign-up" 
+          className="font-semibold text-primary-600 hover:text-primary-700 hover:underline transition-colors"
+        >
+          Create account
+        </Link>
       </div>
-      <Card className={authStyles.formWrapper}>
-        <CardHeader className={authStyles.formHeader}>
-          <h1>Sign in to your account</h1>
-          <p>Welcome back! Enter your account details to sign in</p>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form
-              className="max-w-[480px] mt-6 mx-auto flex flex-col gap-4"
-              onSubmit={form.handleSubmit(onSubmit)}
-            >
-              <FormField
-                name="email"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="Email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                name="password"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <PasswordInput placeholder="Password" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button disabled={authLoading} type="submit">
-                Sign In
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-        <CardFooter className={authStyles.formFooter}>
-          Don't have an account?
-          <Link to="/sign-up" className="link font-semibold">
-            Sign Up
-          </Link>
-        </CardFooter>
-      </Card>
-    </div>
+    </AuthLayout>
   );
 };
 

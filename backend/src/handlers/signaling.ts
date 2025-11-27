@@ -1,4 +1,4 @@
-import { P2P_SESSION_STATUS, P2PSessions } from '@prisma/client';
+import { P2P_SESSION_STATUS, PeerTransferSessions } from '@prisma/client';
 import StatusCodes from 'config/StatusCodes.config';
 import { SocketResponse } from 'custom';
 import db from 'services/db';
@@ -26,9 +26,9 @@ export const SIGNALING_EVENTS = {
 const canUserAccessSession = async (
   user_id: string,
   room_id: string,
-): Promise<{ canAccess: true; session: P2PSessions; error?: null } | { canAccess: false; session?: null; error: SocketResponse }> => {
+): Promise<{ canAccess: true; session: PeerTransferSessions; error?: null } | { canAccess: false; session?: null; error: SocketResponse }> => {
   // Check if signaling room exists
-  const session = await db.p2PSessions.findFirst({ where: { room_id } });
+  const session = await db.peerTransferSessions.findFirst({ where: { room_id } });
   if (!session) {
     const response = errorResponse(StatusCodes.NOT_FOUND, 'P2P session not found');
     return { canAccess: false, error: response };
@@ -76,7 +76,7 @@ const registerSignalingHandlers = () => {
         socket.data.signaling = { room_id, sender_id: session.sender_id, receiver_id: session.receiver_id };
 
         // Update user's socket ID in the session
-        await db.p2PSessions.update({
+        await db.peerTransferSessions.update({
           where: { id: session.id },
           data: {
             ...(session.sender_id === user_id ? { sender_socket_id: socket.id } : { receiver_socket_id: socket.id }),
@@ -210,9 +210,9 @@ const registerSignalingHandlers = () => {
         socket.leave(room_id);
 
         // Clear user's socket ID in the session
-        const session = await db.p2PSessions.findFirst({ where: { room_id } });
+        const session = await db.peerTransferSessions.findFirst({ where: { room_id } });
         if (session) {
-          await db.p2PSessions.update({
+          await db.peerTransferSessions.update({
             where: { id: session.id },
             data: {
               ...(session.sender_id === user_id ? { sender_socket_id: null } : { receiver_socket_id: null }),

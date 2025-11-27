@@ -5,6 +5,11 @@ import { CryptoBridge } from "../crypto/workers/CryptoBridge";
 import { SessionKey } from "openpgp";
 import { devOnly } from "@/utils/dev";
 import { ProgressStore } from "./ProgressStore";
+import { 
+  P2P_STORAGE_KEYS, 
+  P2PSessionProgress, 
+  P2PFileProgress 
+} from "@/lib/storage/p2pStorageKeys";
 
 export interface SocketResponse<T = unknown> {
   isError: boolean;
@@ -29,7 +34,7 @@ export enum PeerTransferState {
 
 export type PeerTransferCallbacks = {
   onStateChange?: (state: PeerTransferState) => void;
-  onProgress?: (progress: number) => void; // 0-1
+  onProgress?: (progress: number, details?: P2PSessionProgress) => void; // Updated signature
   onError?: (error: Error) => void;
   onFileReceived?: (file: File) => void;
 };
@@ -233,7 +238,9 @@ type TransferData = {
 
 export type IncomingConfig = {
   mode: PeerTransferMode.INCOMING;
-  transferData: TransferData;
+  transferData: TransferData & {
+    files?: { name: string; size: number; type?: string }[];
+  };
 };
 
 export type OutgoingConfig = {
@@ -446,6 +453,56 @@ abstract class BasePeer<T extends PeerTransferMode> {
     this.dataChannel?.close();
     this.peer?.close();
   }
+
+  // --- Persistence Methods ---
+
+  protected saveProgress(progress: P2PSessionProgress) {
+    try {
+      const key = `${P2P_STORAGE_KEYS.TRANSFER_PROGRESS_PREFIX}${this.manager.transferData.room_id}`;
+      localStorage.setItem(key, JSON.stringify(progress));
+      
+      // Also update latest active session timestamp
+      const latestSessionStr = localStorage.getItem(P2P_STORAGE_KEYS.LATEST_ACTIVE_SESSION);
+      if (latestSessionStr) {
+        const session = JSON.parse(latestSessionStr);
+        if (session.roomId === this.manager.transferData.room_id) {
+          session.lastActivity = Date.now();
+          localStorage.setItem(P2P_STORAGE_KEYS.LATEST_ACTIVE_SESSION, JSON.stringify(session));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to save progress", e);
+    }
+  }
+
+  protected loadProgress(): P2PSessionProgress | null {
+    try {
+      const key = `${P2P_STORAGE_KEYS.TRANSFER_PROGRESS_PREFIX}${this.manager.transferData.room_id}`;
+      const str = localStorage.getItem(key);
+      return str ? JSON.parse(str) : null;
+    } catch (e) {
+      console.error("Failed to load progress", e);
+      return null;
+    }
+  }
+
+  protected clearProgress() {
+    try {
+      const key = `${P2P_STORAGE_KEYS.TRANSFER_PROGRESS_PREFIX}${this.manager.transferData.room_id}`;
+      localStorage.removeItem(key);
+      
+      // Also clear from latest active session if it matches
+      const latestSessionStr = localStorage.getItem(P2P_STORAGE_KEYS.LATEST_ACTIVE_SESSION);
+      if (latestSessionStr) {
+        const session = JSON.parse(latestSessionStr);
+        if (session.roomId === this.manager.transferData.room_id) {
+          localStorage.removeItem(P2P_STORAGE_KEYS.LATEST_ACTIVE_SESSION);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to clear progress", e);
+    }
+  }
 }
 
 // --- Peer 1 (Offerer / Sender) ---
@@ -588,7 +645,7 @@ class OfferPeer extends BasePeer<PeerTransferMode.OUTGOING> {
             console.log(`Receiver ACK file: ${this.currentFileId}`)
           );
           this.currentChunkIndex = 0;
-          this.saveState();
+          this.updateProgress();
           this.sendNextChunk();
         }
         break;
@@ -607,7 +664,7 @@ class OfferPeer extends BasePeer<PeerTransferMode.OUTGOING> {
           this.totalBytesSent += chunk.size;
           this.manager.onProgress(this.totalBytesSent / this.totalTransferSize);
           this.currentChunkIndex = msg.payload.index + 1;
-          this.saveState();
+          this.updateProgress();
           this.sendNextChunk();
         } else {
           devOnly(() =>
@@ -644,14 +701,14 @@ class OfferPeer extends BasePeer<PeerTransferMode.OUTGOING> {
       devOnly(() => console.log("All files sent. Sending TRANSFER_COMPLETE."));
       this.sendControlMessage({ type: MsgType.TRANSFER_COMPLETE });
       this.manager.setState(PeerTransferState.COMPLETED);
-      this.clearState();
+      this.clearProgress();
       return;
     }
 
     this.currentFile = this.fileQueue.shift()!;
     this.currentFileId = this.files.indexOf(this.currentFile).toString();
     this.currentChunkIndex = 0;
-    this.saveState();
+    this.updateProgress();
 
     const header: FileHeader = {
       id: this.currentFileId,
@@ -692,29 +749,65 @@ class OfferPeer extends BasePeer<PeerTransferMode.OUTGOING> {
     await this.sendChunkMessage(new Uint8Array(data));
   }
 
-  private saveState() {
-    const state = {
-      fileQueueNames: this.fileQueue.map((f) => f.name),
-      currentFileId: this.currentFileId,
-      currentChunkIndex: this.currentChunkIndex,
-      totalBytesSent: this.totalBytesSent,
+  private updateProgress() {
+    const filesProgress: P2PFileProgress[] = this.files.map((file, index) => {
+      const isComplete = index < parseInt(this.currentFileId);
+      const isCurrent = index === parseInt(this.currentFileId);
+      
+      let status: 'queued' | 'transferring' | 'complete' | 'error' = 'queued';
+      let bytesTransferred = 0;
+
+      if (isComplete) {
+        status = 'complete';
+        bytesTransferred = file.size;
+      } else if (isCurrent) {
+        status = 'transferring';
+        bytesTransferred = this.currentChunkIndex * this.CHUNK_SIZE;
+        if (bytesTransferred > file.size) bytesTransferred = file.size;
+      }
+
+      return {
+        name: file.name,
+        status,
+        bytesTransferred,
+        totalBytes: file.size,
+      };
+    });
+
+    const progress: P2PSessionProgress = {
+      files: filesProgress,
+      overallBytesTransferred: this.totalBytesSent,
+      overallTotalBytes: this.totalTransferSize,
+      lastUpdated: Date.now(),
     };
-    sessionStorage.setItem(this.stateSessionKey, JSON.stringify(state));
+
+    this.saveProgress(progress);
+    this.manager.onProgress(this.totalBytesSent / this.totalTransferSize, progress);
   }
 
   private loadState() {
-    const stateStr = sessionStorage.getItem(this.stateSessionKey);
-    if (!stateStr) return;
+    const progress = this.loadProgress();
+    if (!progress) return;
 
     try {
-      const state = JSON.parse(stateStr);
-      this.fileQueue = state.fileQueueNames
-        .map((name: string) => this.files.find((f) => f.name === name))
-        .filter(Boolean) as File[];
-      this.currentFileId = state.currentFileId;
-      this.currentFile = this.files[parseInt(this.currentFileId)];
-      this.currentChunkIndex = state.currentChunkIndex;
-      this.totalBytesSent = state.totalBytesSent;
+      // Find the first non-complete file
+      const currentFileIndex = progress.files.findIndex(f => f.status !== 'complete');
+      
+      if (currentFileIndex === -1) {
+        // All complete?
+        return;
+      }
+
+      this.currentFileId = currentFileIndex.toString();
+      this.currentFile = this.files[currentFileIndex];
+      
+      // Calculate chunk index from bytes transferred
+      const currentFileProgress = progress.files[currentFileIndex];
+      this.currentChunkIndex = Math.floor(currentFileProgress.bytesTransferred / this.CHUNK_SIZE);
+      
+      // Reconstruct queue
+      this.fileQueue = this.files.slice(currentFileIndex);
+      this.totalBytesSent = progress.overallBytesTransferred;
 
       devOnly(() =>
         console.log(
@@ -722,13 +815,12 @@ class OfferPeer extends BasePeer<PeerTransferMode.OUTGOING> {
         )
       );
     } catch (e) {
-      devOnly(() => console.error("Failed to load sender state", e));
-      this.clearState();
+      this.clearProgress();
     }
   }
 
-  private clearState() {
-    sessionStorage.removeItem(this.stateSessionKey);
+  public hasResumedState(): boolean {
+    return this.currentChunkIndex > 0 || parseInt(this.currentFileId) > 0;
   }
 }
 
@@ -742,12 +834,17 @@ class AnswerPeer extends BasePeer<PeerTransferMode.INCOMING> {
   // RE-ADDED: Queue properties
   private chunkQueue: ArrayBuffer[] = [];
   private processingQueue = false;
+  private totalTransferSize = 0;
 
   constructor(
     manager: PeerTransferManager<PeerTransferMode.INCOMING>,
     sessionKey: SessionKey
   ) {
     super(manager, sessionKey);
+    // Initialize totalTransferSize from config
+    if (this.manager.config.transferData.files) {
+      this.totalTransferSize = this.manager.config.transferData.files.reduce((acc, f) => acc + f.size, 0);
+    }
     this.loadState();
     this.registerPeer();
   }
@@ -922,7 +1019,7 @@ class AnswerPeer extends BasePeer<PeerTransferMode.INCOMING> {
         devOnly(() => console.log(`Received FILE_HEADER: ${msg.payload.name}`));
         this.receivedFilesMetadata.set(msg.payload.id, msg.payload);
         this.lastAcknowledgedChunk.set(msg.payload.id, -1);
-        this.saveState();
+        this.updateProgress();
         this.sendControlMessage({
           type: MsgType.FILE_ACK,
           payload: { fileId: msg.payload.id },
@@ -953,7 +1050,7 @@ class AnswerPeer extends BasePeer<PeerTransferMode.INCOMING> {
             this.lastAcknowledgedChunk
           )
         );
-        this.saveState(); // Save last acknowledged chunk index
+        this.updateProgress(); // Save last acknowledged chunk index
         this.sendControlMessage({
           type: MsgType.CHUNK_ACK,
           payload: { fileId, index },
@@ -967,7 +1064,7 @@ class AnswerPeer extends BasePeer<PeerTransferMode.INCOMING> {
         );
         this.manager.setState(PeerTransferState.COMPLETED);
         await this.assembleFiles();
-        this.clearState();
+        this.clearProgress();
         this.manager.close();
         break;
     }
@@ -1002,37 +1099,91 @@ class AnswerPeer extends BasePeer<PeerTransferMode.INCOMING> {
     return `p2p-${this.manager.transferData.room_id}-${fileId}-chunk-${index}`;
   }
 
-  private saveState() {
-    const state = {
-      metadata: Array.from(this.receivedFilesMetadata.entries()),
-      lastAcknowledged: Array.from(this.lastAcknowledgedChunk.entries()),
+  private updateProgress() {
+    // Calculate total bytes received based on acknowledged chunks
+    let totalBytesReceived = 0;
+    const filesProgress: P2PFileProgress[] = [];
+
+    // We need to reconstruct file progress from metadata and last acknowledged chunk
+    this.receivedFilesMetadata.forEach((meta, fileId) => {
+      const lastChunk = this.lastAcknowledgedChunk.get(fileId) ?? -1;
+      const bytesReceived = Math.min((lastChunk + 1) * this.CHUNK_SIZE, meta.size);
+      totalBytesReceived += bytesReceived;
+
+      const isComplete = bytesReceived >= meta.size;
+      
+      filesProgress.push({
+        name: meta.name,
+        status: isComplete ? 'complete' : 'transferring', // Simplified status for receiver
+        bytesTransferred: bytesReceived,
+        totalBytes: meta.size,
+      });
+    });
+
+    // Sort by file ID to maintain order if possible, or just push
+    // For receiver, we might not know the full list initially until we receive headers
+    // But we can send what we know.
+
+    const progress: P2PSessionProgress = {
+      files: filesProgress,
+      overallBytesTransferred: totalBytesReceived,
+      overallTotalBytes: this.totalTransferSize,
+      lastUpdated: Date.now(),
     };
-    sessionStorage.setItem(this.stateSessionKey, JSON.stringify(state));
+
+    this.saveProgress(progress);
+    // Calculate percentage
+    const percentage = this.totalTransferSize > 0 ? totalBytesReceived / this.totalTransferSize : 0;
+    this.manager.onProgress(percentage, progress); 
   }
 
   private loadState() {
-    const stateStr = sessionStorage.getItem(this.stateSessionKey);
-    if (!stateStr) return;
+    const progress = this.loadProgress();
+    if (!progress) return;
+
     try {
-      const state = JSON.parse(stateStr);
-      this.receivedFilesMetadata = new Map(state.metadata);
-      this.lastAcknowledgedChunk = new Map(state.lastAcknowledged);
-      devOnly(() => console.log("Resuming receiver state", state));
+      devOnly(() => console.log("Loading resume state...", progress));
+      
+      // 1. Reconstruct receivedFilesMetadata from config
+      if (this.manager.config.transferData.files) {
+        this.manager.config.transferData.files.forEach((file, index) => {
+          const fileId = index.toString();
+          this.receivedFilesMetadata.set(fileId, {
+            id: fileId,
+            name: file.name,
+            size: file.size,
+            type: file.type || 'application/octet-stream'
+          });
+        });
+      }
+
+      // 2. Restore lastAcknowledgedChunk from saved progress
+      progress.files.forEach((f, index) => {
+        const fileId = index.toString();
+        // Calculate last chunk index based on bytes transferred
+        // If bytesTransferred is 0, lastChunk is -1 (start)
+        // If bytesTransferred is CHUNK_SIZE, lastChunk is 0
+        if (f.bytesTransferred > 0) {
+          const lastChunk = Math.floor(f.bytesTransferred / this.CHUNK_SIZE) - 1;
+          this.lastAcknowledgedChunk.set(fileId, lastChunk);
+        }
+      });
+
+      // 3. Emit initial progress to UI
+      const percentage = this.totalTransferSize > 0 ? progress.overallBytesTransferred / this.totalTransferSize : 0;
+      this.manager.onProgress(percentage, progress);
+      
     } catch (e) {
       devOnly(() => console.error("Failed to load receiver state", e));
-      this.clearState();
+      this.clearProgress();
     }
   }
 
-  private clearState() {
-    for (const [fileId, header] of this.receivedFilesMetadata.entries()) {
-      const totalChunks = Math.ceil(header.size / this.CHUNK_SIZE);
-      for (let i = 0; i < totalChunks; i++) {
-        this.progressStore.delete(this.getChunkKey(fileId, i));
-      }
-    }
-    sessionStorage.removeItem(this.stateSessionKey);
+  public hasResumedState(): boolean {
+    return this.receivedFilesMetadata.size > 0 && this.lastAcknowledgedChunk.size > 0;
   }
+
+
 }
 
 // --- Main Manager Class ---
@@ -1041,6 +1192,7 @@ class PeerTransferManager<T extends PeerTransferMode> {
   public state: PeerTransferState = PeerTransferState.IDLE;
   public signalingChannel = new SignalingChannel();
   public transferData: TransferData;
+  public config: ConfigForMode<T>;
 
   private mode: T;
   private peer: OfferPeer | AnswerPeer | null = null;
@@ -1049,11 +1201,12 @@ class PeerTransferManager<T extends PeerTransferMode> {
 
   // Callbacks
   private onStateChange: (state: PeerTransferState) => void;
-  public onProgress: (progress: number) => void;
+  public onProgress: (progress: number, details?: P2PSessionProgress) => void;
   public onError: (error: Error) => void;
   public onFileReceived: (file: File) => void;
 
   constructor(config: ConfigForMode<T>, callbacks: PeerTransferCallbacks) {
+    this.config = config;
     this.mode = config.mode;
     this.transferData = config.transferData;
     if (config.mode === PeerTransferMode.OUTGOING) {
@@ -1139,6 +1292,18 @@ class PeerTransferManager<T extends PeerTransferMode> {
       this.setState(PeerTransferState.FAILED);
     }
   }
+
+  public hasResumedState(): boolean {
+    if (this.peer instanceof AnswerPeer) {
+      return this.peer.hasResumedState();
+    }
+    if (this.peer instanceof OfferPeer) {
+      return this.peer.hasResumedState();
+    }
+    return false;
+  }
+
+
 
   public close() {
     devOnly(() => {

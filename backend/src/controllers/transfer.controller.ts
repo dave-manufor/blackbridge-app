@@ -27,6 +27,7 @@ import cache from '../services/cache';
 import { v4 as uuid_v4, validate as validate_uuid } from 'uuid';
 import notificationService from '../services/notifications';
 import { getPresignedUrl } from 'services/aws';
+import { enrichUserWithPresignedUrl } from '../services/image-enrichment';
 
 class TransferController {
   public path = '/transfers';
@@ -182,15 +183,15 @@ class TransferController {
       const room_id = `signaling:${uuid_v4()}`;
 
       // Create P2P session
-      const session = await db.p2PSessions.create({
+      const session = await db.peerTransferSessions.create({
         data: {
           room_id,
           owner_key,
           sender_id: userId,
           receiver_id: recipient.id,
-          receiver_key: recipient_key,
+          recipient_key: recipient_key,
           files_meta: files,
-          description,
+          status: 'ACTIVE',
         },
       });
 
@@ -206,7 +207,7 @@ class TransferController {
           this.transferLogger.warn(error, 'Error sending new peer transfer notification');
         });
 
-      const profile_picture = recipient.profile_picture ? await getPresignedUrl(recipient.profile_picture, { type: 'download' }) : null;
+      const enrichedRecipient = await enrichUserWithPresignedUrl(recipient);
 
       // Respond with session details
       res.status(StatusCodes.CREATED).json({
@@ -215,12 +216,13 @@ class TransferController {
           session_id: session.id,
           room_id: session.room_id,
           owner_key: session.owner_key,
-          recipient_key: session.receiver_key,
-          recipient: {
-            id: recipient.id,
-            email: recipient.email,
-            profile_picture: profile_picture,
-          },
+          recipient_key: session.recipient_key,
+          recipient: enrichedRecipient ? {
+            id: enrichedRecipient.id,
+            email: enrichedRecipient.email,
+            profile_picture: enrichedRecipient.profile_picture,
+            profile_picture_url: enrichedRecipient.profile_picture_url,
+          } : recipient,
         },
       });
     } catch (error) {
@@ -544,17 +546,20 @@ class TransferController {
         include,
         orderBy: { created_at: 'desc' },
       });
-      const enrichedInvitations = invitations.map((invite) => {
-        const enrichedInvite = {
-          ...invite,
-          isInviter: invite.inviter.id === userId,
-          isInvitee: invite.email === userEmail,
-          isAccepted: invite.status !== INVITE_STATUS.PENDING,
-          isPendingApproval: invite.status === INVITE_STATUS.ACCEPTED,
-        };
-        if (!enrichedInvite.isInviter) delete enrichedInvite.viewed_authorization;
-        return enrichedInvite;
-      });
+      const enrichedInvitations = await Promise.all(
+        invitations.map(async (invite) => {
+          const enrichedInvite = {
+            ...invite,
+            inviter: await enrichUserWithPresignedUrl(invite.inviter),
+            isInviter: invite.inviter.id === userId,
+            isInvitee: invite.email === userEmail,
+            isAccepted: invite.status !== INVITE_STATUS.PENDING,
+            isPendingApproval: invite.status === INVITE_STATUS.ACCEPTED,
+          };
+          if (!enrichedInvite.isInviter) delete enrichedInvite.viewed_authorization;
+          return enrichedInvite;
+        })
+      );
 
       res.status(StatusCodes.OK).json({ message: 'Invitations retrieved successfully', data: enrichedInvitations, pagination: paginationDetails });
     } catch (error) {
@@ -1019,21 +1024,27 @@ class TransferController {
         transfer.status === TRANSFER_STATUS.EXPIRED || Date.now() > new Date(String(transfer.expiration_date)).getTime();
 
       // Add derived meta and remove other email transfers if not owner requesting
-      const enrichedTransfers = transfers.map((transfer) => {
-        const enrichedTransfer = {
-          ...transfer,
-          status: is_expired(transfer) ? TRANSFER_STATUS.EXPIRED : transfer.status,
-          recommended_title: transfer.title || transfer.files[0]?.name || 'Untitled',
-          total_files_count: transfer.files.length,
-          total_files_size_bytes: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
-          is_owner: transfer.owner_user_id === userId,
-          is_expired: is_expired(transfer),
-          is_viewed: transfer.owner_user_id === userId ? true : transfer.email_transfers.some((et) => et.recipient_user.id === userId && et.viewed),
-        };
-        delete enrichedTransfer.email_transfers;
-        if (!enrichedTransfer.is_owner) delete enrichedTransfer.owner_file_key;
-        return enrichedTransfer;
-      });
+      const enrichedTransfers = await Promise.all(
+        transfers.map(async (transfer) => {
+          const enrichedTransfer = {
+            ...transfer,
+            owner: await enrichUserWithPresignedUrl(transfer.owner),
+            status: is_expired(transfer) ? TRANSFER_STATUS.EXPIRED : transfer.status,
+            recommended_title: transfer.title || transfer.files[0]?.name || 'Untitled',
+            total_files_count: transfer.files.length,
+            total_files_size_bytes: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
+            is_owner: transfer.owner_user_id === userId,
+            is_expired: is_expired(transfer),
+            is_viewed:
+              transfer.owner_user_id === userId
+                ? true
+                : transfer.email_transfers.some((et) => et.recipient_user.id === userId && et.viewed),
+          };
+          delete enrichedTransfer.email_transfers;
+          if (!enrichedTransfer.is_owner) delete enrichedTransfer.owner_file_key;
+          return enrichedTransfer;
+        })
+      );
 
       // return filtered transfers
       res.status(StatusCodes.OK).json({ message: 'Transfers fetched successfully', data: enrichedTransfers, pagination: paginationDetails });
@@ -1140,10 +1151,21 @@ class TransferController {
       const is_expired = (transfer: any) =>
         transfer.status === TRANSFER_STATUS.EXPIRED || Date.now() > new Date(String(transfer.expiration_date)).getTime();
 
+      // Enrich owner and recipients with presigned URLs
+      const enrichedOwner = await enrichUserWithPresignedUrl(transfer.owner);
+      const enrichedEmailTransfers = await Promise.all(
+        transfer.email_transfers.map(async (et: any) => ({
+          ...et,
+          recipient_user: await enrichUserWithPresignedUrl(et.recipient_user),
+        }))
+      );
+
       res.status(StatusCodes.OK).json({
         message: 'Transfer fetched successfully',
         data: {
           ...transfer,
+          owner: enrichedOwner,
+          email_transfers: enrichedEmailTransfers,
           status: is_expired(transfer) ? TRANSFER_STATUS.EXPIRED : transfer.status,
           recommended_title: transfer.title || transfer.files[0]?.name || 'Untitled',
           total_files_count: transfer.files.length,
@@ -1164,7 +1186,7 @@ class TransferController {
     const { userId } = req.session;
 
     try {
-      const session = await db.p2PSessions.findUnique({
+      const session = await db.peerTransferSessions.findUnique({
         where: { id: sessionId },
         include: {
           receiver: {
@@ -1200,26 +1222,32 @@ class TransferController {
       }
 
       if (session.sender_id === userId) {
-        delete session.receiver_key;
+        delete (session as any).recipient_key;
       } else if (session.receiver_id === userId) {
-        delete session.owner_key;
+        delete (session as any).owner_key;
       }
+
+      // Enrich sender and receiver with presigned URLs
+      const enrichedSender = await enrichUserWithPresignedUrl(session.sender);
+      const enrichedReceiver = await enrichUserWithPresignedUrl(session.receiver);
 
       const sessionData = {
         session_id: session.id,
         room_id: session.room_id,
         owner_key: session.owner_key,
-        recipient_key: session.receiver_key,
-        recipient: {
-          id: session.receiver.id,
-          email: session.receiver.email,
-          profile_picture: session.receiver.profile_picture,
-        },
-        sender: {
-          id: session.sender.id,
-          email: session.sender.email,
-          profile_picture: session.sender.profile_picture,
-        },
+        recipient_key: session.recipient_key,
+        recipient: enrichedReceiver ? {
+          id: enrichedReceiver.id,
+          email: enrichedReceiver.email,
+          profile_picture: enrichedReceiver.profile_picture,
+          profile_picture_url: enrichedReceiver.profile_picture_url,
+        } : session.receiver,
+        sender: enrichedSender ? {
+          id: enrichedSender.id,
+          email: enrichedSender.email,
+          profile_picture: enrichedSender.profile_picture,
+          profile_picture_url: enrichedSender.profile_picture_url,
+        } : session.sender,
         created_at: session.created_at,
         updated_at: session.updated_at,
         is_owner: session.sender_id === userId,
@@ -1345,18 +1373,32 @@ class TransferController {
         data: { last_accessed: new Date() },
       });
 
-      const brandSettings =
-        linkTransfer.transfer.owner.brand_settings && linkTransfer.transfer.owner.brand_settings.enabled
-          ? linkTransfer.transfer.owner.brand_settings
-          : null;
+      const brandSettings = linkTransfer.transfer.owner.brand_settings;
+      const { getImageDownloadUrl } = await import('../services/image');
+      const { enrichUserWithPresignedUrl } = await import('../services/image-enrichment');
+      
+      const brandSettingsWithUrl = brandSettings && brandSettings.enabled
+        ? {
+            ...brandSettings,
+            logo_url: brandSettings.logo ? await getImageDownloadUrl(brandSettings.logo) : null,
+            logo_mark_url: brandSettings.logo_mark ? await getImageDownloadUrl(brandSettings.logo_mark) : null,
+          }
+        : null;
+
+      // Enrich owner with presigned profile picture URL
+      const enrichedOwner = await enrichUserWithPresignedUrl(linkTransfer.transfer.owner);
 
       delete linkTransfer.transfer.owner.brand_settings;
 
       res.status(StatusCodes.OK).json({
-        message: 'Link transfer fetched successfully',
+        message: 'Link transfer retrieved',
         data: {
           ...linkTransfer,
-          brand_settings: brandSettings,
+          transfer: {
+            ...linkTransfer.transfer,
+            owner: enrichedOwner,
+          },
+          brand_settings: brandSettingsWithUrl,
           recommended_title: linkTransfer.transfer.title || linkTransfer.transfer.files[0]?.name || 'Untitled',
           total_files_count: linkTransfer.transfer.files.length,
           total_files_size_bytes: linkTransfer.transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
@@ -1967,21 +2009,27 @@ class TransferController {
         return;
       }
 
-      // Permission check: only requester or recipient can view
+      // Check user permission
       if (request.requester.id !== userId && request.recipient.id !== userId) {
-        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to view this request' });
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to access this transfer request' });
         return;
       }
+
+      // Enrich requester and recipient with presigned URLs
+      const enrichedRequestWithUsers = {
+        ...request,
+        requester: await enrichUserWithPresignedUrl(request.requester),
+        recipient: await enrichUserWithPresignedUrl(request.recipient),
+      };
 
       // Enrich keys for privacy
       let requester_key: string | undefined;
       let owner_file_key: string | undefined;
 
-      if (request.transfer) {
-        if (request.requester.id === userId) {
-          const emailTransfer = request.transfer.email_transfers.find((et: any) => et.recipient_user_id === userId);
+      if (enrichedRequestWithUsers.transfer) {
+        if (enrichedRequestWithUsers.requester.id === userId) {
+          const emailTransfer = enrichedRequestWithUsers.transfer.email_transfers.find((et: any) => et.recipient_user_id === userId);
           requester_key = emailTransfer?.file_key;
-          delete request.transfer.owner_file_key;
         }
         if (request.transfer.owner_user_id === userId) {
           owner_file_key = request.transfer.owner_file_key;

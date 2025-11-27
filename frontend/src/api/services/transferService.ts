@@ -147,6 +147,7 @@ export type TransferData = {
     id: string;
     email: string;
     profile_picture: string | null;
+    profile_picture_url?: string | null;
   };
   files: {
     name: string;
@@ -191,6 +192,7 @@ export type TransferDetailsData = {
     id: string;
     email: string;
     profile_picture: string | null;
+    profile_picture_url?: string | null;
   };
   email_transfers: {
     id: string;
@@ -200,6 +202,7 @@ export type TransferDetailsData = {
       id: string;
       email: string;
       profile_picture: string | null;
+      profile_picture_url?: string;
     };
   }[];
   link_transfer: {
@@ -288,6 +291,7 @@ export type LinkTransferData = {
     owner: {
       email: string;
       profile_picture: string | null;
+      profile_picture_url?: string | null;
     };
     title: string | null;
     description: string | null;
@@ -303,12 +307,15 @@ export type LinkTransferData = {
   total_files_count: number;
   total_files_size_bytes: number;
   created_at: string;
-  brand_settings?: {
+  brand_settings: {
     name: string;
-    logo: string;
+    logo: string | null;
+    logo_url?: string | null;
+    logo_mark: string | null;
+    logo_mark_url?: string | null;
     primary_color: string;
     secondary_color: string;
-  };
+  } | null;
 };
 
 export async function getLinkTransfer(
@@ -520,6 +527,11 @@ export type P2PSessionDetails = {
     email: string;
     profile_picture: string | null;
   };
+  files_meta?: {
+    name: string;
+    size: number;
+    content_type: string;
+  }[];
 } & (
   | {
       is_owner: true;

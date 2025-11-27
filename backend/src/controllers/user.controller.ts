@@ -88,10 +88,15 @@ class UserController {
         return;
       }
 
+      // Import getImageDownloadUrl if profile_picture exists
+      const { getImageDownloadUrl } = await import('../services/image');
+      const profile_picture_url = user.profile_picture ? await getImageDownloadUrl(user.profile_picture) : null;
+
       res.status(StatusCodesConfig.OK).json({
         message: 'User retrieved successfully',
         data: {
           ...user,
+          profile_picture_url,
         },
       });
     } catch (error) {
@@ -199,9 +204,18 @@ class UserController {
         return;
       }
 
+      // Generate presigned URL for logo and logo_mark if they exist
+      const { getImageDownloadUrl } = await import('../services/image');
+      const logoUrl = brandSettings.logo ? await getImageDownloadUrl(brandSettings.logo) : null;
+      const logoMarkUrl = brandSettings.logo_mark ? await getImageDownloadUrl(brandSettings.logo_mark) : null;
+
       res.status(StatusCodesConfig.OK).json({
         message: 'Brand settings retrieved successfully',
-        data: brandSettings,
+        data: {
+          ...brandSettings,
+          logo_url: logoUrl,
+          logo_mark_url: logoMarkUrl,
+        },
       });
     } catch (error) {
       this.userLogger.error(error, 'Error fetching brand settings');
@@ -234,9 +248,16 @@ class UserController {
         },
       });
 
+      // Generate presigned URL for logo if it exists
+      const { getImageDownloadUrl } = await import('../services/image');
+      const logoUrl = brandSettings.logo ? await getImageDownloadUrl(brandSettings.logo) : null;
+
       res.status(StatusCodesConfig.CREATED).json({
         message: 'Brand settings created successfully',
-        data: brandSettings,
+        data: {
+          ...brandSettings,
+          logo_url: logoUrl,
+        },
       });
     } catch (error) {
       this.userLogger.error(error, 'Error creating brand settings');
@@ -260,9 +281,16 @@ class UserController {
         },
       });
 
+      // Generate presigned URL for logo if it exists
+      const { getImageDownloadUrl } = await import('../services/image');
+      const logoUrl = brandSettings.logo ? await getImageDownloadUrl(brandSettings.logo) : null;
+
       res.status(StatusCodesConfig.OK).json({
         message: 'Brand settings updated successfully',
-        data: brandSettings,
+        data: {
+          ...brandSettings,
+          logo_url: logoUrl,
+        },
       });
     } catch (error) {
       this.userLogger.error(error, 'Error updating brand settings');
