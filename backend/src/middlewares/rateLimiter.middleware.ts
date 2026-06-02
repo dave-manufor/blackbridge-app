@@ -4,23 +4,35 @@ import RedisStore from 'rate-limit-redis';
 import cache from '../services/cache';
 import authConfig from '../config/auth.config';
 
-export const otpVerificationLimiter = rateLimit({
-  windowMs: otpConfig.rateLimitWindow,
-  max: otpConfig.rateLimitMax,
-  message: 'Too many verification attempts. Please try again after 10 minutes.',
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => req.session.userId, // Rate limit by user ID
-  store: new RedisStore({
-    sendCommand: (...args: string[]) => cache.sendCommand(args),
-  }),
-});
+let _otpVerificationLimiter: any;
+export const otpVerificationLimiter = (req: any, res: any, next: any) => {
+  if (!_otpVerificationLimiter) {
+    _otpVerificationLimiter = rateLimit({
+      windowMs: otpConfig.rateLimitWindow,
+      max: otpConfig.rateLimitMax,
+      message: 'Too many verification attempts. Please try again after 10 minutes.',
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (req) => req.session.userId, // Rate limit by user ID
+      store: new RedisStore({
+        sendCommand: (...args: string[]) => cache.sendCommand(args),
+      }),
+    });
+  }
+  return _otpVerificationLimiter(req, res, next);
+};
 
-export const authRateLimiter = rateLimit({
-  windowMs: authConfig.rateLimitWindow,
-  max: authConfig.rateLimitMax,
-  message: 'Too many login attempts. Please try again later.',
-  store: new RedisStore({
-    sendCommand: (...args: string[]) => cache.sendCommand(args),
-  }),
-});
+let _authRateLimiter: any;
+export const authRateLimiter = (req: any, res: any, next: any) => {
+  if (!_authRateLimiter) {
+    _authRateLimiter = rateLimit({
+      windowMs: authConfig.rateLimitWindow,
+      max: authConfig.rateLimitMax,
+      message: 'Too many login attempts. Please try again later.',
+      store: new RedisStore({
+        sendCommand: (...args: string[]) => cache.sendCommand(args),
+      }),
+    });
+  }
+  return _authRateLimiter(req, res, next);
+};
