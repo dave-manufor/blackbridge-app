@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
-import { createApp } from './app';
+import { createApp } from './createApp';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
