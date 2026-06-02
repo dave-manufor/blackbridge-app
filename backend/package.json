@@ -2,7 +2,6 @@
   "name": "ecee-file-transfer-api",
   "version": "1.0.0",
   "description": "Express API for ECEE File Transfer App",
-  "main": "app.js",
   "scripts": {
     "dev": "nodemon | npx pino-pretty",
     "email:dev": "email dev --dir src/services/notifications/templates/email",
