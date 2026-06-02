@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
-import ServerApp from './app';
+import { createApp } from './app';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -45,8 +45,7 @@ const ensureInitialized = async (req: express.Request, res: express.Response, ne
   next();
 };
 
-const server: ServerApp = new ServerApp({
-  port: port,
+const app = createApp({
   trustProxy: true,
   middlewares: [
     ensureInitialized,
@@ -75,12 +74,14 @@ if (!isServerless) {
         const keyFile = readFileSync('./certs/key.pem');
 
         const credentials = { key: keyFile, cert: certificateFile };
-        const httpsServer = https.createServer(credentials, server.app);
+        const httpsServer = https.createServer(credentials, app);
         httpsServer.listen(port, () => {
           logger.info(`HTTPS Server listening on port ${port}`);
         });
       } else {
-        server.listen();
+        app.listen(port, () => {
+          logger.info(`App listening on the port ${port}`);
+        });
       }
     })
     .catch((error) => {
@@ -89,5 +90,5 @@ if (!isServerless) {
     });
 }
 
-export default server.app;
+export default app;
 

@@ -3,45 +3,23 @@ import { Application } from 'express';
 import logger from './lib/logger';
 import StatusCodes from './config/StatusCodes.config';
 
-class App {
-  public app: Application;
-  public port: number;
+export function createApp(config: { trustProxy: boolean; middlewares: any[]; controllers: any[] }): Application {
+  const app = express();
 
-  constructor(appInit: { port: number; trustProxy: boolean; middlewares: any[]; controllers: any[] }) {
-    this.app = express();
-    this.port = appInit.port;
+  app.set('trust proxy', config.trustProxy);
 
-    this.app.set('trust proxy', appInit.trustProxy);
+  config.middlewares.forEach((middleware: any) => {
+    app.use(middleware);
+  });
 
-    this.initializeMiddlewares(appInit.middlewares);
-    this.initializeControllers(appInit.controllers);
-    this.initializeGlobalErrorHandler();
-  }
+  config.controllers.forEach((controller: any) => {
+    app.use(controller.path, controller.router);
+  });
 
-  public listen() {
-    this.app.listen(this.port, () => {
-      logger.info(`App listening on the port ${this.port}`);
-    });
-  }
+  app.use((err: any, req: any, res: any, next: any) => {
+    logger.error(err);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+  });
 
-  private initializeMiddlewares(middlewares: any[]) {
-    middlewares.forEach((middleware: any) => {
-      this.app.use(middleware);
-    });
-  }
-
-  private initializeControllers(controllers: any[]) {
-    controllers.forEach((controller: any) => {
-      this.app.use(controller.path, controller.router);
-    });
-  }
-
-  private initializeGlobalErrorHandler() {
-    this.app.use((err: any, req: any, res: any, next: any) => {
-      logger.error(err);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
-    });
-  }
+  return app;
 }
-
-export default App;
