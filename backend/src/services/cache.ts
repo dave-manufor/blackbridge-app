@@ -31,11 +31,7 @@ let cache = createClient(config)
     logger.info('Redis Client Disconnected');
   });
 
-(async () => {
-  if (!cache.isOpen) {
-    await cache.connect();
-  }
-})();
+// Initialization will be handled explicitly via initCache()
 
 export const initCache = async () => {
   try {

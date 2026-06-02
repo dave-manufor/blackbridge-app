@@ -33,10 +33,23 @@ AWS.config.update({
   return parseInt(this.toString());
 };
 
+const isServerless = process.env.SERVERLESS === 'true' || process.env.VERCEL === '1';
+let isInitialized = false;
+
+const ensureInitialized = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (isServerless && !isInitialized) {
+    await initDB();
+    await initCache();
+    isInitialized = true;
+  }
+  next();
+};
+
 const server: App = new App({
   port: port,
   trustProxy: true,
   middlewares: [
+    ensureInitialized,
     express.json(),
     express.urlencoded({ extended: true }),
     helmet(),
@@ -49,29 +62,32 @@ const server: App = new App({
   controllers: [new HomeController(), new AuthController(), new UserController(), new FileController(), new TransferController()],
 });
 
-(async () => {
-  // Initialize database and cache
-  await initDB();
-  await initCache();
-})()
-  .then(() => {
-    // Start the app
-    if (isDevEnvironment()) {
-      const certificateFile = readFileSync('./certs/cert.pem');
-      const keyFile = readFileSync('./certs/key.pem');
+if (!isServerless) {
+  (async () => {
+    // Initialize database and cache
+    await initDB();
+    await initCache();
+  })()
+    .then(() => {
+      // Start the app
+      if (isDevEnvironment()) {
+        const certificateFile = readFileSync('./certs/cert.pem');
+        const keyFile = readFileSync('./certs/key.pem');
 
-      const credentials = { key: keyFile, cert: certificateFile };
-      const httpsServer = https.createServer(credentials, server.app);
-      httpsServer.listen(port, () => {
-        logger.info(`HTTPS Server listening on port ${port}`);
-      });
-    } else {
-      server.listen();
-    }
-  })
-  .catch((error) => {
-    logger.error('Error during initialization:', error);
-    process.exit(1);
-  });
+        const credentials = { key: keyFile, cert: certificateFile };
+        const httpsServer = https.createServer(credentials, server.app);
+        httpsServer.listen(port, () => {
+          logger.info(`HTTPS Server listening on port ${port}`);
+        });
+      } else {
+        server.listen();
+      }
+    })
+    .catch((error) => {
+      logger.error('Error during initialization:', error);
+      process.exit(1);
+    });
+}
 
 export default server.app;
+
