@@ -19,8 +19,8 @@ import { authRateLimiter, otpVerificationLimiter } from '../middlewares/rateLimi
 import cacheConfig from '../config/cache.config';
 import { generateOTP } from '../utils/otp.utils';
 import notificationService from '../services/notifications';
-import { isBetaTesting } from 'utils/dev.utils';
-import { isEnrolledTester } from 'services/resend';
+import { isBetaTesting } from '../utils/dev.utils';
+import { isEnrolledTester } from '../services/resend';
 
 class AuthController {
   public path = '/auth';

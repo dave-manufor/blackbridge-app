@@ -1,7 +1,7 @@
 import bucketConfig from '../config/bucket.config';
 import { S3 } from 'aws-sdk';
 import { getSignedUrl as getCloudfrontSignedURL } from '@aws-sdk/cloudfront-signer';
-import { isDevEnvironment } from 'utils/dev.utils';
+import { isDevEnvironment } from '../utils/dev.utils';
 
 // TODO: S3 Delete Logic
 // Note to self: Use named exports for functions

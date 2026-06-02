@@ -1,7 +1,7 @@
 import React from 'react';
 import { GenericContentWrapper, StyledButton } from './shared';
 import { Container, Heading, Section, Text } from '@react-email/components';
-import { formatFileSize } from 'services/notifications/utils/format';
+import { formatFileSize } from '../../utils/format';
 import { format as formatDate } from 'date-fns';
 
 type NewTransferEmailTemplateProps = {
