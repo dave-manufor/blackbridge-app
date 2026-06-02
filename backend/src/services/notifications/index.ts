@@ -13,7 +13,7 @@ import {
 import notificationConfig from './config';
 import { getMailboxName } from './utils/format';
 
-const resend = new Resend(notificationConfig.RESEND_API_KEY);
+const resend = notificationConfig.RESEND_API_KEY ? new Resend(notificationConfig.RESEND_API_KEY) : null;
 const baseAppUrl = notificationConfig.BASE_URL;
 
 const transporter = notificationConfig.EMAIL_PROVIDER === 'smtp' 
@@ -38,6 +38,9 @@ const sendEmail = async (options: { from: string; to: string; subject: string; r
       html: html,
     });
   } else {
+    if (!resend) {
+      throw new Error('Email provider is set to resend but RESEND_API_KEY is missing');
+    }
     await resend.emails.send({
       from: options.from,
       to: options.to,
@@ -59,6 +62,9 @@ const sendBatchEmail = async (optionsArray: { from: string; to: string; subject:
       });
     }));
   } else {
+    if (!resend) {
+      throw new Error('Email provider is set to resend but RESEND_API_KEY is missing');
+    }
     await resend.batch.send(optionsArray);
   }
 };
