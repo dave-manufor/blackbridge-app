@@ -10,6 +10,6 @@
     "baseUrl": "src",
     "jsx": "react"
   },
-  "include": ["src/**/*", "src/index.ts"],
+  "include": ["src/**/*", "src/index.ts", "api/**/*"],
   "exclude": ["node_modules", "dist"]
 }
