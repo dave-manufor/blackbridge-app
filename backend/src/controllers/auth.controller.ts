@@ -13,8 +13,7 @@ import otpConfig from '../config/otp.config';
 import { JWTAuthPayload, JWTOtpPayload, OtpRequest } from 'custom';
 import { requireOtp, verifyToken } from '../middlewares/auth.middleware';
 import { bodyValidator } from '../middlewares/validation.middleware';
-import bcrypt from 'bcrypt';
-import { hashOTP, hashRefreshToken, verifyOTPHash } from '../utils/hashing.utils';
+import { hashOTP, hashRefreshToken, verifyOTPHash, verifyRefreshTokenHash } from '../utils/hashing.utils';
 import { authRateLimiter, otpVerificationLimiter } from '../middlewares/rateLimiter.middleware';
 import cacheConfig from '../config/cache.config';
 import { generateOTP } from '../utils/otp.utils';
@@ -351,7 +350,7 @@ class AuthController {
 
       const refreshToken = jwt.sign(refreshPayload, process.env.REFRESH_TOKEN_SECRET);
 
-      const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+      const hashedRefreshToken = await hashRefreshToken(refreshToken);
 
       await db.sessions.create({
         data: {
@@ -436,7 +435,7 @@ class AuthController {
         where: { id: payload.sessionId, expires_at: { gte: now }, revoked: false },
       });
 
-      if (!session || !bcrypt.compare(refreshToken, session.hashed_refresh_token)) {
+      if (!session || !(await verifyRefreshTokenHash(refreshToken, session.hashed_refresh_token))) {
         res.sendStatus(StatusCodesConfig.UNAUTHORIZED);
         return;
       }
