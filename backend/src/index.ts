@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
-import App from './app';
+import ServerApp from './app';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -45,7 +45,7 @@ const ensureInitialized = async (req: express.Request, res: express.Response, ne
   next();
 };
 
-const server: App = new App({
+const server: ServerApp = new ServerApp({
   port: port,
   trustProxy: true,
   middlewares: [
