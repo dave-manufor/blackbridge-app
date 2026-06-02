@@ -13,7 +13,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "db:migrate": "npx prisma migrate dev && npx prisma generate",
     "db:push": "npx prisma db push",
-    "db:push:force": "npx prisma db push --force-reset"
+    "db:push:force": "npx prisma db push --force-reset",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "schema": "src/prisma/schema.prisma"
