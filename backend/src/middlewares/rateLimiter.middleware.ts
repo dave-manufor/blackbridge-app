@@ -2,7 +2,7 @@ import otpConfig from '../config/otp.config';
 import { rateLimit } from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 import cache from '../services/cache';
-import authConfig from 'config/auth.config';
+import authConfig from '../config/auth.config';
 
 export const otpVerificationLimiter = rateLimit({
   windowMs: otpConfig.rateLimitWindow,

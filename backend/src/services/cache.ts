@@ -1,4 +1,4 @@
-import cacheConfig from 'config/cache.config';
+import cacheConfig from '../config/cache.config';
 import logger from '../lib/logger';
 import { createClient } from 'redis';
 
