@@ -6,7 +6,11 @@ import { isDevEnvironment } from 'utils/dev.utils';
 // TODO: S3 Delete Logic
 // Note to self: Use named exports for functions
 
-const bucket = new S3({ apiVersion: '2006-03-01', signatureVersion: 'v4', useAccelerateEndpoint: true });
+const bucket = new S3({
+  apiVersion: '2006-03-01',
+  signatureVersion: 'v4',
+  ...(bucketConfig.ENDPOINT ? { endpoint: bucketConfig.ENDPOINT } : { useAccelerateEndpoint: true }),
+});
 
 const assertCDNConfig = () => {
   if (!bucketConfig.AWS_CLOUDFRONT_URL || !bucketConfig.AWS_CLOUDFRONT_KEY_PAIR_ID || !bucketConfig.STORAGE_CDN_PRIVATE_KEY) {
@@ -76,7 +80,7 @@ export const getPresignedUrl = async (key: string, options: PresignedUrlOptions)
   };
 
   if (options.type === 'download') {
-    if (isDevEnvironment()) {
+    if (isDevEnvironment() || bucketConfig.STORAGE_PROVIDER === 'cloudflare') {
       return await bucket.getSignedUrlPromise('getObject', params);
     } else {
       assertCDNConfig();

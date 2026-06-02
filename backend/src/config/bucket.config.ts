@@ -11,6 +11,10 @@ export default {
   MAX_PART_SIZE: Number(process.env.MAX_PART_SIZE) || 15 * 1024 * 1024,
   /**Maximum bytes per block */
   MAX_BLOCK_SIZE: Number(process.env.MAX_BLOCK_SIZE) || 100 * 1024 * 1024,
+  /**Storage provider to use (aws or cloudflare) */
+  STORAGE_PROVIDER: process.env.STORAGE_PROVIDER || 'aws',
+  /**AWS/Cloudflare S3 endpoint URL */
+  ENDPOINT: process.env.AWS_ENDPOINT_URL,
   /**Maximum file size in bytes */
   MAX_FILE_SIZE: Number(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024 * 1024, // 10 Gb
   /**Full Cloudfront URL https://...*/
