@@ -1,6 +1,6 @@
 import React from 'react';
 import { Section, Text, Link, Hr } from '@react-email/components';
-import notificationConfig from 'services/notifications/config';
+import notificationConfig from '../../../config';
 const supportEmail = notificationConfig.SUPPORT_EMAIL;
 
 const Footer = () => {

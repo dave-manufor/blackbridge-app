@@ -1,7 +1,7 @@
 import React from 'react';
 import { Detail, Details, GenericContentWrapper, StyledButton } from './shared';
 import { Container, Heading, Section, Text } from '@react-email/components';
-import { formatFileSize } from 'services/notifications/utils/format';
+import { formatFileSize } from '../../utils/format';
 import { formatInTimeZone } from 'date-fns-tz';
 
 type Props = {
