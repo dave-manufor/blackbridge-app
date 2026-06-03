@@ -275,34 +275,27 @@ class TransferController {
 
       // Notify recipients
       if (recipientEmails.size > 0 && transferDetails) {
-        notificationService.send_new_transfer_notification(Array.from(recipientEmails), transferDetails).catch((error) => {
+        await notificationService.send_new_transfer_notification(Array.from(recipientEmails), transferDetails).catch((error) => {
           this.transferLogger.warn(error, 'Error sending new transfer notification');
         });
       }
 
-      // Notify invitees (non-blocking)
+      // Notify invitees (awaited for serverless)
       if (transferDetails) {
-        db.invites
-          .findMany({
-            where: {
-              transfer_id: id,
-            },
-          })
-          .then((invites) => {
-            const recipients = invites.map(({ id, email }) => {
-              const jwtPayload: JWTInvitePayload = {
-                id: id,
-                email: email!,
-                transfer_id: id,
-                iat: Math.floor(Date.now() / 1000),
-              };
-              const inviteToken = jwt.sign(jwtPayload, process.env.INVITE_TOKEN_SECRET!);
-              return { email, inviteToken };
-            });
-            notificationService.send_invite_notification(recipients, transferDetails).catch((error) => {
-              this.transferLogger.warn(error, 'Error sending invite notification');
-            });
-          });
+        const invites = await db.invites.findMany({ where: { transfer_id: id } });
+        const recipients = invites.map(({ id, email }) => {
+          const jwtPayload: JWTInvitePayload = {
+            id: id,
+            email: email!,
+            transfer_id: id,
+            iat: Math.floor(Date.now() / 1000),
+          };
+          const inviteToken = jwt.sign(jwtPayload, process.env.INVITE_TOKEN_SECRET!);
+          return { email: email!, inviteToken };
+        });
+        await notificationService.send_invite_notification(recipients, transferDetails).catch((error) => {
+          this.transferLogger.warn(error, 'Error sending invite notification');
+        });
       }
 
       res.status(StatusCodes.ACCEPTED).json({ message: 'Email transfer committed successfully' });
@@ -693,8 +686,8 @@ class TransferController {
 
       const acceptanceToken = jwt.sign(acceptancePayload, process.env.INVITE_TOKEN_SECRET!);
 
-      // Send notification to inviter (non-blocking)
-      notificationService
+      // Send notification to inviter (awaited for serverless)
+      await notificationService
         .send_invite_accepted_notification(
           invite.inviter.email,
           {

@@ -159,7 +159,7 @@ class AuthController {
       const expiresAt = Date.now() + otpConfig.requestValidDuration;
       // Respond with timestamp
 
-      notificationService.send_otp_notification(req.session.email, code, otpConfig.requestValidDuration).catch((error) => {
+      await notificationService.send_otp_notification(req.session.email, code, otpConfig.requestValidDuration).catch((error) => {
         this.authLogger.warn(error, 'Error sending OTP notification');
       });
 
@@ -382,7 +382,7 @@ class AuthController {
       const device = userAgent.isMobile ? 'mobile' : userAgent.isDesktop ? 'desktop' : userAgent.isTablet ? 'tablet' : 'unknown';
 
       if (user && user.verified) {
-        notificationService
+        await notificationService
           .send_signin_notification(user.email, {
             ipAddress: req.ip,
             platform: userAgent.platform,

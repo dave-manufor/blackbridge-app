@@ -89,7 +89,7 @@ class UserController {
       });
 
       await req.consumeOtpToken?.();
-      notificationService.send_welcome_notification(req.session.email).catch((error) => {
+      await notificationService.send_welcome_notification(req.session.email).catch((error) => {
         this.userLogger.warn(error, 'Error sending welcome notification');
       });
       res.status(StatusCodesConfig.OK).send();
