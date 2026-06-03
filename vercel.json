@@ -13,7 +13,7 @@
   "rewrites": [
     {
       "source": "/ws/:path*",
-      "destination": "https://YOUR-ALWAYS-ON-SOCKET-SERVER.onrender.com/ws/:path*"
+      "destination": "https://blackbridge-app.railway.internal/ws/:path*"
     }
   ]
 }
