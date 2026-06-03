@@ -1271,7 +1271,7 @@ class PeerTransferManager<T extends PeerTransferMode> {
 
       if (this.mode === PeerTransferMode.OUTGOING) {
         this.peer = new OfferPeer(
-          this as PeerTransferManager<PeerTransferMode.OUTGOING>,
+          this as any as PeerTransferManager<PeerTransferMode.OUTGOING>,
           this.sessionKey,
           this.files
         );
@@ -1281,7 +1281,7 @@ class PeerTransferManager<T extends PeerTransferMode> {
         });
       } else {
         this.peer = new AnswerPeer(
-          this as PeerTransferManager<PeerTransferMode.INCOMING>,
+          this as any as PeerTransferManager<PeerTransferMode.INCOMING>,
           this.sessionKey
         );
         this.setState(PeerTransferState.CONNECTING_WEBRTC);

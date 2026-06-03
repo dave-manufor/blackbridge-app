@@ -66,7 +66,6 @@ const FileRequestDetails: React.FC = () => {
       </div>
     );
 
-  const canFulfill = !data.fulfilled;
   const transferLink = data.transfer ? `/transfers/${data.transfer.id}` : null;
 
   const handleFileChange = async (_newFiles: FileList) => {

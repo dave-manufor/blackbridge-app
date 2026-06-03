@@ -41,11 +41,10 @@ const BrandSettings = () => {
   const createBrandSettingsMutation = useCreateBrandSettings();
   const updateBrandSettingsMutation = useUpdateBrandSettings();
 
-  const form = useForm<z.infer<typeof brandSettingsSchema>>({
+  const form = useForm({
     resolver: zodResolver(brandSettingsSchema),
     defaultValues: {
       name: "",
-      logo: "",
       primary_color: "",
       secondary_color: "",
       enabled: false,

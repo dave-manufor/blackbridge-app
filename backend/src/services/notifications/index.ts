@@ -208,8 +208,8 @@ const notificationService = {
     },
   ) => {
     const url = `${baseAppUrl}/peer/${transferDetails.session_id}`;
-    await resend.emails.send({
-      from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
+    await sendEmail({
+      from: `BlackBridge <${notificationConfig.DEFAULT_FROM_EMAIL}>`,
       to: email,
       subject: `${transferDetails.sender_email} wants to start a peer transfer with you`,
       react: NewPeerTransferEmailTemplate({ ...transferDetails, url }),

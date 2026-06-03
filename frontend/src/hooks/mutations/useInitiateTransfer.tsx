@@ -269,7 +269,7 @@ const useInitiateTransfer = () => {
     mutationFn: async (payload: InitiateTransferPayload) => {
       return await transfer(payload, controller.signal);
     },
-    onSuccess: (transferId, variables) => {
+    onSuccess: (_, variables) => {
       uploadStore.setStatus("success");
       queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all });
       if (variables.request_id) {

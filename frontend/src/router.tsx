@@ -14,7 +14,6 @@ import {
 } from "./views/transfers";
 import { TransferListProvider } from "./contexts/TransferListContext";
 import PublicLinkView from "./views/public/PublicLinkView";
-import PublicLayout from "./layouts/PublicLayout";
 import {
   AccountSettings,
   BillingSettings,
