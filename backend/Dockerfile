@@ -41,4 +41,4 @@ COPY --from=builder /app/src/prisma/migrations ./src/prisma/migrations
 EXPOSE 4000
 
 # Run migrations then start the server
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/index.js"]
