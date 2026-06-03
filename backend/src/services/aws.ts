@@ -9,7 +9,13 @@ import { isDevEnvironment } from '../utils/dev.utils';
 const bucket = new S3({
   apiVersion: '2006-03-01',
   signatureVersion: 'v4',
-  ...(bucketConfig.ENDPOINT ? { endpoint: bucketConfig.ENDPOINT } : { useAccelerateEndpoint: true }),
+  region: bucketConfig.REGION || 'auto', // Default to auto for Cloudflare R2
+  ...(bucketConfig.ENDPOINT
+    ? {
+        endpoint: bucketConfig.ENDPOINT,
+        s3ForcePathStyle: true, // Required for many S3-compatible providers like R2 and MinIO
+      }
+    : { useAccelerateEndpoint: true }),
 });
 
 const assertCDNConfig = () => {
