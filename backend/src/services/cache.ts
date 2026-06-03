@@ -2,20 +2,26 @@ import cacheConfig from '../config/cache.config';
 import logger from '../lib/logger';
 import { createClient } from 'redis';
 
-const config =
-  process.env.REDIS_USERNAME && process.env.REDIS_PASSWORD
+const rawHost = process.env.REDIS_HOST ? process.env.REDIS_HOST.replace(/^https?:\/\//, '') : '';
+const isUpstash = rawHost.includes('upstash.io');
+
+const config = process.env.REDIS_URL 
+  ? { url: process.env.REDIS_URL } 
+  : process.env.REDIS_USERNAME && process.env.REDIS_PASSWORD
     ? {
         username: process.env.REDIS_USERNAME,
         password: process.env.REDIS_PASSWORD,
         socket: {
-          host: process.env.REDIS_HOST,
+          host: rawHost,
           port: Number(process.env.REDIS_PORT),
+          tls: isUpstash || process.env.REDIS_TLS === 'true',
         },
       }
     : {
         socket: {
-          host: process.env.REDIS_HOST,
+          host: rawHost,
           port: Number(process.env.REDIS_PORT),
+          tls: isUpstash || process.env.REDIS_TLS === 'true',
         },
       };
 
