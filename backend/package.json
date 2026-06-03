@@ -13,7 +13,7 @@
     "db:migrate": "npx prisma migrate dev && npx prisma generate",
     "db:push": "npx prisma db push",
     "db:push:force": "npx prisma db push --force-reset",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate && prisma migrate deploy"
   },
   "prisma": {
     "schema": "src/prisma/schema.prisma"
