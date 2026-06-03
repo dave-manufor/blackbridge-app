@@ -10,11 +10,5 @@
       "routePrefix": "/_/backend",
       "entrypoint": "api/index.ts"
     }
-  },
-  "rewrites": [
-    {
-      "source": "/ws/:path*",
-      "destination": "https://blackbridge-app-production.up.railway.app/ws/:path*"
-    }
-  ]
+  }
 }
