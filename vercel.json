@@ -6,13 +6,13 @@
       "framework": "vite"
     },
     "backend": {
-      "entrypoint": "backend/api/index.ts",
+      "root": "backend",
       "routePrefix": "/_/backend"
     }
   },
   "rewrites": [
     {
-      "source": "/_/backend/ws/:path*",
+      "source": "/ws/:path*",
       "destination": "https://YOUR-ALWAYS-ON-SOCKET-SERVER.onrender.com/ws/:path*"
     }
   ]
