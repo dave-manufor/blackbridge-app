@@ -18,6 +18,7 @@ import { authRateLimiter, otpVerificationLimiter } from '../middlewares/rateLimi
 import cacheConfig from '../config/cache.config';
 import { generateOTP } from '../utils/otp.utils';
 import notificationService from '../services/notifications';
+import { runBackgroundTask } from '../utils/background.utils';
 import { isBetaTesting } from '../utils/dev.utils';
 import { isEnrolledTester } from '../services/resend';
 
@@ -159,9 +160,11 @@ class AuthController {
       const expiresAt = Date.now() + otpConfig.requestValidDuration;
       // Respond with timestamp
 
-      await notificationService.send_otp_notification(req.session.email, code, otpConfig.requestValidDuration).catch((error) => {
-        this.authLogger.warn(error, 'Error sending OTP notification');
-      });
+      await runBackgroundTask(
+        notificationService.send_otp_notification(req.session.email, code, otpConfig.requestValidDuration),
+        this.authLogger,
+        'Error sending OTP notification'
+      );
 
       res.status(StatusCodesConfig.OK).json({
         message: 'OTP has been sent',
@@ -382,16 +385,16 @@ class AuthController {
       const device = userAgent.isMobile ? 'mobile' : userAgent.isDesktop ? 'desktop' : userAgent.isTablet ? 'tablet' : 'unknown';
 
       if (user && user.verified) {
-        await notificationService
-          .send_signin_notification(user.email, {
+        await runBackgroundTask(
+          notificationService.send_signin_notification(user.email, {
             ipAddress: req.ip,
             platform: userAgent.platform,
             device,
             time: new Date(),
-          })
-          .catch((error) => {
-            this.authLogger.warn(error, 'Error sending sign-in notification');
-          });
+          }),
+          this.authLogger,
+          'Error sending sign-in notification'
+        );
       }
       res.status(StatusCodesConfig.OK).json({
         message: 'Sign in successful',
