@@ -14,7 +14,7 @@
   "rewrites": [
     {
       "source": "/ws/:path*",
-      "destination": "https://blackbridge-app.railway.internal/ws/:path*"
+      "destination": "https://blackbridge-app-production.up.railway.app/ws/:path*"
     }
   ]
 }
