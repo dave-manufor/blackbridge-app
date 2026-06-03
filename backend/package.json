@@ -8,7 +8,7 @@
     "build": "tsc && tsc-alias",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "start": "npx prisma migrate deploy && node dist/index.js",
+    "start": "npx prisma migrate deploy && node dist/src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "db:migrate": "npx prisma migrate dev && npx prisma generate",
     "db:push": "npx prisma db push",
