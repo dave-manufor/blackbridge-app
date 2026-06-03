@@ -236,7 +236,7 @@ const DownloadsDrawer = () => {
             : "translateY(calc(100% - 56px))",
       }}
       className={cn(
-        "border rounded-bl-none rounded-br-none fixed bottom-0 right-0 mr-6 w-96 p-0 gap-0 overflow-hidden max-sm:mx-0 max-sm:right-1/2 max-sm:translate-x-1/2",
+        "border rounded-bl-none rounded-br-none fixed bottom-0 right-0 mr-6 w-96 p-0 gap-0 overflow-hidden max-sm:mx-0 max-sm:right-1/2 max-sm:translate-x-1/2 bg-white shadow-2xl",
         { "translate-y-full": events.size === 0 }
       )}
     >

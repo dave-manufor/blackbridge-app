@@ -26,7 +26,7 @@ const TransferListEmptyState = ({ className }: { className?: string }) => {
         </span>
       </div>
       <div className="flex items-center gap-4">
-        <Button onClick={() => navigate("/request")} variant="outline">
+        <Button onClick={() => navigate("/requests/create")} variant="outline">
           Request Transfer
         </Button>
         <Button onClick={() => navigate("/")}>

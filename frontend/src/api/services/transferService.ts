@@ -17,6 +17,7 @@ type InitializeTransferPayload = {
   is_password_protected?: boolean;
   access_control?: (typeof LINK_TRANSFER_ACCESS_CONTROL)[keyof typeof LINK_TRANSFER_ACCESS_CONTROL];
   recipients?: string[];
+  request_id?: string;
 } & (
   | {
       isLink: true;
@@ -37,6 +38,46 @@ export async function initializeTransfer(
     return response.data?.data?.transfer_id as string;
   } catch (error) {
     throw new Error(`Failed to initiate transfer: ${error}`);
+  }
+}
+
+export type InitiateRequestFulfillmentPayload = {
+  request_id: string;
+  duration: number;
+};
+
+export async function initiateRequestFulfillment(
+  payload: InitiateRequestFulfillmentPayload,
+  signal?: AbortSignal
+): Promise<string> {
+  try {
+    const response = await API.post(
+      ApiRoutes.transfer.initiateRequestFulfillment,
+      payload,
+      { signal }
+    );
+    return response.data?.data?.transfer_id as string;
+  } catch (error) {
+    throw new Error(`Failed to initiate request fulfillment: ${error}`);
+  }
+}
+
+export type CommitRequestFulfillmentPayload = {
+  request_id: string;
+  owner_key: string;
+  requester_key: string;
+};
+
+export async function commitRequestFulfillment(
+  payload: CommitRequestFulfillmentPayload,
+  signal?: AbortSignal
+) {
+  try {
+    await API.post(ApiRoutes.transfer.commitRequestFulfillment, payload, {
+      signal,
+    });
+  } catch (error) {
+    throw new Error(`Failed to commit request fulfillment: ${error}`);
   }
 }
 
@@ -106,6 +147,7 @@ export type TransferData = {
     id: string;
     email: string;
     profile_picture: string | null;
+    profile_picture_url?: string | null;
   };
   files: {
     name: string;
@@ -150,6 +192,7 @@ export type TransferDetailsData = {
     id: string;
     email: string;
     profile_picture: string | null;
+    profile_picture_url?: string | null;
   };
   email_transfers: {
     id: string;
@@ -159,6 +202,7 @@ export type TransferDetailsData = {
       id: string;
       email: string;
       profile_picture: string | null;
+      profile_picture_url?: string;
     };
   }[];
   link_transfer: {
@@ -247,6 +291,7 @@ export type LinkTransferData = {
     owner: {
       email: string;
       profile_picture: string | null;
+      profile_picture_url?: string | null;
     };
     title: string | null;
     description: string | null;
@@ -262,6 +307,15 @@ export type LinkTransferData = {
   total_files_count: number;
   total_files_size_bytes: number;
   created_at: string;
+  brand_settings: {
+    name: string;
+    logo: string | null;
+    logo_url?: string | null;
+    logo_mark: string | null;
+    logo_mark_url?: string | null;
+    primary_color: string;
+    secondary_color: string;
+  } | null;
 };
 
 export async function getLinkTransfer(
@@ -419,4 +473,81 @@ export async function approveTransferInvitation(
     { token, file_key },
     { signal }
   );
+}
+
+export type InitiateP2PSessionPayload = {
+  recipient_identifier: string;
+  owner_key: string;
+  recipient_key: string;
+  description?: string;
+  files: {
+    name: string;
+    size: number;
+    content_type: string;
+  }[];
+};
+
+export type InitiateP2PSessionResponse = {
+  session_id: string;
+  room_id: string;
+  recipient_key: string;
+  owner_key: string;
+  recipient: {
+    id: string;
+    email: string;
+    profile_picture: string | null;
+  };
+};
+
+export async function initiateP2PSession(
+  payload: InitiateP2PSessionPayload,
+  signal?: AbortSignal
+): Promise<InitiateP2PSessionResponse> {
+  const response = await API.post(
+    ApiRoutes.transfer.initiateP2PSession,
+    payload,
+    { signal }
+  );
+  return response.data?.data as InitiateP2PSessionResponse;
+}
+
+export type P2PSessionDetails = {
+  session_id: string;
+  room_id: string;
+  is_owner: boolean;
+  created_at: string;
+  updated_at: string;
+  sender: {
+    id: string;
+    email: string;
+    profile_picture: string | null;
+  };
+  recipient: {
+    id: string;
+    email: string;
+    profile_picture: string | null;
+  };
+  files_meta?: {
+    name: string;
+    size: number;
+    content_type: string;
+  }[];
+} & (
+  | {
+      is_owner: true;
+      owner_key: string;
+    }
+  | {
+      is_owner: false;
+      recipient_key: string;
+    }
+);
+
+export async function getP2PSessionData(
+  sessionId: string,
+  signal?: AbortSignal
+): Promise<P2PSessionDetails> {
+  const endpoint = ApiRoutes.transfer.getP2PSessionDetails({ sessionId });
+  const response = await API.get(endpoint, { signal });
+  return response.data?.data as P2PSessionDetails;
 }

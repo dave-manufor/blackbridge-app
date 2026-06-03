@@ -1,13 +1,11 @@
-import styles from "./DashboardView.module.css";
 import { StyledFilePicker } from "@/components/ui/file-picker";
+import FileCard from "@/components/ui/FileCard";
+import { cn } from "@/lib/utils";
 import { useUploadStore } from "@/stores/uploadStore";
 import { useShallow } from "zustand/react/shallow";
-import GridSection from "@/components/ui/GridSection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LuMail, LuLink } from "react-icons/lu";
-import { formatFileSize, prettierLinkAccessControl } from "@/utils/format";
-import { defaultStyles, FileIcon } from "react-file-icon";
-import { IoCloseCircleOutline } from "react-icons/io5";
+import { formatFileSize } from "@/utils/format";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import {
@@ -56,6 +54,7 @@ import {
 import { IoIosArrowForward } from "react-icons/io";
 import { FaCheckCircle } from "react-icons/fa";
 import { useNavigate } from "react-router";
+import AnalyticsOverview from "@/components/dashboard/AnalyticsOverview";
 
 const DashboardView = () => {
   const navigate = useNavigate();
@@ -190,410 +189,383 @@ const DashboardView = () => {
   }, [setHeaderTitle]);
 
   return (
-    <>
-      <GridSection>
-        <Card className={styles.transfer_container}>
-          <div className={`${styles.transfer_files} ${styles.card}`}>
-            {!isUploading && (
-              <>
-                {/* Mobile File Picker */}
-                <div className="w-full">
-                  <div className="w-full hidden max-sm:flex items-center justify-between ">
-                    <div className="flex flex-col items-start">
-                      <span className="text-black text-xl font-semibold">
-                        {files.length > 0 ? "Add" : "Upload"} Files
-                      </span>
-                      <span className="text-neutral-400 text-sm">
-                        Tap to select your files
-                      </span>
+    <div className="flex flex-col gap-8 pb-10">
+      <AnalyticsOverview />
+      
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        {/* Main Transfer Area */}
+        <Card className="xl:col-span-2 p-0 overflow-hidden border-none shadow-lg bg-white rounded-3xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 h-full min-h-[500px]">
+            {/* Left Side: File Picker & List */}
+            <div className="p-6 bg-neutral-50 border-r border-neutral-100 flex flex-col gap-4">
+              {!isUploading && (
+                <>
+                  {/* Mobile File Picker */}
+                  <div className="w-full md:hidden">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex flex-col items-start">
+                        <span className="text-neutral-900 text-xl font-semibold">
+                          {files.length > 0 ? "Add" : "Upload"} Files
+                        </span>
+                        <span className="text-neutral-400 text-sm">
+                          Tap to select your files
+                        </span>
+                      </div>
+                      <StyledFilePicker
+                        onFileChange={handleFileChange}
+                        asChild
+                        multiple
+                      >
+                        <FaCirclePlus className="text-4xl text-primary-500" />
+                      </StyledFilePicker>
                     </div>
-                    <StyledFilePicker
-                      onFileChange={handleFileChange}
-                      asChild
-                      multiple
-                    >
-                      <FaCirclePlus className="text-4xl" />
-                    </StyledFilePicker>
+                    {formErrors.files?.message && (
+                      <span className="text-xs text-error-red-500 font-medium">
+                        {formErrors.files.message}
+                      </span>
+                    )}
                   </div>
-                  {formErrors.files?.message && (
-                    <span className="small-text !text-red-500">
-                      {formErrors.files.message}
-                    </span>
-                  )}
-                </div>
 
-                {/* Default File Picker */}
+                  {/* Desktop File Picker */}
+                  <motion.div
+                    className={cn(
+                      "hidden md:flex flex-col transition-all duration-300",
+                      files.length > 0 ? "h-auto min-h-[150px]" : "h-full"
+                    )}
+                    layout
+                  >
+                    <StyledFilePicker
+                      variant="neutral"
+                      onFileChange={handleFileChange}
+                      draggable
+                      multiple
+                      className={cn(
+                        "text-center w-full border-2 border-dashed border-neutral-200 rounded-2xl hover:border-primary-300 hover:bg-primary-50/30 transition-all",
+                        files.length > 0 ? "h-auto p-4" : "h-full p-6"
+                      )}
+                      error={formErrors.files?.message}
+                    />
+                  </motion.div>
+                </>
+              )}
+
+              {files.length > 0 && (
                 <motion.div
-                  className={`${styles.file_picker} ${
-                    files.length > 0 ? styles.shrink : ""
-                  } max-sm:hidden`}
-                  layout
-                  transition={{
-                    type: "tween",
-                    visualDuration: 0.4,
-                    ease: "easeOut",
-                  }}
+                  className="flex-1 overflow-y-auto pr-2 space-y-2 max-h-[400px] scrollbar-thin"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
                 >
-                  <StyledFilePicker
-                    variant="neutral"
-                    onFileChange={handleFileChange}
-                    draggable
-                    multiple
-                    className="text-center h-full"
-                    error={formErrors.files?.message}
-                  />
-                </motion.div>
-              </>
-            )}
-
-            {files.length > 0 && (
-              <motion.div
-                className={styles.file_list}
-                initial={{
-                  y: 110,
-                  opacity: 0,
-                }}
-                animate={{
-                  y: 0,
-                  opacity: 1,
-                }}
-                transition={{
-                  type: "tween",
-                  visualDuration: 0.4,
-                  ease: "easeOut",
-                }}
-              >
-                {files.map((file, index) => {
-                  const extension = file.name.split(".").pop()?.toLowerCase();
-                  const name = file.name.split(".").slice(0, -1).join(".");
-                  const iconStyle =
-                    defaultStyles[extension as keyof typeof defaultStyles];
-                  return (
-                    <div key={index} className={styles.file_item_wrapper}>
-                      <div className={styles.file_item}>
-                        <div className={styles.file_info}>
-                          <div className={styles.file_icon}>
-                            <FileIcon
-                              extension={file.name.split(".").pop()}
-                              {...iconStyle}
-                            />
-                          </div>
-                          <div className={styles.file_details}>
-                            <span className={styles.file_name}>{name}</span>
-                            <span className={styles.file_meta}>
-                              {file.size
-                                ? formatFileSize(file.size)
-                                : "Unknown size"}{" "}
-                              | {extension}
-                            </span>
-                          </div>
-                        </div>
-                        {!isUploading && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className={styles.remove_button}
-                            onClick={() => handleFileRemove(index)}
-                          >
-                            <IoCloseCircleOutline />
-                          </Button>
-                        )}
-                        {isUploading && getFileProgress(index) >= 100 && (
-                          <FaCheckCircle className="text-green-500" />
+                  {files.map((file, index) => {
+                    const extension = file.name.split(".").pop()?.toLowerCase() || "";
+                    
+                    return (
+                      <div key={index} className="relative">
+                        <FileCard
+                          variant="form"
+                          name={file.name}
+                          size={file.size}
+                          contentType={extension}
+                          allowDownload={false}
+                          onRemove={() => handleFileRemove(index)}
+                          className={cn(
+                            "border-neutral-100 shadow-sm hover:shadow-md transition-all",
+                            isUploading && getFileProgress(index) >= 100 && "border-green-200 bg-green-50"
+                          )}
+                        />
+                        
+                        {isUploading && getFileProgress(index) > 0 && getFileProgress(index) < 100 && (
+                          <Progress className="h-1 mt-1 absolute bottom-0 left-0 right-0 rounded-b-lg rounded-t-none" value={getFileProgress(index)} />
                         )}
                       </div>
-                      {isUploading && getFileProgress(index) > 0 && (
-                        <Progress
-                          className="h-1"
-                          value={getFileProgress(index)}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </motion.div>
-            )}
-          </div>
-          <div className={styles.transfer_details}>
-            {isUploading ? (
-              <div className="flex flex-col gap-4 items-center justify-center h-full w-full">
-                <SimpleRadialChart
-                  animateSpin
-                  className="w-3/4 max-w-[200px]"
-                  value={Math.floor(totalProgress) || 1} // Ensure at least 1% is shown when starting
-                />
-                <div className="flex flex-col items-center text-center gap-1">
-                  <span className="text-2xl font-medium">
-                    Uploading Files...
-                  </span>
-                  <span className="text-sm text-neutral-400">
-                    Uploaded {getTotalUploadedFiles()} of {files.length} files
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <Tabs defaultValue={"email"}>
-                <TabsList className="w-full mb-4">
-                  <TabsTrigger
-                    value="email"
-                    disabled={isUploading}
-                    className="cursor-pointer"
-                    onClick={() => handleTabChange("email")}
-                  >
-                    <LuMail /> Email
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="link"
-                    disabled={isUploading}
-                    className="cursor-pointer"
-                    onClick={() => handleTabChange("link")}
-                  >
-                    <LuLink /> Link
-                  </TabsTrigger>
-                </TabsList>
-                <Form {...form}>
-                  <form
-                    onSubmit={form.handleSubmit(handleSubmit)}
-                    className={`${styles.details_form} flex flex-col gap-4`}
-                  >
-                    <TabsContent value="email">
-                      <FormField
-                        name="recipients"
-                        control={form.control}
-                        render={() => (
-                          <FormItem>
-                            <FormLabel>Email to</FormLabel>
-                            <FormControl>
-                              <ChipInput
-                                validation={[
-                                  {
-                                    test: (value) =>
-                                      z.string().email().safeParse(value)
-                                        .success,
-                                    message: "Invalid email address",
-                                  },
-                                ]}
-                                onChange={handleRecipientChange}
-                                onError={(message) => {
-                                  if (message) {
-                                    setError("recipients", {
-                                      type: "custom",
-                                      message,
-                                    });
-                                  } else {
-                                    clearErrors("recipients");
-                                  }
-                                }}
-                                placeholder="Email to"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </TabsContent>
-                    <TabsContent value="link">
-                      <FormField
-                        name="password"
-                        control={form.control}
-                        disabled={!isPasswordProtected}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              Password
-                              <Checkbox
-                                checked={isPasswordProtected}
-                                onCheckedChange={(checked) => {
-                                  setValue(
-                                    "isPasswordProtected",
-                                    checked as boolean
-                                  );
-                                  if (!checked) {
-                                    setValue("isPasswordProtected", false);
-                                    setValue("password", undefined);
-                                    clearErrors("password");
-                                  }
-                                }}
-                              />
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                type="text"
-                                placeholder="Password"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </TabsContent>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </div>
 
-                    <FormField
-                      name="title"
-                      control={form.control}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Title</FormLabel>
-                          <FormControl>
-                            <Input type="text" placeholder="Title" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      name="description"
-                      control={form.control}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Description</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="Description" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      name="duration"
-                      control={form.control}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Expire in</FormLabel>
-                          <div className="w-full grid grid-cols-6 gap-4">
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value}
-                            >
+            {/* Right Side: Form & Details */}
+            <div className="p-6 flex flex-col">
+              {isUploading ? (
+                <div className="flex flex-col gap-6 items-center justify-center h-full w-full py-10">
+                  <SimpleRadialChart
+                    animateSpin
+                    className="w-48"
+                    value={Math.floor(totalProgress) || 1}
+                  />
+                  <div className="flex flex-col items-center text-center gap-2">
+                    <span className="text-2xl font-semibold text-neutral-800">
+                      Uploading Files...
+                    </span>
+                    <span className="text-sm text-neutral-500">
+                      Uploaded {getTotalUploadedFiles()} of {files.length} files
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <Tabs defaultValue="email" className="h-full flex flex-col">
+                  <TabsList className="w-full mb-6 bg-neutral-100/50 p-1 rounded-xl">
+                    <TabsTrigger
+                      value="email"
+                      className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary-500 transition-all"
+                      onClick={() => handleTabChange("email")}
+                    >
+                      <LuMail className="mr-2" /> Email
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="link"
+                      className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary-500 transition-all"
+                      onClick={() => handleTabChange("link")}
+                    >
+                      <LuLink className="mr-2" /> Link
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <Form {...form}>
+                    <form
+                      onSubmit={form.handleSubmit(handleSubmit)}
+                      className="flex-1 flex flex-col gap-5"
+                    >
+                      <TabsContent value="email" className="mt-0">
+                        <FormField
+                          name="recipients"
+                          control={form.control}
+                          render={() => (
+                            <FormItem>
+                              <FormLabel className="text-neutral-600">Email to</FormLabel>
                               <FormControl>
-                                <SelectTrigger className="w-full col-span-5">
-                                  <SelectValue />
-                                </SelectTrigger>
+                                <ChipInput
+                                  validation={[
+                                    {
+                                      test: (value) => z.string().email().safeParse(value).success,
+                                      message: "Invalid email address",
+                                    },
+                                  ]}
+                                  onChange={handleRecipientChange}
+                                  onError={(message) => {
+                                    if (message) {
+                                      setError("recipients", { type: "custom", message });
+                                    } else {
+                                      clearErrors("recipients");
+                                    }
+                                  }}
+                                  placeholder="Enter email addresses..."
+                                  className="bg-neutral-50 border-neutral-200 focus:border-primary-300 focus:ring-primary-100 rounded-xl min-h-[48px]"
+                                />
                               </FormControl>
-                              <SelectContent>
-                                <SelectGroup>
-                                  {Object.keys(TRANSFER_DURATIONS).map(
-                                    (label) => (
-                                      <SelectItem key={label} value={label}>
-                                        {label}
-                                      </SelectItem>
-                                    )
-                                  )}
-                                </SelectGroup>
-                              </SelectContent>
-                            </Select>
-                            <Popover
-                              open={isPopoverOpen}
-                              onOpenChange={setIsPopoverOpen}
-                            >
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  className="col-span-1 border border-neutral-200"
-                                >
-                                  <FaEllipsis />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-48 text-neutral-600 flex flex-col p-0 overflow-hidden">
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </TabsContent>
+
+                      <TabsContent value="link" className="mt-0">
+                        <FormField
+                          name="password"
+                          control={form.control}
+                          disabled={!isPasswordProtected}
+                          render={({ field }) => (
+                            <FormItem>
+                              <div className="flex items-center justify-between mb-2">
+                                <FormLabel className="text-neutral-600">Password Protection</FormLabel>
+                                <Checkbox
+                                  checked={isPasswordProtected}
+                                  onCheckedChange={(checked) => {
+                                    setValue("isPasswordProtected", checked as boolean);
+                                    if (!checked) {
+                                      setValue("password", undefined);
+                                      clearErrors("password");
+                                    }
+                                  }}
+                                  className="data-[state=checked]:bg-primary-500 data-[state=checked]:border-primary-500"
+                                />
+                              </div>
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder="Set a password (optional)"
+                                  {...field}
+                                  className="bg-neutral-50 border-neutral-200 focus:border-primary-300 focus:ring-primary-100 rounded-xl h-12"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </TabsContent>
+
+                      <div className="grid grid-cols-1 gap-5">
+                        <FormField
+                          name="title"
+                          control={form.control}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-neutral-600">Title</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="Transfer Title" 
+                                  {...field} 
+                                  className="bg-neutral-50 border-neutral-200 focus:border-primary-300 focus:ring-primary-100 rounded-xl h-12"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          name="description"
+                          control={form.control}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-neutral-600">Message</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Add a message..." 
+                                  {...field} 
+                                  className="bg-neutral-50 border-neutral-200 focus:border-primary-300 focus:ring-primary-100 rounded-xl min-h-[100px] resize-none"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="mt-auto pt-4 flex flex-col gap-4">
+                        <div className="flex gap-3">
+                          <FormField
+                            name="duration"
+                            control={form.control}
+                            render={({ field }) => (
+                              <FormItem className="flex-1">
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger className="w-full bg-neutral-50 border-neutral-200 rounded-xl h-12">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectGroup>
+                                      {Object.keys(TRANSFER_DURATIONS).map((label) => (
+                                        <SelectItem key={label} value={label}>
+                                          Expires in {label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  </SelectContent>
+                                </Select>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="h-12 w-12 p-0 rounded-xl border-neutral-200">
+                                <FaEllipsis />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 p-2 rounded-xl shadow-xl border-neutral-100" align="end">
+                              {/* Popover content kept similar but styled */}
+                              <div className="space-y-1">
+                                <div className="px-3 py-2 text-sm font-medium text-neutral-900 border-b border-neutral-100 mb-1">
+                                  Transfer Settings
+                                </div>
                                 <Popover>
-                                  <PopoverTrigger className="flex items-center justify-between w-full hover:bg-neutral-100 px-4 py-2 cursor-pointer">
+                                  <PopoverTrigger className="flex items-center justify-between w-full hover:bg-neutral-50 px-3 py-2 rounded-lg cursor-pointer text-sm text-neutral-600 transition-colors">
                                     <span className="flex items-center gap-2">
                                       <FaRegEye /> Access Control
                                     </span>
                                     <IoIosArrowForward />
                                   </PopoverTrigger>
-                                  <PopoverContent
-                                    onClick={() => setIsPopoverOpen(false)}
-                                    className="p-0 overflow-hidden"
-                                  >
-                                    <div
-                                      className="flex flex-col gap-0.5 items-start text-black px-4 py-2 hover:bg-neutral-100 cursor-pointer"
-                                      onClick={() =>
-                                        setValue(
-                                          "access_control",
-                                          LINK_TRANSFER_ACCESS_CONTROL.PUBLIC
-                                        )
-                                      }
+                                  <PopoverContent className="w-72 p-2 rounded-xl shadow-xl border-neutral-100" side="left" align="start">
+                                    <div 
+                                      className="p-3 hover:bg-neutral-50 rounded-lg cursor-pointer transition-colors"
+                                      onClick={() => setValue("access_control", LINK_TRANSFER_ACCESS_CONTROL.PUBLIC)}
                                     >
-                                      <span className="flex items-center gap-2">
-                                        {prettierLinkAccessControl(
-                                          LINK_TRANSFER_ACCESS_CONTROL.PUBLIC
-                                        )}{" "}
-                                        {access_control ===
-                                          LINK_TRANSFER_ACCESS_CONTROL.PUBLIC && (
-                                          <FaCheck className="text-xs" />
-                                        )}
-                                      </span>
-                                      <span className="text-xs text-neutral-400 max-w-72">
-                                        This link is open to everyone. Anyone
-                                        who has it can view the content without
-                                        needing to log in.
-                                      </span>
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="font-medium text-sm text-neutral-900">Public</span>
+                                        {access_control === LINK_TRANSFER_ACCESS_CONTROL.PUBLIC && <FaCheck className="text-primary-500 text-xs" />}
+                                      </div>
+                                      <p className="text-xs text-neutral-500 leading-relaxed">
+                                        Anyone with the link can access files. No login required.
+                                      </p>
                                     </div>
-                                    <div
-                                      className="flex flex-col gap-0.5 items-start text-black px-4 py-2 hover:bg-neutral-100 cursor-pointer"
-                                      onClick={() =>
-                                        setValue(
-                                          "access_control",
-                                          LINK_TRANSFER_ACCESS_CONTROL.REQUIRE_AUTH
-                                        )
-                                      }
+                                    <div 
+                                      className="p-3 hover:bg-neutral-50 rounded-lg cursor-pointer transition-colors"
+                                      onClick={() => setValue("access_control", LINK_TRANSFER_ACCESS_CONTROL.REQUIRE_AUTH)}
                                     >
-                                      <span className="flex items-center gap-2">
-                                        {prettierLinkAccessControl(
-                                          LINK_TRANSFER_ACCESS_CONTROL.REQUIRE_AUTH
-                                        )}{" "}
-                                        {access_control ===
-                                          LINK_TRANSFER_ACCESS_CONTROL.REQUIRE_AUTH && (
-                                          <FaCheck className="text-xs" />
-                                        )}
-                                      </span>
-                                      <span className="text-xs text-neutral-400 max-w-72">
-                                        Only people who sign in can open this
-                                        link. It&apos;s a safer option if you
-                                        want to keep access more limited.
-                                      </span>
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="font-medium text-sm text-neutral-900">Restricted</span>
+                                        {access_control === LINK_TRANSFER_ACCESS_CONTROL.REQUIRE_AUTH && <FaCheck className="text-primary-500 text-xs" />}
+                                      </div>
+                                      <p className="text-xs text-neutral-500 leading-relaxed">
+                                        Only authenticated users can access. Safer for sensitive files.
+                                      </p>
                                     </div>
                                   </PopoverContent>
                                 </Popover>
+                                
                                 <Popover>
-                                  <PopoverTrigger className="flex items-center justify-between w-full hover:bg-neutral-100 px-4 py-2 cursor-pointer">
-                                    <span className="flex items-center gap-2 ">
+                                  <PopoverTrigger className="flex items-center justify-between w-full hover:bg-neutral-50 px-3 py-2 rounded-lg cursor-pointer text-sm text-neutral-600 transition-colors">
+                                    <span className="flex items-center gap-2">
                                       <FaRegBell /> Notifications
                                     </span>
                                     <IoIosArrowForward />
                                   </PopoverTrigger>
-                                  <PopoverContent
-                                    onClick={() => setIsPopoverOpen(false)}
-                                  >
-                                    <div>1 day before expiration</div>
-                                    <div>When viewed</div>
-                                    <div>When downloaded</div>
+                                  <PopoverContent className="p-3 rounded-xl shadow-xl border-neutral-100 text-sm text-neutral-600" side="left" align="start">
+                                    <div className="space-y-2">
+                                      <div className="flex items-center gap-2"><Checkbox id="n1" /> <label htmlFor="n1">1 day before expiration</label></div>
+                                      <div className="flex items-center gap-2"><Checkbox id="n2" /> <label htmlFor="n2">When viewed</label></div>
+                                      <div className="flex items-center gap-2"><Checkbox id="n3" /> <label htmlFor="n3">When downloaded</label></div>
+                                    </div>
                                   </PopoverContent>
                                 </Popover>
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button
-                      disabled={isUploading}
-                      type="submit"
-                      className="w-full"
-                    >
-                      Submit
-                    </Button>
-                  </form>
-                </Form>
-              </Tabs>
-            )}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
+                        <Button
+                          disabled={isUploading}
+                          type="submit"
+                          className="w-full h-12 text-base font-medium rounded-xl shadow-lg shadow-primary-500/20 transition-all"
+                        >
+                          {isUploading ? "Uploading..." : "Transfer Files"}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                </Tabs>
+              )}
+            </div>
           </div>
         </Card>
-      </GridSection>
-    </>
+
+        {/* Right Column: Recent Activity (Placeholder) */}
+        <div className="hidden xl:flex flex-col gap-6">
+          <Card className="flex-1 p-6 bg-white rounded-3xl border-none shadow-lg">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-neutral-800">Recent Activity</h3>
+              <Button variant="ghost" size="sm" className="text-primary-500 hover:text-primary-600 hover:bg-primary-50">View All</Button>
+            </div>
+            <div className="space-y-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center gap-4 p-3 rounded-xl hover:bg-neutral-50 transition-colors cursor-pointer group">
+                  <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-500 flex items-center justify-center shrink-0">
+                    <LuLink size={18} />
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <p className="text-sm font-medium text-neutral-900 truncate">Project Assets {i}.zip</p>
+                    <p className="text-xs text-neutral-500">Sent to alex@example.com</p>
+                  </div>
+                  <span className="text-xs text-neutral-400">2h ago</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
   );
 };
 

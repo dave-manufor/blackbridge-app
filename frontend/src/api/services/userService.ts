@@ -38,3 +38,20 @@ export async function getPublicKeys(
     throw new Error(`Failed to fetch public keys: ${error}`);
   }
 }
+
+export const searchUsersByEmail = async (
+  query: string,
+  signal?: AbortSignal
+): Promise<
+  {
+    id: string;
+    email: string;
+    name: string;
+  }[]
+> => {
+  const response = await API.get(ApiRoutes.user.searchUsersByEmail, {
+    params: { search: query },
+    signal,
+  });
+  return response.data?.data || [];
+};

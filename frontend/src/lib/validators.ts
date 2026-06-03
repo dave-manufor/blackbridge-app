@@ -151,3 +151,24 @@ export const transferSchema = z
       }
     }
   });
+
+export const p2pTransferSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  description: z.string().max(255).optional(),
+  files: z
+    .array(
+      z.object({
+        name: z.string(),
+        size: z.number(),
+        content_type: z.string(),
+      })
+    )
+    .nonempty("At least one file is required"),
+});
+
+export const brandSettingsSchema = z.object({
+  name: z.string().min(1, "Brand name is required"),
+  primary_color: z.string().optional(),
+  secondary_color: z.string().optional(),
+  enabled: z.boolean().optional(),
+});

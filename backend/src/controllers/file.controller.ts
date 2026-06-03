@@ -72,6 +72,7 @@ class FileController {
         });
         return;
       }
+
       // Generate file ID
       const fileId = uuid_v4();
 

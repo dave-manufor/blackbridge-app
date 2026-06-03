@@ -1,4 +1,3 @@
-import GridSection from "@/components/ui/GridSection";
 import {
   NavigationTabs,
   NavigationTabsTrigger,
@@ -31,9 +30,9 @@ const TransferListLayout = () => {
   }, [setHeaderTitle]);
 
   return (
-    <>
-      <GridSection>
-        <div className="col-span-full overflow-x-scroll pb-2">
+    <div className="flex flex-col gap-6 mx-auto pb-10 w-full">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="overflow-x-auto pb-2 md:pb-0">
           <NavigationTabs className="w-full">
             <NavigationTabsTrigger to="/transfers">All</NavigationTabsTrigger>
             <NavigationTabsTrigger to="/transfers/sent">
@@ -47,17 +46,17 @@ const TransferListLayout = () => {
             </NavigationTabsTrigger>
           </NavigationTabs>
         </div>
-      </GridSection>
-      <GridSection>
-        <SearchBar
-          search={_search}
-          setSearch={handleSearchChange}
-          className="col-span-full"
-          isLoading={isFetching > 0}
-        />
-      </GridSection>
+        <div className="w-full md:w-72">
+          <SearchBar
+            search={_search}
+            setSearch={handleSearchChange}
+            className="w-full"
+            isLoading={isFetching > 0}
+          />
+        </div>
+      </div>
       <Outlet />
-    </>
+    </div>
   );
 };
 

@@ -2,7 +2,16 @@ import StatusCodes from '../config/StatusCodes.config';
 import logger from '../lib/logger';
 import { verifyLinkAccess, verifyToken } from '../middlewares/auth.middleware';
 import { bodyValidator } from '../middlewares/validation.middleware';
-import { FILE_STATUS, TRANSFER_STATUS, TRANSFER_TYPE, Prisma, LINK_ACCESS_CONTROL, INVITE_STATUS } from '@prisma/client';
+import {
+  FILE_STATUS,
+  TRANSFER_STATUS,
+  TRANSFER_TYPE,
+  Prisma,
+  LINK_ACCESS_CONTROL,
+  INVITE_STATUS,
+  P2P_SESSION_STATUS,
+  TRANSFER_REQUEST_STATUS,
+} from '@prisma/client';
 import db, { useSerializableTransaction } from '../services/db';
 import { PGPValidator } from '../utils/PGPValidator.utils';
 import { Request, Response, Router } from 'express';
@@ -15,9 +24,12 @@ import jwt from 'jsonwebtoken';
 import transferConfig from '../config/transfer.config';
 import cacheConfig from '../config/cache.config';
 import cache from '../services/cache';
-import { v4 as uuid_v4 } from 'uuid';
+import { v4 as uuid_v4, validate as validate_uuid } from 'uuid';
 import notificationService from '../services/notifications';
 import { runBackgroundTask } from '../utils/background.utils';
+import { getPresignedUrl } from '../services/aws';
+import { enrichUserWithPresignedUrl } from '../services/image-enrichment';
+
 
 class TransferController {
   public path = '/transfers';
@@ -31,13 +43,14 @@ class TransferController {
 
   private initializeRoutes() {
     this.router.get('/', verifyToken(), this.getTransfers);
-    this.router.get('/:transferId', verifyToken(), this.getTransferDetails);
+    this.router.get('/peers/:sessionId', verifyToken(), this.getP2PTransfer);
     this.router.get('/emails/:transferId/download-request', verifyToken(), this.requestEmailDownload);
     this.router.get('/links/:slug/download-request', verifyLinkAccess(), this.requestLinkDownload);
     this.router.post('/emails/:id/viewed', verifyToken(), this.markEmailTransferAsViewed);
     this.router.get('/unviewed/count', verifyToken(), this.getUnviewedEmailTransfersCount);
     this.router.post('/links/initiate', verifyToken(), this.validateBody('initiateLinkTransfer'), this.initiateLinkTransfer);
     this.router.post('/emails/initiate', verifyToken(), this.validateBody('initiateEmailTransfer'), this.initiateEmailTransfer);
+    this.router.post('/peers/initiate', verifyToken(), this.validateBody('initiatePeerTransfer'), this.initiatePeerTransfer);
     this.router.post('/links/commit/:id', verifyToken(), this.validateBody('commitLinkTransfer'), this.commitLinkTransfer);
     this.router.post('/emails/commit/:id', verifyToken(), this.validateBody('commitEmailTransfer'), this.commitEmailTransfer);
     this.router.get('/invitations', verifyToken(), this.getInvitations);
@@ -46,6 +59,12 @@ class TransferController {
     this.router.post('/invitations/accept', verifyToken(), this.validateBody('acceptInvite'), this.acceptInvite);
     this.router.post('/invitations/approve', verifyToken(), this.validateBody('approveInvite'), this.approveInvite);
     this.router.get('/links/:slug', verifyLinkAccess(), this.getLinkTransfer);
+    this.router.post('/requests', verifyToken(), this.validateBody('createTransferRequest'), this.createTransferRequest);
+    this.router.get('/requests', verifyToken(), this.getTransferRequests);
+    this.router.get('/requests/:requestId', verifyToken(), this.getTransferRequestDetails);
+    this.router.post('/requests/initiate', verifyToken(), this.validateBody('initiateRequestFulfillment'), this.initiateRequestFulfillment);
+    this.router.post('/requests/commit', verifyToken(), this.validateBody('commitRequestFulfillment'), this.commitRequestFulfillment);
+    this.router.get('/:transferId', verifyToken(), this.getTransferDetails);
   }
 
   private initiateLinkTransfer = async (req: Request, res: Response) => {
@@ -142,6 +161,74 @@ class TransferController {
       });
     } catch (error) {
       this.transferLogger.error({ error }, 'Failed to initiate email transfer');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  };
+
+  private initiatePeerTransfer = async (req: Request, res: Response) => {
+    const { userId, email: senderEmail } = req.session;
+    const { recipient_identifier, owner_key, recipient_key, files, description } = req.body as BodyTypeToShape<'initiatePeerTransfer'>;
+
+    try {
+      // Check if recipient exists
+      const recipient = await db.users.findFirst({
+        where: { OR: [{ email: recipient_identifier }] },
+        select: { id: true, email: true, profile_picture: true, keys: true },
+      });
+
+      if (!recipient) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Recipient not found' });
+        return;
+      }
+
+      // Generate room id with prefix
+      const room_id = `signaling:${uuid_v4()}`;
+
+      // Create P2P session
+      const session = await db.peerTransferSessions.create({
+        data: {
+          room_id,
+          owner_key,
+          sender_id: userId,
+          receiver_id: recipient.id,
+          recipient_key: recipient_key,
+          files_meta: files,
+          status: 'ACTIVE',
+        },
+      });
+
+      // Notify recipient (non-blocking)
+      notificationService
+        .send_peer_transfer_notification(recipient.email, {
+          description,
+          session_id: session.id,
+          sender_email: senderEmail,
+          files: files.map((f) => ({ name: f.name, size: f.size })),
+        })
+        .catch((error) => {
+          this.transferLogger.warn(error, 'Error sending new peer transfer notification');
+        });
+
+      const enrichedRecipient = await enrichUserWithPresignedUrl(recipient);
+
+      // Respond with session details
+      res.status(StatusCodes.CREATED).json({
+        message: 'Peer transfer initiated',
+        data: {
+          session_id: session.id,
+          room_id: session.room_id,
+          owner_key: session.owner_key,
+          recipient_key: session.recipient_key,
+          recipient: enrichedRecipient ? {
+            id: enrichedRecipient.id,
+            email: enrichedRecipient.email,
+            profile_picture: enrichedRecipient.profile_picture,
+            profile_picture_url: enrichedRecipient.profile_picture_url,
+          } : recipient,
+        },
+      });
+    } catch (error) {
+      this.transferLogger.error({ error }, 'Failed to initiate peer transfer');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   };
@@ -458,17 +545,20 @@ class TransferController {
         include,
         orderBy: { created_at: 'desc' },
       });
-      const enrichedInvitations = invitations.map((invite) => {
-        const enrichedInvite = {
-          ...invite,
-          isInviter: invite.inviter.id === userId,
-          isInvitee: invite.email === userEmail,
-          isAccepted: invite.status !== INVITE_STATUS.PENDING,
-          isPendingApproval: invite.status === INVITE_STATUS.ACCEPTED,
-        };
-        if (!enrichedInvite.isInviter) delete enrichedInvite.viewed_authorization;
-        return enrichedInvite;
-      });
+      const enrichedInvitations = await Promise.all(
+        invitations.map(async (invite) => {
+          const enrichedInvite = {
+            ...invite,
+            inviter: await enrichUserWithPresignedUrl(invite.inviter),
+            isInviter: invite.inviter.id === userId,
+            isInvitee: invite.email === userEmail,
+            isAccepted: invite.status !== INVITE_STATUS.PENDING,
+            isPendingApproval: invite.status === INVITE_STATUS.ACCEPTED,
+          };
+          if (!enrichedInvite.isInviter) delete enrichedInvite.viewed_authorization;
+          return enrichedInvite;
+        })
+      );
 
       res.status(StatusCodes.OK).json({ message: 'Invitations retrieved successfully', data: enrichedInvitations, pagination: paginationDetails });
     } catch (error) {
@@ -933,21 +1023,27 @@ class TransferController {
         transfer.status === TRANSFER_STATUS.EXPIRED || Date.now() > new Date(String(transfer.expiration_date)).getTime();
 
       // Add derived meta and remove other email transfers if not owner requesting
-      const enrichedTransfers = transfers.map((transfer) => {
-        const enrichedTransfer = {
-          ...transfer,
-          status: is_expired(transfer) ? TRANSFER_STATUS.EXPIRED : transfer.status,
-          recommended_title: transfer.title || transfer.files[0]?.name || 'Untitled',
-          total_files_count: transfer.files.length,
-          total_files_size_bytes: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
-          is_owner: transfer.owner_user_id === userId,
-          is_expired: is_expired(transfer),
-          is_viewed: transfer.owner_user_id === userId ? true : transfer.email_transfers.some((et) => et.recipient_user.id === userId && et.viewed),
-        };
-        delete enrichedTransfer.email_transfers;
-        if (!enrichedTransfer.is_owner) delete enrichedTransfer.owner_file_key;
-        return enrichedTransfer;
-      });
+      const enrichedTransfers = await Promise.all(
+        transfers.map(async (transfer) => {
+          const enrichedTransfer = {
+            ...transfer,
+            owner: await enrichUserWithPresignedUrl(transfer.owner),
+            status: is_expired(transfer) ? TRANSFER_STATUS.EXPIRED : transfer.status,
+            recommended_title: transfer.title || transfer.files[0]?.name || 'Untitled',
+            total_files_count: transfer.files.length,
+            total_files_size_bytes: transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
+            is_owner: transfer.owner_user_id === userId,
+            is_expired: is_expired(transfer),
+            is_viewed:
+              transfer.owner_user_id === userId
+                ? true
+                : transfer.email_transfers.some((et) => et.recipient_user.id === userId && et.viewed),
+          };
+          delete enrichedTransfer.email_transfers;
+          if (!enrichedTransfer.is_owner) delete enrichedTransfer.owner_file_key;
+          return enrichedTransfer;
+        })
+      );
 
       // return filtered transfers
       res.status(StatusCodes.OK).json({ message: 'Transfers fetched successfully', data: enrichedTransfers, pagination: paginationDetails });
@@ -960,6 +1056,11 @@ class TransferController {
   private getTransferDetails = async (req: Request, res: Response) => {
     const { transferId } = req.params;
     const { userId } = req.session;
+
+    if (!validate_uuid(transferId)) {
+      res.status(StatusCodes.NOT_FOUND).json({ message: 'Transfer not found' });
+      return;
+    }
 
     try {
       const transfer = await db.transfers.findUnique({
@@ -1049,10 +1150,21 @@ class TransferController {
       const is_expired = (transfer: any) =>
         transfer.status === TRANSFER_STATUS.EXPIRED || Date.now() > new Date(String(transfer.expiration_date)).getTime();
 
+      // Enrich owner and recipients with presigned URLs
+      const enrichedOwner = await enrichUserWithPresignedUrl(transfer.owner);
+      const enrichedEmailTransfers = await Promise.all(
+        transfer.email_transfers.map(async (et: any) => ({
+          ...et,
+          recipient_user: await enrichUserWithPresignedUrl(et.recipient_user),
+        }))
+      );
+
       res.status(StatusCodes.OK).json({
         message: 'Transfer fetched successfully',
         data: {
           ...transfer,
+          owner: enrichedOwner,
+          email_transfers: enrichedEmailTransfers,
           status: is_expired(transfer) ? TRANSFER_STATUS.EXPIRED : transfer.status,
           recommended_title: transfer.title || transfer.files[0]?.name || 'Untitled',
           total_files_count: transfer.files.length,
@@ -1064,6 +1176,85 @@ class TransferController {
       });
     } catch (error) {
       this.transferLogger.error(error, 'Failed to get transfer details');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  };
+
+  private getP2PTransfer = async (req: Request, res: Response) => {
+    const { sessionId } = req.params;
+    const { userId } = req.session;
+
+    try {
+      const session = await db.peerTransferSessions.findUnique({
+        where: { id: sessionId },
+        include: {
+          receiver: {
+            select: {
+              id: true,
+              email: true,
+              profile_picture: true,
+            },
+          },
+          sender: {
+            select: {
+              id: true,
+              email: true,
+              profile_picture: true,
+            },
+          },
+        },
+      });
+
+      if (!session) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Transfer not found' });
+        return;
+      }
+
+      if (session.sender_id !== userId && session.receiver_id !== userId) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to access this session' });
+        return;
+      }
+
+      if (session.status === P2P_SESSION_STATUS.CLOSED) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'This session has expired' });
+        return;
+      }
+
+      if (session.sender_id === userId) {
+        delete (session as any).recipient_key;
+      } else if (session.receiver_id === userId) {
+        delete (session as any).owner_key;
+      }
+
+      // Enrich sender and receiver with presigned URLs
+      const enrichedSender = await enrichUserWithPresignedUrl(session.sender);
+      const enrichedReceiver = await enrichUserWithPresignedUrl(session.receiver);
+
+      const sessionData = {
+        session_id: session.id,
+        room_id: session.room_id,
+        owner_key: session.owner_key,
+        recipient_key: session.recipient_key,
+        recipient: enrichedReceiver ? {
+          id: enrichedReceiver.id,
+          email: enrichedReceiver.email,
+          profile_picture: enrichedReceiver.profile_picture,
+          profile_picture_url: enrichedReceiver.profile_picture_url,
+        } : session.receiver,
+        sender: enrichedSender ? {
+          id: enrichedSender.id,
+          email: enrichedSender.email,
+          profile_picture: enrichedSender.profile_picture,
+          profile_picture_url: enrichedSender.profile_picture_url,
+        } : session.sender,
+        created_at: session.created_at,
+        updated_at: session.updated_at,
+        is_owner: session.sender_id === userId,
+      };
+
+      res.status(StatusCodes.OK).json({ message: 'P2P transfer fetched successfully', data: sessionData });
+    } catch (error) {
+      this.transferLogger.error(error, 'Failed to get P2P transfer');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
     }
   };
@@ -1151,6 +1342,7 @@ class TransferController {
                 select: {
                   email: true,
                   profile_picture: true,
+                  brand_settings: true,
                 },
               },
               title: true,
@@ -1180,10 +1372,32 @@ class TransferController {
         data: { last_accessed: new Date() },
       });
 
+      const brandSettings = linkTransfer.transfer.owner.brand_settings;
+      const { getImageDownloadUrl } = await import('../services/image');
+      const { enrichUserWithPresignedUrl } = await import('../services/image-enrichment');
+      
+      const brandSettingsWithUrl = brandSettings && brandSettings.enabled
+        ? {
+            ...brandSettings,
+            logo_url: brandSettings.logo ? await getImageDownloadUrl(brandSettings.logo) : null,
+            logo_mark_url: brandSettings.logo_mark ? await getImageDownloadUrl(brandSettings.logo_mark) : null,
+          }
+        : null;
+
+      // Enrich owner with presigned profile picture URL
+      const enrichedOwner = await enrichUserWithPresignedUrl(linkTransfer.transfer.owner);
+
+      delete linkTransfer.transfer.owner.brand_settings;
+
       res.status(StatusCodes.OK).json({
-        message: 'Link transfer fetched successfully',
+        message: 'Link transfer retrieved',
         data: {
           ...linkTransfer,
+          transfer: {
+            ...linkTransfer.transfer,
+            owner: enrichedOwner,
+          },
+          brand_settings: brandSettingsWithUrl,
           recommended_title: linkTransfer.transfer.title || linkTransfer.transfer.files[0]?.name || 'Untitled',
           total_files_count: linkTransfer.transfer.files.length,
           total_files_size_bytes: linkTransfer.transfer.files.reduce((acc, file) => acc + Number(file.size), 0),
@@ -1357,6 +1571,491 @@ class TransferController {
     }
   };
 
+  private createTransferRequest = async (req: Request, res: Response) => {
+    const { userId } = req.session;
+    const { recipient_identifier, title, description, files } = req.body as BodyTypeToShape<'createTransferRequest'>;
+
+    try {
+      // Check if recipient exists
+      const recipient = await db.users.findUnique({
+        where: { email: recipient_identifier },
+        select: { id: true, email: true, profile_picture: true },
+      });
+
+      if (!recipient) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Recipient not found' });
+        return;
+      }
+
+      // Generate unique IDs for files
+      const filesWithIds = files.map((file) => ({
+        id: uuid_v4(),
+        name: file.name,
+        description: file.description,
+      }));
+
+      // Create transfer request
+      const transferRequest = await db.transferRequests.create({
+        data: {
+          requester_id: userId,
+          recipient_id: recipient.id,
+          title,
+          description,
+          files: filesWithIds.map((file) => ({
+            id: file.id,
+            name: file.name,
+            description: file.description,
+          })),
+        },
+      });
+
+      // Notify recipient (non-blocking)
+      // notificationService
+      //   .send_transfer_request_notification(recipient.email, {
+      //     request_id: transferRequest.id,
+      //     requester_email: senderEmail,
+      //     title: transferRequest.title,
+      //     description: transferRequest.description,
+      //     files: transferRequest.files.map((f) => ({ name: f.name, description: f.description })),
+      //     expires_at: transferRequest.expiration_date,
+      //   })
+      //   .catch((error) => {
+      //     this.transferLogger.warn(error, 'Error sending transfer request notification');
+      //   });
+
+      res.status(StatusCodes.CREATED).json({
+        message: 'Transfer request created successfully',
+        data: {
+          request_id: transferRequest.id,
+        },
+      });
+    } catch (error) {
+      this.transferLogger.error(error, 'Failed to create transfer request');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  };
+
+  private initiateRequestFulfillment = async (req: Request, res: Response) => {
+    const { userId } = req.session;
+    const { request_id, duration } = req.body as BodyTypeToShape<'initiateRequestFulfillment'>;
+
+    try {
+      // Find the transfer request
+      const transferRequest = await db.transferRequests.findUnique({
+        where: { id: request_id },
+        include: {
+          recipient: { select: { id: true, email: true } },
+          requester: { select: { id: true, email: true } },
+        },
+      });
+
+      if (!transferRequest) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Transfer request not found' });
+        return;
+      }
+
+      // Only recipient can fulfill the request
+      if (transferRequest.recipient_id !== userId) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to fulfill this request' });
+        return;
+      }
+
+      // Check if already fulfilled
+      if (transferRequest.transfer_id && transferRequest.status === TRANSFER_REQUEST_STATUS.FULFILLED) {
+        res.status(StatusCodes.CONFLICT).json({ message: 'Transfer request already fulfilled' });
+        return;
+      }
+
+      // Create a new transfer for the requester
+      const expiration_date = new Date(Date.now() + duration * 1000);
+      let transferId: string;
+      await useSerializableTransaction(async (tx) => {
+        const transfer = await tx.transfers.create({
+          data: {
+            owner_user_id: userId,
+            transfer_type: TRANSFER_TYPE.EMAIL,
+            title: transferRequest.title,
+            description: transferRequest.description,
+            status: TRANSFER_STATUS.PENDING,
+            expiration_date,
+            email_transfers: {
+              create: [
+                {
+                  recipient_user_id: transferRequest.requester_id,
+                },
+              ],
+            },
+          },
+        });
+
+        // Link the fulfilled transfer to the request
+        await tx.transferRequests.update({
+          where: { id: request_id },
+          data: { transfer_id: transfer.id },
+        });
+        transferId = transfer.id;
+      });
+
+      // Notify requester (non-blocking)
+      // notificationService
+      //   .send_transfer_fulfilled_notification(transferRequest.requester.email, {
+      //     request_id,
+      //     transfer_id: transfer.id,
+      //     title: transfer.title,
+      //     description: transfer.description,
+      //     expires_at: expiration_date,
+      //   })
+      //   .catch((error) => {
+      //     this.transferLogger.warn(error, 'Error sending transfer fulfilled notification');
+      //   });
+
+      res.status(StatusCodes.CREATED).json({
+        message: 'Transfer fulfillment initiated successfully',
+        data: {
+          transfer_id: transferId,
+        },
+      });
+    } catch (error) {
+      this.transferLogger.error(error, 'Failed to initiate request fulfillment');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  };
+
+  private commitRequestFulfillment = async (req: Request, res: Response) => {
+    const { owner_key, requester_key } = req.body as BodyTypeToShape<'commitRequestFulfillment'>;
+    const { userId } = req.session;
+
+    try {
+      // Find the transfer request
+      const transferRequest = await db.transferRequests.findUnique({
+        where: { id: req.body.request_id },
+        include: {
+          transfer: {
+            select: {
+              id: true,
+              owner_user_id: true,
+              status: true,
+              expiration_date: true,
+            },
+          },
+          requester: { select: { id: true, email: true } },
+          recipient: { select: { id: true, email: true } },
+        },
+      });
+
+      if (!transferRequest) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Transfer request not found' });
+        return;
+      }
+
+      // Only recipient can commit fulfillment
+      if (transferRequest.recipient_id !== userId) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to commit this fulfillment' });
+        return;
+      }
+
+      // Check if initiated
+      if (!transferRequest.transfer_id || !transferRequest.transfer) {
+        res.status(StatusCodes.BAD_REQUEST).json({ message: 'Transfer not initiated for this request' });
+        return;
+      }
+      // Check if already fulfilled
+      if (transferRequest.status === TRANSFER_REQUEST_STATUS.FULFILLED) {
+        res.status(StatusCodes.CONFLICT).json({ message: 'Transfer request already fulfilled' });
+        return;
+      }
+
+      // Check transfer validity
+      const transfer = transferRequest.transfer;
+      if (transfer.status !== TRANSFER_STATUS.PENDING || transfer.expiration_date < new Date()) {
+        res.status(StatusCodes.CONFLICT).json({ message: 'Transfer is no longer valid' });
+        return;
+      }
+
+      // Check all files are finalized
+      const unfinalizedFiles = await db.files.count({
+        where: {
+          transfer_id: transfer.id,
+          status: { not: FILE_STATUS.UPLOADED },
+        },
+      });
+
+      if (unfinalizedFiles > 0) {
+        res.status(StatusCodes.BAD_REQUEST).json({ message: 'All files must be finalized before committing fulfillment' });
+        return;
+      }
+
+      // Atomically update transfer and request status
+      await useSerializableTransaction(async (tx) => {
+        await tx.transfers.update({
+          where: { id: transfer.id },
+          data: {
+            owner_file_key: owner_key,
+            status: TRANSFER_STATUS.ACTIVE,
+          },
+        });
+
+        await tx.emailTransfers.updateMany({
+          where: {
+            transfer_id: transfer.id,
+            recipient_user_id: transferRequest.requester_id,
+          },
+          data: {
+            file_key: requester_key,
+          },
+        });
+
+        await tx.transferRequests.update({
+          where: { id: transferRequest.id },
+          data: { status: TRANSFER_REQUEST_STATUS.FULFILLED },
+        });
+      });
+
+      // Notify requester (non-blocking)
+      // notificationService
+      //   .send_transfer_fulfilled_notification(transferRequest.requester.email, {
+      //     request_id: transferRequest.id,
+      //     transfer_id: transfer.id,
+      //     title: transfer.title,
+      //     description: transfer.description,
+      //     expires_at: transfer.expiration_date,
+      //   })
+      //   .catch((error) => {
+      //     this.transferLogger.warn(error, 'Error sending transfer fulfilled notification');
+      //   });
+
+      res.status(StatusCodes.ACCEPTED).json({ message: 'Transfer fulfillment committed successfully' });
+    } catch (error) {
+      this.transferLogger.error(error, 'Failed to commit request fulfillment');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  };
+
+  private getTransferRequests = async (req: Request, res: Response) => {
+    const { userId } = req.session;
+    const query = req.query;
+
+    // Validate query parameters
+    const querySchema = z.object({
+      page: z.coerce.number().min(1).default(1),
+      limit: z.coerce.number().min(1).max(100).default(10),
+      direction: z.enum(['SENT', 'RECEIVED', 'ALL']).default('ALL'),
+      status: z.enum(Object.keys(TRANSFER_REQUEST_STATUS) as [string, ...string[]]).optional(),
+      search: z.string().optional(),
+    });
+    const queryResult = querySchema.safeParse(query);
+    if (!queryResult.success) {
+      const errors = prettyZodErrors(queryResult.error);
+      res.status(StatusCodes.BAD_REQUEST).json({ message: 'Invalid query parameters', details: errors });
+      return;
+    }
+
+    const { page, limit, status, search, direction } = queryResult.data;
+
+    // Build selectors
+    const sentSelector = [{ requester_id: userId }];
+    const receivedSelector = [{ recipient_id: userId }];
+    const selectors = {
+      ALL: [...sentSelector, ...receivedSelector],
+      SENT: sentSelector,
+      RECEIVED: receivedSelector,
+    };
+
+    const where: any = {
+      OR: selectors[direction],
+      ...(status && { status }),
+      ...(search && {
+        OR: [
+          { title: { contains: search, mode: Prisma.QueryMode.insensitive } },
+          { description: { contains: search, mode: Prisma.QueryMode.insensitive } },
+          { requester: { email: { contains: search, mode: Prisma.QueryMode.insensitive } } },
+          { recipient: { email: { contains: search, mode: Prisma.QueryMode.insensitive } } },
+        ],
+      }),
+    };
+
+    const include = {
+      requester: {
+        select: {
+          id: true,
+          email: true,
+          profile_picture: true,
+        },
+      },
+      recipient: {
+        select: {
+          id: true,
+          email: true,
+          profile_picture: true,
+        },
+      },
+      transfer: {
+        select: {
+          id: true,
+          owner_user_id: true,
+          status: true,
+          expiration_date: true,
+          owner_file_key: true,
+          email_transfers: {
+            select: {
+              recipient_user_id: true,
+              file_key: true,
+            },
+          },
+        },
+      },
+    };
+
+    try {
+      const [requests, paginationDetails] = await getPaginationResult({
+        modelName: 'TransferRequests',
+        page,
+        limit,
+        where,
+        include,
+        orderBy: { created_at: 'desc' },
+      });
+
+      // Enrich and filter keys for privacy
+      const enrichedRequests = requests.map((request: any) => {
+        let requester_key: string | undefined;
+        let owner_file_key: string | undefined;
+
+        if (request.transfer) {
+          // Only requester can see their file_key, only owner can see owner_file_key
+          if (request.requester.id === userId) {
+            const emailTransfer = request.transfer.email_transfers.find((et: any) => et.recipient_user_id === userId);
+            requester_key = emailTransfer?.file_key;
+            delete request.transfer.owner_file_key;
+          }
+          if (request.transfer.owner_user_id === userId) {
+            owner_file_key = request.transfer.owner_file_key;
+            request.transfer.email_transfers.map((et) => {
+              delete et.file_key;
+              return et;
+            });
+          }
+        }
+
+        return {
+          ...request,
+          requester_key,
+          owner_file_key,
+          is_requester: request.requester.id === userId,
+          is_recipient: request.recipient.id === userId,
+          fulfilled: request.status === TRANSFER_REQUEST_STATUS.FULFILLED,
+        };
+      });
+
+      res.status(StatusCodes.OK).json({
+        message: 'Transfer requests fetched successfully',
+        data: enrichedRequests,
+        pagination: paginationDetails,
+      });
+    } catch (error) {
+      this.transferLogger.error(error, 'Failed to get transfer requests');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  };
+
+  private getTransferRequestDetails = async (req: Request, res: Response) => {
+    const { requestId } = req.params;
+    const { userId } = req.session;
+
+    if (!validate_uuid(requestId)) {
+      res.status(StatusCodes.NOT_FOUND).json({ message: 'Transfer request not found' });
+      return;
+    }
+
+    try {
+      const request = await db.transferRequests.findUnique({
+        where: { id: requestId },
+        include: {
+          requester: {
+            select: {
+              id: true,
+              email: true,
+              profile_picture: true,
+            },
+          },
+          recipient: {
+            select: {
+              id: true,
+              email: true,
+              profile_picture: true,
+            },
+          },
+          transfer: {
+            select: {
+              id: true,
+              owner_user_id: true,
+              status: true,
+              expiration_date: true,
+              owner_file_key: true,
+              email_transfers: {
+                select: {
+                  recipient_user_id: true,
+                  file_key: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!request) {
+        res.status(StatusCodes.NOT_FOUND).json({ message: 'Transfer request not found' });
+        return;
+      }
+
+      // Check user permission
+      if (request.requester.id !== userId && request.recipient.id !== userId) {
+        res.status(StatusCodes.FORBIDDEN).json({ message: 'You do not have permission to access this transfer request' });
+        return;
+      }
+
+      // Enrich requester and recipient with presigned URLs
+      const enrichedRequestWithUsers = {
+        ...request,
+        requester: await enrichUserWithPresignedUrl(request.requester),
+        recipient: await enrichUserWithPresignedUrl(request.recipient),
+      };
+
+      // Enrich keys for privacy
+      let requester_key: string | undefined;
+      let owner_file_key: string | undefined;
+
+      if (enrichedRequestWithUsers.transfer) {
+        if (enrichedRequestWithUsers.requester.id === userId) {
+          const emailTransfer = enrichedRequestWithUsers.transfer.email_transfers.find((et: any) => et.recipient_user_id === userId);
+          requester_key = emailTransfer?.file_key;
+        }
+        if (request.transfer.owner_user_id === userId) {
+          owner_file_key = request.transfer.owner_file_key;
+          request.transfer.email_transfers.map((et) => {
+            delete et.file_key;
+            return et;
+          });
+        }
+      }
+
+      res.status(StatusCodes.OK).json({
+        message: 'Transfer request details fetched successfully',
+        data: {
+          ...request,
+          requester_key,
+          owner_file_key,
+          is_requester: request.requester.id === userId,
+          is_recipient: request.recipient.id === userId,
+          fulfilled: request.status === TRANSFER_REQUEST_STATUS.FULFILLED,
+        },
+      });
+    } catch (error) {
+      this.transferLogger.error(error, 'Failed to get transfer request details');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Internal Server Error' });
+    }
+  };
+
   private getValidationSchema = <T extends BodyType>(type: T): SchemaMap[T] => {
     return schemas[type];
   };
@@ -1377,6 +2076,26 @@ const initiateLinkTransferSchema = z.object({
   duration: z.number().min(1),
   is_password_protected: z.boolean().default(false),
   access_control: z.enum(Object.values(LINK_ACCESS_CONTROL) as [string, ...string[]]).default(LINK_ACCESS_CONTROL.PUBLIC),
+});
+
+const initiatePeerTransferSchema = z.object({
+  recipient_identifier: z.string().email(),
+  owner_key: z.string().refine((val) => PGPValidator.isValidPGPMessage(val), {
+    message: 'Invalid PGP message format',
+  }),
+  recipient_key: z.string().refine((val) => PGPValidator.isValidPGPMessage(val), {
+    message: 'Invalid PGP message format',
+  }),
+  description: z.string().max(500).optional(),
+  files: z
+    .array(
+      z.object({
+        name: z.string().max(255),
+        size: z.number().min(1),
+        content_type: z.string().max(100),
+      }),
+    )
+    .nonempty('At least one file is required'),
 });
 
 const commitEmailTransferSchema = z.object({
@@ -1420,14 +2139,46 @@ const approveInviteSchema = z.object({
   }),
 });
 
+const createTransferRequestSchema = z.object({
+  recipient_identifier: z.string().email(),
+  title: z.string().max(100).optional(),
+  description: z.string().max(500).optional(),
+  files: z
+    .array(
+      z.object({
+        name: z.string().max(255),
+        description: z.string().max(500).optional(),
+      }),
+    )
+    .nonempty('At least one file is required'),
+});
+
+const initiateRequestFulfillmentSchema = z.object({
+  request_id: z.string().uuid(),
+  duration: z.number().min(1),
+});
+
+const commitRequestFulfillmentSchema = z.object({
+  owner_key: z.string().refine((val) => PGPValidator.isValidPGPMessage(val), {
+    message: 'Invalid PGP message format',
+  }),
+  requester_key: z.string().refine((val) => PGPValidator.isValidPGPMessage(val), {
+    message: 'Invalid PGP message format',
+  }),
+});
+
 const schemas = {
   initiateEmailTransfer: initiateEmailTransferSchema,
   initiateLinkTransfer: initiateLinkTransferSchema,
+  initiatePeerTransfer: initiatePeerTransferSchema,
   commitEmailTransfer: commitEmailTransferSchema,
   commitLinkTransfer: commitLinkTransferSchema,
   acceptInvite: acceptInviteSchema,
   approveInvite: approveInviteSchema,
   getInvitationDetailsFromToken: getInvitationDetailsFromTokenSchema,
+  createTransferRequest: createTransferRequestSchema,
+  initiateRequestFulfillment: initiateRequestFulfillmentSchema,
+  commitRequestFulfillment: commitRequestFulfillmentSchema,
 } as const;
 
 type SchemaMap = typeof schemas;

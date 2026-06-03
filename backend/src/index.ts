@@ -1,5 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
+import http from 'http';
+import https from 'https';
+import { readFileSync } from 'fs';
 import { createApp } from './createApp';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -7,19 +10,20 @@ import cookieParser from 'cookie-parser';
 import useragent from 'express-useragent';
 import { initCache } from './services/cache';
 import logger, { httpLogger } from './lib/logger';
-import { HomeController, AuthController, UserController, FileController, TransferController } from './controllers';
+import { HomeController, AuthController, UserController, FileController, TransferController, ImageController } from './controllers';
 import { initDB } from './services/db';
 import AWS from 'aws-sdk';
 import nocache from 'nocache';
-import { readFileSync } from 'fs';
+import corsConfig from './config/cors.config';
+import { registerSignalingHandlers } from './handlers';
+import { verifyTokenSocket } from './middlewares/auth.middleware';
 import { isDevEnvironment } from './utils/dev.utils';
-import https from 'https';
+import initializeSocket from './lib/ws';
 
 const port = Number(process.env.PORT) || 4000;
-const crossOrigin = process.env.CROSS_ORIGIN ? process.env.CROSS_ORIGIN.split(',') : ['http://localhost:5174'];
 const corsOptions = {
-  origin: crossOrigin,
-  credentials: true,
+  origin: corsConfig.origins,
+  credentials: corsConfig.credentials,
 };
 
 AWS.config.update({
@@ -45,6 +49,9 @@ const ensureInitialized = async (req: express.Request, res: express.Response, ne
   next();
 };
 
+const eventHandlers = [registerSignalingHandlers()];
+const eventMiddlewares = [verifyTokenSocket()];
+
 const app = createApp({
   trustProxy: true,
   middlewares: [
@@ -58,7 +65,16 @@ const app = createApp({
     useragent.express(),
     httpLogger,
   ],
-  controllers: [new HomeController(), new AuthController(), new UserController(), new FileController(), new TransferController()],
+  controllers: [
+    new HomeController(),
+    new AuthController(),
+    new UserController(),
+    new FileController(),
+    new TransferController(),
+    new ImageController(),
+  ],
+  eventHandlers,
+  eventMiddlewares,
 });
 
 if (!isServerless) {
@@ -68,19 +84,22 @@ if (!isServerless) {
     await initCache();
   })()
     .then(() => {
-      // Start the app
+      // Start the server with Socket.io support
       if (isDevEnvironment()) {
         const certificateFile = readFileSync('./certs/cert.pem');
         const keyFile = readFileSync('./certs/key.pem');
 
         const credentials = { key: keyFile, cert: certificateFile };
         const httpsServer = https.createServer(credentials, app);
+        initializeSocket(httpsServer, eventHandlers, eventMiddlewares);
         httpsServer.listen(port, () => {
-          logger.info(`HTTPS Server listening on port ${port}`);
+          logger.info(`HTTPS Server and socket listening on port ${port}`);
         });
       } else {
-        app.listen(port, () => {
-          logger.info(`App listening on the port ${port}`);
+        const httpServer = http.createServer(app);
+        initializeSocket(httpServer, eventHandlers, eventMiddlewares);
+        httpServer.listen(port, () => {
+          logger.info(`Server and socket listening on port ${port}`);
         });
       }
     })
@@ -91,4 +110,3 @@ if (!isServerless) {
 }
 
 export default app;
-

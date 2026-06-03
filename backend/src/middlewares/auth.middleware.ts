@@ -10,6 +10,7 @@ import jwtConfig from '../config/jwt.config';
 import otpConfig from '../config/otp.config';
 import cacheConfig from '../config/cache.config';
 import transferConfig from '../config/transfer.config';
+import { Socket } from 'socket.io';
 
 const authMiddlewareLogger = logger.child({ module: 'AuthMiddleware' });
 
@@ -73,6 +74,34 @@ export const verifyToken = (options?: { bypassVerification?: boolean }) => {
       }
     });
   };
+};
+
+// Socket.IO middleware to verify JWT from cookies using the same logic as verifyToken
+export const verifyTokenSocket = (options?: { bypassVerification?: boolean }) => (socket: Socket, next: (err?: Error) => void) => {
+  // Fake request/response objects
+  const req = {
+    cookies: socket.handshake.headers.cookie
+      ? Object.fromEntries(
+          socket.handshake.headers.cookie.split(';').map((c) => {
+            const [k, v] = c.trim().split('=');
+            return [k, v];
+          }),
+        )
+      : {},
+    headers: socket.handshake.headers,
+  } as unknown as Request;
+
+  const res = {
+    status: () => ({
+      json: (obj: any) => next(new Error(obj.message)),
+    }),
+  } as unknown as Response;
+
+  verifyToken(options)(req, res, () => {
+    // Attach session to socket for use in handlers
+    socket.session = req.session;
+    next();
+  });
 };
 
 const extractOtpToken = (req: Request) => {

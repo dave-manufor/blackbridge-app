@@ -42,13 +42,13 @@ const PublicLayout = () => {
               <div className="max-sm:hidden cursor-pointer">
                 <ProfileSummary
                   email={user.email}
-                  profile_url={user.profile_picture}
+                  profile_url={user.profile_picture_url}
                   subText="Free plan"
                   className="text-white cursor-pointer"
                 />
               </div>
               <StyledAvatar
-                profile_url={user.profile_picture}
+                profile_url={user.profile_picture_url}
                 className="hidden max-sm:flex cursor-pointer"
               />
             </DropdownMenuTrigger>

@@ -14,8 +14,12 @@ export default {
   },
   user: {
     me: "/users/me",
+    searchUsersByEmail: "/users/search",
     verifyAccount: "/users/me/verify",
     getPublicKeys: "/users/keys",
+    getBrandSettings: "/users/brand-settings",
+    createBrandSettings: "/users/brand-settings",
+    updateBrandSettings: "/users/brand-settings",
   },
   files: {
     requestUpload: "files/upload/request",
@@ -33,6 +37,8 @@ export default {
       `transfers/emails/${transfer_id}/viewed`,
     getTransferDetails: ({ transferId }: { transferId: string }) =>
       `transfers/${transferId}`,
+    getP2PSessionDetails: ({ sessionId }: { sessionId: string }) =>
+      `transfers/peers/${sessionId}`,
     getLinkTransfer: ({ slug }: { slug: string }) => `transfers/links/${slug}`,
     initiateEmailTransfer: "transfers/emails/initiate",
     commitEmailTransfer: ({ transferId }: { transferId: string }) =>
@@ -40,6 +46,7 @@ export default {
     initiateLinkTransfer: "transfers/links/initiate",
     commitLinkTransfer: ({ transferId }: { transferId: string }) =>
       `transfers/links/commit/${transferId}`,
+    initiateP2PSession: "transfers/peers/initiate",
     getEmailTransferDownloadRequest: ({ transferId }: { transferId: string }) =>
       `transfers/emails/${transferId}/download-request`,
     getLinkTransferDownloadRequest: ({ slug }: { slug: string }) =>
@@ -49,5 +56,7 @@ export default {
     getInvitationByToken: "transfers/invitations/details",
     acceptTransferInvitation: "transfers/invitations/accept",
     approveTransferInvitation: "transfers/invitations/approve",
+    initiateRequestFulfillment: "transfers/requests/initiate",
+    commitRequestFulfillment: "transfers/requests/commit",
   },
 };

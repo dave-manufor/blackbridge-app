@@ -40,54 +40,48 @@ const TransferSummaryCard = ({
     <Card
       key={id}
       className={cn(
-        "p-4 gap-0 hover:bg-neutral-50 relative cursor-pointer",
+        "p-5 flex flex-col justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer relative overflow-hidden group",
         className
       )}
       onClick={handleCardClick}
     >
       {!is_viewed && (
-        <div className="absolute size-4 rounded-full bg-red-400 top-0 right-0 translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute size-3 rounded-full bg-primary-500 top-4 right-4 ring-4 ring-white" />
       )}
-      <div className="w-full overflow-hidden text-ellipsis font-medium mb-6 flex gap-4">
-        <span className="grow truncate text-base">{recommended_title}</span>
-        {transfer_type === TRANSFER_TYPES.LINK ? (
-          <IoLink className="text-2xl min-w-fit" />
-        ) : is_owner ? (
-          <FiArrowUpRight className="text-2xl min-w-fit" />
-        ) : (
-          <FiArrowDownLeft className="text-2xl min-w-fit" />
-        )}
-      </div>
-      <div className="max-w-full text-neutral-500 mb-4">
-        <div className="max-w-full flex items-start gap-2">
-          <FaRegFolderOpen className="text-base min-w-fit mt-0.5" />
-          {files.length > 0 ? (
-            <div className="overflow-hidden grow text-ellipsis text-sm flex flex-col items-start gap-0.5">
-              <span className="truncate max-w-full">{files[0].name}</span>
-              <div className="flex items-center gap-1 text-xs text-neutral-400">
-                {files.length > 1 && (
-                  <>
-                    <span> + {files.length - 1} more</span>
-                    <span>| </span>
-                  </>
-                )}
-                <span>{formatFileSize(total_files_size_bytes)}</span>
-              </div>
-            </div>
-          ) : (
-            <span className="text-sm text-neutral-500">No files</span>
+      
+      <div className="flex flex-col gap-1">
+        <div className="flex items-start justify-between gap-4">
+          <span className="font-semibold text-neutral-900 truncate text-lg leading-tight">
+            {recommended_title}
+          </span>
+          <div className="text-neutral-400 group-hover:text-primary-600 transition-colors">
+            {transfer_type === TRANSFER_TYPES.LINK ? (
+              <IoLink className="text-xl" />
+            ) : is_owner ? (
+              <FiArrowUpRight className="text-xl" />
+            ) : (
+              <FiArrowDownLeft className="text-xl" />
+            )}
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2 text-sm text-neutral-500">
+          <FaRegFolderOpen className="text-neutral-400" />
+          <span className="truncate max-w-[150px]">
+            {files.length > 0 ? files[0].name : "No files"}
+          </span>
+          {files.length > 1 && (
+            <span className="text-neutral-400">+{files.length - 1}</span>
           )}
+          <span className="text-neutral-300">|</span>
+          <span>{formatFileSize(total_files_size_bytes)}</span>
         </div>
       </div>
-      <div className="flex items-center gap-2 mb-4">
+
+      <div className="flex items-center gap-2 mt-auto pt-2">
         <TransferStatusBadge status={status} />
         <TransferTypeBadge type={transfer_type} />
       </div>
-      {/* <div className="flex items-center pt-4 border-t border-neutral-200">
-        <Button className="cursor-pointer" onClick={handleDownload}>
-          Download All
-        </Button>
-      </div> */}
     </Card>
   );
 };

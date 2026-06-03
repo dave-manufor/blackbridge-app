@@ -1,4 +1,3 @@
-import authStyles from "./Auth.module.css";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signUpSchema } from "@/lib/validators";
@@ -27,16 +26,10 @@ import { IoIosCheckmarkCircle, IoIosCloseCircle } from "react-icons/io";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/authStore";
 import { useShallow } from "zustand/react/shallow";
-import Logo from "@/assets/img/blackbridge-logo.svg";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card";
 import { Link } from "react-router";
 import { SessionStorageService } from "@/lib/WebStorageService";
 import storageKeys from "@/config/constants/storageKeys";
+import AuthLayout from "@/layouts/AuthLayout";
 
 const SignUp = () => {
   const storage = new SessionStorageService();
@@ -87,161 +80,140 @@ const SignUp = () => {
   }
 
   return (
-    <div className={authStyles.container}>
-      <div className={authStyles.banner}>
-        <img
-          src={Logo}
-          alt="Blackbridge Logo"
-          className="max-w-[70%] h-auto mb-4"
-        />
+    <AuthLayout
+      title="Create a free account"
+      subtitle="End-to-end encrypted file sharing — your files, your keys, your control."
+    >
+      <Form {...form}>
+        <form
+          className="flex flex-col gap-5"
+          onSubmit={form.handleSubmit(onSubmit)}
+        >
+          <FormField
+            name="email"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-neutral-700">Email</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="email" 
+                    placeholder="name@company.com" 
+                    {...field} 
+                    className="h-12 bg-neutral-50 border-neutral-200 focus:border-primary-300 focus:ring-primary-100 rounded-xl"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            name="password"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-neutral-700">Password</FormLabel>
+                <FormControl>
+                  <PasswordInput 
+                    placeholder="Create a password" 
+                    {...field} 
+                    className="h-12 bg-neutral-50 border-neutral-200 focus:border-primary-300 focus:ring-primary-100 rounded-xl"
+                  />
+                </FormControl>
+                {password && (
+                  <div className="flex flex-col gap-1 mt-2 p-3 bg-neutral-50 rounded-lg border border-neutral-100">
+                    <span className="flex gap-2 items-center text-xs text-neutral-600">
+                      {hasMinLength ? (
+                        <IoIosCheckmarkCircle className="text-success-green-500 text-base" />
+                      ) : (
+                        <IoIosCloseCircle className="text-error-red-500 text-base" />
+                      )}
+                      <span className={cn({ "line-through text-neutral-400": hasMinLength })}>
+                        Minimum 12 characters
+                      </span>
+                    </span>
+                    <span className="flex gap-2 items-center text-xs text-neutral-600">
+                      {hasUpperCase ? (
+                        <IoIosCheckmarkCircle className="text-success-green-500 text-base" />
+                      ) : (
+                        <IoIosCloseCircle className="text-error-red-500 text-base" />
+                      )}
+                      <span className={cn({ "line-through text-neutral-400": hasUpperCase })}>
+                        At least one uppercase letter
+                      </span>
+                    </span>
+                    <span className="flex gap-2 items-center text-xs text-neutral-600">
+                      {hasLowerCase ? (
+                        <IoIosCheckmarkCircle className="text-success-green-500 text-base" />
+                      ) : (
+                        <IoIosCloseCircle className="text-error-red-500 text-base" />
+                      )}
+                      <span className={cn({ "line-through text-neutral-400": hasLowerCase })}>
+                        At least one lowercase letter
+                      </span>
+                    </span>
+                    <span className="flex gap-2 items-center text-xs text-neutral-600">
+                      {hasOneDigit ? (
+                        <IoIosCheckmarkCircle className="text-success-green-500 text-base" />
+                      ) : (
+                        <IoIosCloseCircle className="text-error-red-500 text-base" />
+                      )}
+                      <span className={cn({ "line-through text-neutral-400": hasOneDigit })}>
+                        At least one digit
+                      </span>
+                    </span>
+                    <span className="flex gap-2 items-center text-xs text-neutral-600">
+                      {hasSpecialChar ? (
+                        <IoIosCheckmarkCircle className="text-success-green-500 text-base" />
+                      ) : (
+                        <IoIosCloseCircle className="text-error-red-500 text-base" />
+                      )}
+                      <span className={cn({ "line-through text-neutral-400": hasSpecialChar })}>
+                        At least one special character
+                      </span>
+                    </span>
+                  </div>
+                )}
+              </FormItem>
+            )}
+          />
+          <FormField
+            name="confirmPassword"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-neutral-700">Confirm Password</FormLabel>
+                <FormControl>
+                  <PasswordInput
+                    placeholder="Confirm your password"
+                    {...field}
+                    className="h-12 bg-neutral-50 border-neutral-200 focus:border-primary-300 focus:ring-primary-100 rounded-xl"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button 
+            disabled={authLoading} 
+            type="submit"
+            className="h-12 text-base font-medium rounded-xl shadow-lg shadow-primary-600/20 transition-all mt-2"
+          >
+            {authLoading ? "Creating Account..." : "Create Account"}
+          </Button>
+        </form>
+      </Form>
+
+      <div className="text-center text-sm">
+        <span className="text-neutral-500">Already have an account? </span>
+        <Link 
+          to="/sign-in" 
+          className="font-semibold text-primary-600 hover:text-primary-700 hover:underline transition-colors"
+        >
+          Sign In
+        </Link>
       </div>
-      <Card className={authStyles.formWrapper}>
-        <CardHeader className={authStyles.formHeader}>
-          <h1>Create a free account</h1>
-          <p>
-            End-to-end encrypted file sharing — your files, your keys, your
-            control.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form
-              className="max-w-[480px] mt-6 mx-auto flex flex-col gap-4"
-              onSubmit={form.handleSubmit(onSubmit)}
-            >
-              <FormField
-                name="email"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="Email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                name="password"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <PasswordInput placeholder="Password" {...field} />
-                    </FormControl>
-                    {password && (
-                      <div className="flex flex-col gap-[4px] mt-[8px]">
-                        <span className="flex gap-[4px] items-center small-text">
-                          {hasMinLength ? (
-                            <IoIosCheckmarkCircle
-                              className="text-[1.2em]"
-                              color="var(--success-green-500"
-                            />
-                          ) : (
-                            <IoIosCloseCircle color="var(--error-red-500)" />
-                          )}
-                          <span
-                            className={cn({ "line-through": hasMinLength })}
-                          >
-                            Minimum 12 characters
-                          </span>
-                        </span>
-                        <span className="flex gap-[4px] items-center small-text">
-                          {hasUpperCase ? (
-                            <IoIosCheckmarkCircle
-                              className="text-[1.2em]"
-                              color="var(--success-green-500)"
-                            />
-                          ) : (
-                            <IoIosCloseCircle color="var(--error-red-500)" />
-                          )}
-                          <span
-                            className={cn({ "line-through": hasUpperCase })}
-                          >
-                            At least one uppercase letter
-                          </span>
-                        </span>
-                        <span className="flex gap-[4px] items-center small-text">
-                          {hasLowerCase ? (
-                            <IoIosCheckmarkCircle
-                              className="text-[1.2em]"
-                              color="var(--success-green-500)"
-                            />
-                          ) : (
-                            <IoIosCloseCircle color="var(--error-red-500)" />
-                          )}
-                          <span
-                            className={cn({ "line-through": hasLowerCase })}
-                          >
-                            At least one lowercase letter
-                          </span>
-                        </span>
-                        <span className="flex gap-[4px] items-center small-text">
-                          {hasOneDigit ? (
-                            <IoIosCheckmarkCircle
-                              className="text-[1.2em]"
-                              color="var(--success-green-500)"
-                            />
-                          ) : (
-                            <IoIosCloseCircle color="var(--error-red-500)" />
-                          )}
-                          <span className={cn({ "line-through": hasOneDigit })}>
-                            At least one digit
-                          </span>
-                        </span>
-                        <span className="flex gap-[4px] items-center small-text">
-                          {hasSpecialChar ? (
-                            <IoIosCheckmarkCircle
-                              className="text-[1.2em]"
-                              color="var(--success-green-500)"
-                            />
-                          ) : (
-                            <IoIosCloseCircle color="var(--error-red-500)" />
-                          )}
-                          <span
-                            className={cn({ "line-through": hasSpecialChar })}
-                            style={{ textTransform: "none" }}
-                          >
-                            At least one special character
-                          </span>
-                        </span>
-                      </div>
-                    )}
-                  </FormItem>
-                )}
-              />
-              <FormField
-                name="confirmPassword"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Confirm Password</FormLabel>
-                    <FormControl>
-                      <PasswordInput
-                        placeholder="Confirm Password"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button disabled={authLoading} type="submit">
-                Create Account
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-        <CardFooter className={authStyles.formFooter}>
-          Already have an account?
-          <Link to="/sign-in" className="link font-semibold">
-            Sign In
-          </Link>
-        </CardFooter>
-      </Card>
-    </div>
+    </AuthLayout>
   );
 };
 

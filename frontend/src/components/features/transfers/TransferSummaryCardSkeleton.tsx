@@ -9,27 +9,22 @@ const TransferSummaryCardSkeleton = ({
   className?: string;
 }) => {
   return (
-    <Card className={cn("p-4 gap-0", className)}>
-      <div className="w-full overflow-hidden text-ellipsis font-medium mb-6 flex gap-4">
-        <Skeleton className="w-full h-6" />
-      </div>
-      <div className="max-w-full text-neutral-500 mb-4">
-        <div className="max-w-full flex items-start gap-2">
-          <Skeleton className="w-6 h-6" />
-          <div className="overflow-hidden grow text-ellipsis text-sm flex flex-col items-start gap-0.5">
-            <Skeleton className="truncate w-full h-6" />
-            <div className="flex items-center gap-1 text-xs text-neutral-400">
-              <Skeleton className="w-20 h-3" />
-            </div>
-          </div>
+    <Card className={cn("p-5 flex flex-col justify-between gap-4 h-[180px]", className)}>
+      <div className="flex flex-col gap-1 w-full">
+        <div className="flex items-start justify-between gap-4 w-full">
+          <Skeleton className="w-3/4 h-7" />
+          <Skeleton className="w-6 h-6 rounded-full" />
+        </div>
+        
+        <div className="flex items-center gap-2 mt-2">
+          <Skeleton className="w-4 h-4" />
+          <Skeleton className="w-1/3 h-4" />
         </div>
       </div>
-      <div className="flex items-center gap-2 mb-4">
-        <Skeleton className="w-12 h-6" />
-        <Skeleton className="w-12 h-6" />
-      </div>
-      <div className="flex items-center pt-4 border-t border-neutral-200">
-        <Skeleton className="w-32 h-8" />
+
+      <div className="flex items-center gap-2 mt-auto pt-2">
+        <Skeleton className="w-20 h-6 rounded-full" />
+        <Skeleton className="w-16 h-6 rounded-full" />
       </div>
     </Card>
   );
