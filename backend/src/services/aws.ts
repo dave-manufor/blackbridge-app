@@ -9,11 +9,17 @@ import { isDevEnvironment } from '../utils/dev.utils';
 const bucket = new S3({
   apiVersion: '2006-03-01',
   signatureVersion: 'v4',
-  region: bucketConfig.REGION || 'auto', // Default to auto for Cloudflare R2
+  region: bucketConfig.REGION || 'auto',
+  // Explicitly pass credentials instead of relying on default credential chain,
+  // which can be unreliable in serverless environments like Vercel
+  credentials: {
+    accessKeyId: bucketConfig.ACCESS_KEY_ID || '',
+    secretAccessKey: bucketConfig.SECRET_ACCESS_KEY || '',
+  },
   ...(bucketConfig.ENDPOINT
     ? {
         endpoint: bucketConfig.ENDPOINT,
-        s3ForcePathStyle: true, // Required for many S3-compatible providers like R2 and MinIO
+        s3ForcePathStyle: true, // Required for S3-compatible providers like Cloudflare R2
       }
     : { useAccelerateEndpoint: true }),
 });
