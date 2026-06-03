@@ -38,7 +38,6 @@ COPY --from=builder /app/dist ./dist
 # Copy prisma migrations (needed by "prisma migrate deploy" at startup)
 COPY --from=builder /app/src/prisma/migrations ./src/prisma/migrations
 
-EXPOSE 4000
 
 # Run migrations then start the server
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/index.js"]
