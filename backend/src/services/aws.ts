@@ -115,3 +115,15 @@ export const getPresignedUrl = async (key: string, options: PresignedUrlOptions)
 
   throw new Error('Invalid Presigned URL Options');
 };
+
+/**
+ * Delete an object from S3
+ */
+export const deleteObject = async (key: string): Promise<void> => {
+  const params = {
+    Bucket: bucketConfig.BUCKET_NAME,
+    Key: key,
+  };
+
+  await bucket.deleteObject(params).promise();
+};

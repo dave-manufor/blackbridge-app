@@ -1,25 +1,30 @@
 import React from "react";
-import styles from "./FlexCard.module.css";
+import { cn } from "@/lib/utils";
+import { Card } from "./card";
+import { HTMLMotionProps } from "framer-motion";
+
 const FlexCard = ({
   children,
   className,
   onClick,
   ...props
-}: React.ComponentProps<"div"> & {
+}: HTMLMotionProps<"div"> & {
   children?: React.ReactNode;
   className?: string;
   onClick?: () => void;
 }) => {
   return (
-    <div
+    <Card
       {...props}
-      className={`${styles.card} ${className ? className : ""} ${
-        onClick ? styles.clickable : ""
-      }`}
+      className={cn(
+        "flex flex-col items-start gap-8 p-6 bg-surface-foreground shadow-sm transition-all duration-200 max-sm:px-4",
+        onClick && "cursor-pointer hover:scale-[1.02] hover:shadow-md",
+        className
+      )}
       onClick={onClick}
     >
       {children}
-    </div>
+    </Card>
   );
 };
 export default FlexCard;

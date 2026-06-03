@@ -8,6 +8,9 @@ import {
   commitTransfer,
   CommitTransferPayload,
   initializeTransfer,
+  initiateRequestFulfillment,
+  commitRequestFulfillment,
+  CommitRequestFulfillmentPayload,
 } from "@/api/services/transferService";
 import {
   announceUpload,
@@ -28,41 +31,46 @@ const uploadStore = useUploadStore.getState();
 
 const CONCURRENCY_LIMIT = 2;
 
-/**
- * Main transfer orchestration function.
- * Handles the entire E2EE transfer process.
- */
 const transfer = async (
-  payload: { data: z.infer<typeof transferSchema> },
+  payload: InitiateTransferPayload,
   signal: AbortSignal
 ) => {
-  const { data } = payload;
+  const { data, request_id } = payload;
   const { files } = data;
   uploadStore.initializeUpload(files);
 
-  // 1. Initialize transfer to get a transferId
+  // 1. Initialize transfer
   devOnly(() => {
     console.log("Initializing transfer...");
   });
-  const transferId = await initializeTransfer(
-    data.isLink
-      ? {
-          title: data.title,
-          description: data.description,
+
+  const transferId = request_id
+    ? await initiateRequestFulfillment(
+        {
+          request_id,
           duration: TRANSFER_DURATIONS[data.duration],
-          isLink: true,
-          is_password_protected: data.isPasswordProtected,
-          access_control: data.access_control,
-        }
-      : {
-          title: data.title,
-          description: data.description,
-          duration: TRANSFER_DURATIONS[data.duration],
-          isLink: false,
-          recipients: data.recipients as string[],
         },
-    signal
-  );
+        signal
+      )
+    : await initializeTransfer(
+        data.isLink
+          ? {
+              title: data.title,
+              description: data.description,
+              duration: TRANSFER_DURATIONS[data.duration],
+              isLink: true,
+              is_password_protected: data.isPasswordProtected,
+              access_control: data.access_control,
+            }
+          : {
+              title: data.title,
+              description: data.description,
+              duration: TRANSFER_DURATIONS[data.duration],
+              isLink: false,
+              recipients: data.recipients as string[],
+            },
+        signal
+      );
 
   // 2. Generate a single session key for the entire transfer
   devOnly(() => {
@@ -77,7 +85,6 @@ const transfer = async (
   });
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-    // Initialize file-specific progress and state
     uploadStore.initializeFileProgressMap(i, file.size);
 
     const { file_id, blocks } = await requestUpload(
@@ -91,11 +98,9 @@ const transfer = async (
     );
 
     let previousEnd = 0;
-    // Create an array of block processing thunks
     const blockProcessingTask = blocks
       .sort((a, b) => a.index - b.index)
       .map((block) => async () => {
-        // Initialize block-specific state
         uploadStore.initializeBlockProgressMap(i, block.index);
         const start = previousEnd;
         const end = start + block.size;
@@ -103,15 +108,7 @@ const transfer = async (
         const fileChunk = new Uint8Array(
           await file.slice(start, end).arrayBuffer()
         );
-        console.log("Block boundaries:", {
-          index: block.index,
-          suggested_size: block.size,
-          actual_size: fileChunk.byteLength,
-          start,
-          end,
-        });
 
-        // Encrypt the chunk before uploading
         const encryptedChunk = await cryptoBridge.encrypt(fileChunk, {
           sessionKey,
           outputFormat: "binary",
@@ -119,12 +116,10 @@ const transfer = async (
 
         const parts = await announceUpload({ block_id: block.id }, signal);
 
-        // Pre-populate parts with 0 loaded bytes
         parts.forEach((part) => {
           uploadStore.setPartProgress(i, block.index, part.part_index, 0);
         });
 
-        // Guarantees it's a Blob-safe buffer
         const safeBuffer = encryptedChunk.data.slice().buffer;
 
         const uploadedParts = await processBlockUpload(
@@ -132,12 +127,10 @@ const transfer = async (
             block: new Blob([safeBuffer]),
             initialParts: parts,
             handleProgress: (e: AxiosProgressEvent, partIndex: number) => {
-              // This progress is for the encrypted chunk, so we map it back to original file size for UI
               const partOriginalSize =
                 parts.find((p) => p.part_index === partIndex)?.part_size ?? 0;
               if (!e.total || partOriginalSize === 0) return;
 
-              // Map encrypted progress back to the original unencrypted part size
               const progressRatio = e.loaded / e.total;
               const loadedForThisPartOriginal =
                 partOriginalSize * progressRatio;
@@ -163,14 +156,12 @@ const transfer = async (
         );
       });
 
-    // Execute all block tasks for the current file in parallel with a limit.
     await runInParallel(blockProcessingTask, CONCURRENCY_LIMIT);
 
     await finalizeFile({ file_id }, signal);
   }
 
   // 4. Encrypt session key for all parties and commit the transfer
-
   const ownerPublicKey = useAuthStore.getState().primaryKeys?.public_key;
   if (!ownerPublicKey)
     throw new Error("Primary public key not found for user.");
@@ -182,75 +173,93 @@ const transfer = async (
     })
   )[0];
 
-  const commitPayload: {
-    transfer_id: string;
-    isLink: boolean;
-    owner_key: string;
-    recipient_keys?: { email: string; file_key: string }[];
-    link_key?: string;
-    fragment?: string;
-  } = {
-    transfer_id: transferId,
-    isLink: data.isLink,
-    owner_key: encryptedOwnerKey,
-  };
-
-  if (data.isLink) {
-    devOnly(() => {
-      console.log("Link-based key encryption initiated");
-    });
-    let passphrase = "";
-    // Generate fragment
-    const fragment = await cryptoBridge.generateRandomFragment(16);
-    passphrase += fragment;
-    // If if password protected, concatenate fragment with password
-    if (data.isPasswordProtected && data.password) {
-      passphrase += data.password;
+  if (request_id) {
+    // Fulfillment flow
+    const recipients = await getPublicKeys(data.recipients as string[], signal);
+    const requester = recipients[0];
+    if (!requester || !requester.public_key) {
+      throw new Error("Requester public key not found.");
     }
-
-    // Encrypt link key
-    const encryptedLinkKey = (
+    const requester_key = (
       await cryptoBridge.encryptSessionKeys(sessionKey, {
-        passphrase: passphrase,
+        publicKeys: [requester.public_key],
         outputFormat: "armored",
       })
     )[0];
-    // Encrypt fragment
-    const encryptedFragment = await cryptoBridge.encryptFragment(
-      fragment,
-      ownerPublicKey
-    );
-    commitPayload.link_key = encryptedLinkKey;
-    commitPayload.fragment = encryptedFragment;
-  } else if (!data.isLink) {
-    // Email-based transfer
-    devOnly(() => {
-      console.log("Email-based key encryption initiated");
-    });
-    const recipients = await getPublicKeys(data.recipients as string[], signal);
-    const validRecipients = recipients.filter(
-      (recipient) => recipient.public_key
-    );
-    commitPayload.recipient_keys = await Promise.all(
-      validRecipients.map(async (recipient) => ({
-        email: recipient.email,
-        file_key: (
-          await cryptoBridge.encryptSessionKeys(sessionKey, {
-            publicKeys: [recipient.public_key],
-            outputFormat: "armored",
-          })
-        )[0],
-      }))
-    );
-  }
 
-  await commitTransfer(commitPayload as CommitTransferPayload, signal);
+    const commitPayload: CommitRequestFulfillmentPayload = {
+      request_id,
+      owner_key: encryptedOwnerKey,
+      requester_key,
+    };
+    await commitRequestFulfillment(commitPayload, signal);
+  } else {
+    // Normal transfer flow
+    const commitPayload: {
+      transfer_id: string;
+      isLink: boolean;
+      owner_key: string;
+      recipient_keys?: { email: string; file_key: string }[];
+      link_key?: string;
+      fragment?: string;
+    } = {
+      transfer_id: transferId,
+      isLink: data.isLink,
+      owner_key: encryptedOwnerKey,
+    };
+
+    if (data.isLink) {
+      devOnly(() => {
+        console.log("Link-based key encryption initiated");
+      });
+      let passphrase = "";
+      const fragment = await cryptoBridge.generateRandomFragment(16);
+      passphrase += fragment;
+      if (data.isPasswordProtected && data.password) {
+        passphrase += data.password;
+      }
+
+      const encryptedLinkKey = (
+        await cryptoBridge.encryptSessionKeys(sessionKey, {
+          passphrase: passphrase,
+          outputFormat: "armored",
+        })
+      )[0];
+      const encryptedFragment = await cryptoBridge.encryptFragment(
+        fragment,
+        ownerPublicKey
+      );
+      commitPayload.link_key = encryptedLinkKey;
+      commitPayload.fragment = encryptedFragment;
+    } else if (!data.isLink) {
+      devOnly(() => {
+        console.log("Email-based key encryption initiated");
+      });
+      const recipients = await getPublicKeys(data.recipients as string[], signal);
+      const validRecipients = recipients.filter(
+        (recipient) => recipient.public_key
+      );
+      commitPayload.recipient_keys = await Promise.all(
+        validRecipients.map(async (recipient) => ({
+          email: recipient.email,
+          file_key: (
+            await cryptoBridge.encryptSessionKeys(sessionKey, {
+              publicKeys: [recipient.public_key],
+              outputFormat: "armored",
+            })
+          )[0],
+        }))
+      );
+    }
+    await commitTransfer(commitPayload as CommitTransferPayload, signal);
+  }
 
   return transferId;
 };
 
 interface InitiateTransferPayload {
   data: z.infer<typeof transferSchema>;
+  request_id?: string;
 }
 
 const useInitiateTransfer = () => {
@@ -258,16 +267,16 @@ const useInitiateTransfer = () => {
   const controller = new AbortController();
   return useMutation({
     mutationFn: async (payload: InitiateTransferPayload) => {
-      return await transfer(
-        {
-          data: payload.data,
-        },
-        controller.signal
-      );
+      return await transfer(payload, controller.signal);
     },
-    onSuccess: () => {
+    onSuccess: (transferId, variables) => {
       uploadStore.setStatus("success");
       queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all });
+      if (variables.request_id) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.fileRequests.detail(variables.request_id),
+        });
+      }
     },
     onError: (error) => {
       controller.abort();

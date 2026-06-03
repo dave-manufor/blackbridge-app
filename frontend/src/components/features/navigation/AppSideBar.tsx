@@ -21,11 +21,8 @@ import {
   FaFolderOpen,
   FaRegFolderOpen,
 } from "react-icons/fa";
-import {
-  MdLogout,
-  MdDashboardCustomize,
-  MdOutlineDashboardCustomize,
-} from "react-icons/md";
+import { RiP2pFill, RiP2pLine } from "react-icons/ri";
+import { MdLogout } from "react-icons/md";
 import {
   IoFileTrayOutline,
   IoFileTray,
@@ -104,6 +101,12 @@ const AppSideBar = () => {
         url: "/",
       },
       {
+        label: "Peer Transfer",
+        defaultIcon: RiP2pLine,
+        activeIcon: RiP2pFill,
+        url: "/peer",
+      },
+      {
         label: "Transfer History",
         defaultIcon: FaRegFolderOpen,
         activeIcon: FaFolderOpen,
@@ -133,12 +136,6 @@ const AppSideBar = () => {
             activeIcon: IoLink,
             url: "/transfers/links",
           },
-          // {
-          //   label: "Deleted Files",
-          //   defaultIcon: FaRegCircleXmark,
-          //   activeIcon: FaCircleXmark,
-          //   url: "/history/deleted",
-          // },
         ],
       },
       {
@@ -146,12 +143,6 @@ const AppSideBar = () => {
         defaultIcon: IoFileTrayOutline,
         activeIcon: IoFileTray,
         url: "/requests",
-      },
-      {
-        label: "Branding Settings",
-        defaultIcon: MdOutlineDashboardCustomize,
-        activeIcon: MdDashboardCustomize,
-        url: "/branding",
       },
     ],
     footer: [
@@ -197,127 +188,157 @@ const AppSideBar = () => {
       },
     ],
   };
-  const { isActive } = useActivePath();
+  const { isActive, isPartiallyActive } = useActivePath();
   return (
     user && (
-      <Sidebar collapsible="offcanvas">
-        <SidebarHeader>
-          <img
-            src={Logo}
-            alt="Blackbridge Logo"
-            className="max-w-[70%] h-auto mb-4"
-          />
+      <Sidebar collapsible="offcanvas" className="border-r-0 bg-sidebar">
+        <SidebarHeader className="p-6 pb-2">
+          <img src={Logo} alt="Blackbridge Logo" className="w-32 h-auto mb-2" />
         </SidebarHeader>
-        <SidebarContent>
+        <SidebarContent className="px-3">
           <SidebarGroup>
             <SidebarGroupContent>
-              <SidebarMenu onClick={toggleSidebar}>
-                {items.main.map((item) => (
-                  <SidebarMenuItem key={item.label}>
-                    <SidebarMenuButton
-                      asChild
-                      size="lg"
-                      className="text-neutral-400"
-                      isActive={isActive(item.url)}
-                    >
-                      <Link to={item.url}>
-                        <span className="text-[18px]">
-                          {isActive(item.url) ? (
-                            <item.activeIcon />
-                          ) : (
-                            <item.defaultIcon />
+              <SidebarMenu onClick={toggleSidebar} className="space-y-1">
+                {items.main.map((item) => {
+                  const active =
+                    item.url === "/" || item.children
+                      ? isActive(item.url)
+                      : isPartiallyActive(item.url);
+
+                  return (
+                    <SidebarMenuItem key={item.label}>
+                      <SidebarMenuButton
+                        asChild
+                        size="lg"
+                        isActive={active}
+                        className={`
+                          w-full justify-start gap-3 px-3 py-3 rounded-xl transition-all duration-200
+                          ${
+                            active
+                              ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md shadow-white/10 hover:bg-sidebar-primary hover:text-sidebar-primary-foreground"
+                              : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          }
+                        `}
+                      >
+                        <Link to={item.url}>
+                          <span className="text-xl">
+                            {active ? (
+                              <item.activeIcon />
+                            ) : (
+                              <item.defaultIcon />
+                            )}
+                          </span>
+                          <span className="font-medium text-[15px]">
+                            {item.label}
+                          </span>
+                          {item.badge && (
+                            <div className="ml-auto size-5 rounded-full bg-error-red-500 text-[10px] text-white font-bold flex items-center justify-center shadow-sm">
+                              {item.badge}
+                            </div>
                           )}
-                        </span>
-                        <span className="text-[16px]">{item.label}</span>
-                        {item.badge && (
-                          <div className="ml-auto size-6 rounded-full bg-red-400 text-[10px] text-white font-medium flex items-center justify-center">
-                            {item.badge}
-                          </div>
-                        )}
-                      </Link>
-                    </SidebarMenuButton>
-                    {item.children && (
-                      <SidebarMenuSub>
-                        {item.children.map((child) => (
-                          <SidebarMenuSubItem key={child.label}>
-                            <SidebarMenuSubButton
-                              asChild
-                              className="text-neutral-400"
-                              isActive={isActive(child.url)}
-                            >
-                              <Link to={child.url}>
-                                <span className="text-[16px]">
-                                  {isActive(child.url) ? (
-                                    <child.activeIcon />
-                                  ) : (
-                                    <child.defaultIcon />
-                                  )}
-                                </span>
-                                <span className="text-[14px]">
-                                  {child.label}
-                                </span>
-                                {child.badge && (
-                                  <div className="ml-auto size-5 rounded-full bg-red-400 text-[10px] text-white font-medium flex items-center justify-center">
-                                    {child.badge}
-                                  </div>
-                                )}
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    )}
-                  </SidebarMenuItem>
-                ))}
+                        </Link>
+                      </SidebarMenuButton>
+                      {item.children && (
+                        <SidebarMenuSub className="ml-4 mt-1 border-l-2 border-sidebar-border pl-2 space-y-1">
+                          {item.children.map((child) => {
+                            const childActive = isActive(child.url);
+                            return (
+                              <SidebarMenuSubItem key={child.label}>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={childActive}
+                                  className={`
+                                    w-full justify-start gap-3 px-3 py-2 rounded-lg transition-all duration-200 overflow-visible
+                                    ${
+                                      childActive
+                                        ? "text-sidebar-primary-foreground bg-sidebar-accent font-medium"
+                                        : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                                    }
+                                  `}
+                                >
+                                  <Link to={child.url}>
+                                    <span className="text-lg">
+                                      {childActive ? (
+                                        <child.activeIcon />
+                                      ) : (
+                                        <child.defaultIcon />
+                                      )}
+                                    </span>
+                                    <span className="text-[14px]">
+                                      {child.label}
+                                    </span>
+                                    {child.badge && (
+                                      <div className="absolute -right-1 -top-1  ml-auto size-5 rounded-full bg-[var(--error-red-500)] text-[10px] text-white font-bold flex items-center justify-center">
+                                        {child.badge}
+                                      </div>
+                                    )}
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            );
+                          })}
+                        </SidebarMenuSub>
+                      )}
+                    </SidebarMenuItem>
+                  );
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
-        <DropdownMenu>
-          <DropdownMenuTrigger className="outline-none">
-            <SidebarFooter className="hover:bg-neutral-800 cursor-pointer transition-colors duration-200">
-              <ProfileSummary
-                email={user.email}
-                profile_url={user.profile_picture}
-                subText="Free plan"
-                className="w-full max-w-full"
-              />
-            </SidebarFooter>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            side={isMobile ? "top" : "right"}
-            className="p-4"
-          >
-            <ProfileSummary
-              email={user.email}
-              profile_url={user.profile_picture}
-              subText="Free plan"
-              className="mb-4 w-full max-w-full"
-            />
-            <DropdownMenuSeparator />
-            {items.footer.map((item) => (
-              <Fragment key={item.label}>
-                <DropdownMenuItem
-                  onClick={() => {
-                    toggleSidebar();
-                    if (item.isAction) {
-                      item.onClick();
-                    } else {
-                      navigate(item.url);
-                    }
-                  }}
-                  className="cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
-                    <item.defaultIcon />
-                    <span>{item.label}</span>
-                  </div>
-                </DropdownMenuItem>
-                {item.separator && <DropdownMenuSeparator />}
-              </Fragment>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="mt-auto px-3 pb-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger className="outline-none w-full">
+              <SidebarFooter className="p-3 rounded-2xl hover:bg-sidebar-accent cursor-pointer transition-all duration-200 border border-transparent hover:border-sidebar-border group">
+                <ProfileSummary
+                  email={user.email}
+                  profile_url={user.profile_picture_url}
+                  subText="Free plan"
+                  className="w-full max-w-full"
+                />
+              </SidebarFooter>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              side={isMobile ? "top" : "right"}
+              className="w-56 p-2 rounded-xl shadow-xl border-neutral-100"
+              align="end"
+              sideOffset={8}
+            >
+              <div className="px-2 py-1.5">
+                <p className="text-sm font-medium text-neutral-900">
+                  My Account
+                </p>
+                <p className="text-xs text-neutral-500 truncate">
+                  {user.email}
+                </p>
+              </div>
+              <DropdownMenuSeparator className="bg-neutral-100 my-1" />
+              {items.footer.map((item) => (
+                <Fragment key={item.label}>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      toggleSidebar();
+                      if (item.isAction) {
+                        item.onClick();
+                      } else {
+                        navigate(item.url);
+                      }
+                    }}
+                    className="cursor-pointer rounded-lg focus:bg-neutral-50 focus:text-primary-500"
+                  >
+                    <div className="flex items-center gap-2.5 py-0.5">
+                      <item.defaultIcon className="text-neutral-400" />
+                      <span className="font-medium">{item.label}</span>
+                    </div>
+                  </DropdownMenuItem>
+                  {item.separator && (
+                    <DropdownMenuSeparator className="bg-neutral-100 my-1" />
+                  )}
+                </Fragment>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </Sidebar>
     )
   );

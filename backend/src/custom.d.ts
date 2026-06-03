@@ -54,6 +54,13 @@ export interface PaginatedResponse<T> {
   pagination: PaginationDetails;
 }
 
+export interface SocketResponse<T = any> {
+  isError: boolean;
+  code: number;
+  message: string;
+  data?: T;
+}
+
 declare global {
   namespace Express {
     export interface Request {
@@ -61,5 +68,11 @@ declare global {
       downloadRequest?: JWTDownloadRequestPayload;
       consumeOtpToken?: () => Promise<void>;
     }
+  }
+}
+
+declare module 'socket.io' {
+  interface Socket {
+    session?: JWTAuthPayload;
   }
 }

@@ -21,8 +21,14 @@ import {
   NotificationSettings,
   SettingsLayout,
 } from "./views/settings";
-import FileRequests from "./views/file-requests/FileRequests";
-import BrandSettings from "./views/brand-settings/BrandSettings";
+import BrandSettings from "./views/settings/BrandSettings";
+import {
+  NewPeerTransfer,
+  PeerTransferSession,
+} from "./views/transfers/peer-transfers";
+import FileRequestList from "./views/file-requests/FileRequestList";
+import FileRequestDetails from "./views/file-requests/FileRequestDetails";
+import FileRequestCreate from "./views/file-requests/FileRequestCreate";
 
 const router = createBrowserRouter([
   {
@@ -58,6 +64,19 @@ const router = createBrowserRouter([
           {
             index: true,
             element: <DashboardView />,
+          },
+          {
+            path: "peer",
+            children: [
+              {
+                index: true,
+                element: <NewPeerTransfer />,
+              },
+              {
+                path: ":sessionID",
+                element: <PeerTransferSession />,
+              },
+            ],
           },
           {
             path: "transfers",
@@ -105,24 +124,33 @@ const router = createBrowserRouter([
                   { path: "account", element: <AccountSettings /> },
                   { path: "notifications", element: <NotificationSettings /> },
                   { path: "billing", element: <BillingSettings /> },
+                  { path: "brand", element: <BrandSettings /> },
                 ],
               },
             ],
           },
           {
             path: "requests",
-            element: <FileRequests />,
-          },
-          {
-            path: "branding",
-            element: <BrandSettings />,
+            children: [
+              {
+                index: true,
+                element: <FileRequestList />,
+              },
+              {
+                path: "create",
+                element: <FileRequestCreate />,
+              },
+              {
+                path: ":requestId",
+                element: <FileRequestDetails />,
+              },
+            ],
           },
         ],
       },
       // Public Routes
       {
         path: "p",
-        element: <PublicLayout />,
         children: [
           {
             path: "shares/:slug",

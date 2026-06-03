@@ -1,15 +1,7 @@
 import { useState } from "react";
-import authStyles from "./Auth.module.css";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/authStore";
-import Logo from "@/assets/img/blackbridge-logo.svg";
 import { Navigate } from "react-router";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card";
 import { AxiosError } from "axios";
 import {
   InputOTP,
@@ -22,11 +14,12 @@ import {
   useConfirmVerificationMutation,
   useRequestVerificationMutation,
   useVerifyAccountMutation,
-} from "@hooks/mutations";
+} from "@/hooks/mutations";
 import { toast } from "react-hot-toast";
 import { SessionStorageService } from "@/lib/WebStorageService";
 import storageKeys from "@/config/constants/storageKeys";
 import { OTP_ACTION_TYPES } from "@/config/constants/otp";
+import AuthLayout from "@/layouts/AuthLayout";
 
 const VerificationView = () => {
   const storage = new SessionStorageService();
@@ -152,69 +145,60 @@ const VerificationView = () => {
   const isVerifyingAccount = verifyAccountMutation.isPending;
 
   return (
-    <div className={authStyles.container}>
-      <div className={authStyles.banner}>
-        <img
-          src={Logo}
-          alt="Blackbridge Logo"
-          className="max-w-[70%] h-auto mb-4"
-        />
-      </div>
-      <Card className={authStyles.formWrapper}>
-        <CardHeader className={`text-center ${authStyles.formHeader}`}>
-          <h1>Verify your email to continue</h1>
-          <p>
-            Enter the code we've sent to <strong>{user?.email}</strong>.
-          </p>
-        </CardHeader>
-        <CardContent className="flex flex-col item-center gap-6">
-          <InputOTP
-            maxLength={6}
-            value={otp}
-            onChange={setOTP}
-            onComplete={handleVerify}
-            containerClassName="justify-center"
-          >
-            <InputOTPGroup>
-              <InputOTPSlot index={0} />
-              <InputOTPSlot index={1} />
-              <InputOTPSlot index={2} />
-              <InputOTPSlot index={3} />
-              <InputOTPSlot index={4} />
-              <InputOTPSlot index={5} />
-            </InputOTPGroup>
-          </InputOTP>
-          <Button
-            disabled={otp.length < 6 || isVerifying}
-            onClick={handleVerify}
-          >
-            Verify Email
-          </Button>
-        </CardContent>
-        <CardFooter className={authStyles.formFooter}>
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex flex-col justify-center">
-              Didn&apos;t receive a code?
-              <Button
-                disabled={isResending || isVerifyingAccount || cooldown > 0}
-                onClick={handleResend}
-                variant="link"
-                className="link font-semibold cursor-pointer -mt-2"
-              >
-                {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend OTP"}
-              </Button>
-            </div>
-            <Button
-              variant="link"
-              onClick={logout}
-              className="font-semibold cursor-pointer"
+    <AuthLayout
+      title="Verify your email"
+      subtitle={
+        <>
+          Enter the code we've sent to <strong>{user?.email}</strong>
+        </>
+      }
+    >
+      <div className="flex flex-col items-center gap-6 w-full">
+        <InputOTP
+          maxLength={6}
+          value={otp}
+          onChange={setOTP}
+          onComplete={handleVerify}
+          containerClassName="justify-center"
+        >
+          <InputOTPGroup>
+            <InputOTPSlot index={0} />
+            <InputOTPSlot index={1} />
+            <InputOTPSlot index={2} />
+            <InputOTPSlot index={3} />
+            <InputOTPSlot index={4} />
+            <InputOTPSlot index={5} />
+          </InputOTPGroup>
+        </InputOTP>
+        
+        <Button
+          className="w-full"
+          disabled={otp.length < 6 || isVerifying}
+          onClick={handleVerify}
+        >
+          Verify Email
+        </Button>
+
+        <div className="flex flex-col items-center gap-4 text-sm text-neutral-500">
+          <div className="flex items-center gap-1">
+            <span>Didn&apos;t receive a code?</span>
+            <button
+              disabled={isResending || isVerifyingAccount || cooldown > 0}
+              onClick={handleResend}
+              className="font-semibold text-neutral-900 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Logout
-            </Button>
+              {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend OTP"}
+            </button>
           </div>
-        </CardFooter>
-      </Card>
-    </div>
+          <button
+            onClick={logout}
+            className="font-semibold text-neutral-900 hover:underline"
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    </AuthLayout>
   );
 };
 

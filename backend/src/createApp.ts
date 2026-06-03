@@ -2,8 +2,15 @@ import express from 'express';
 import { Application } from 'express';
 import logger from './lib/logger';
 import StatusCodes from './config/StatusCodes.config';
+import { Server, Socket } from 'socket.io';
 
-export function createApp(config: { trustProxy: boolean; middlewares: any[]; controllers: any[] }): Application {
+export function createApp(config: {
+  trustProxy: boolean;
+  middlewares: any[];
+  controllers: any[];
+  eventHandlers?: ((io: Server, socket: Socket) => void)[];
+  eventMiddlewares?: ((socket: Socket, next: (err?: Error) => void) => void)[];
+}): Application {
   const app = express();
 
   app.set('trust proxy', config.trustProxy);

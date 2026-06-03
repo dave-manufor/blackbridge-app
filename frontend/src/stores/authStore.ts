@@ -5,7 +5,6 @@ import {
   verifyServerProof,
 } from "@/lib/crypto/srp";
 import { API, ApiRoutes } from "@/api";
-import { User } from "@/types/auth";
 import axios, { AxiosError } from "axios";
 import { devOnly, isDevEnvironment } from "@/utils/dev";
 import { Keys } from "@/types/keys";
@@ -20,6 +19,19 @@ import queryClient from "@/lib/queryClient";
 import apiConfig from "@/config/api.config";
 
 const cryptoBridge = CryptoBridge.getInstance();
+
+export interface User {
+  id: string;
+  email: string;
+  verified: boolean;
+  profile_picture?: string | null;
+  profile_picture_url?: string | null;
+  salt: string;
+  verifier: string;
+  created_at: string;
+  updated_at: string;
+  keys: any[];
+}
 
 export interface AuthStore {
   user: User | null;

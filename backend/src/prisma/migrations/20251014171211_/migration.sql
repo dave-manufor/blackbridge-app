@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "P2PSessions" ALTER COLUMN "room_id" SET DATA TYPE TEXT;

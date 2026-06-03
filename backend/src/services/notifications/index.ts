@@ -5,6 +5,7 @@ import {
   AccessGrantedEmailTemplate,
   InviteAcceptedEmailTemplate,
   NewInviteEmailTemplate,
+  NewPeerTransferEmailTemplate,
   NewTransferEmailTemplate,
   OtpEmailTemplate,
   SignInEmailTemplate,
@@ -107,6 +108,7 @@ const notificationService = {
   send_transfer_success_notification: async (email: string, transferDetails: any) => {
     // Implementation for sending transfer success notification to sender
   },
+
   send_new_transfer_notification: async (
     recipients: string[],
     transferDetails: {
@@ -190,6 +192,27 @@ const notificationService = {
       to: email,
       subject: `Your access ${transferDetails.transfer_title ? `to ${transferDetails.transfer_title}` : ''} has been approved`,
       react: AccessGrantedEmailTemplate({ email, transferDetails, url }),
+    });
+  },
+
+  send_peer_transfer_notification: async (
+    email: string,
+    transferDetails: {
+      session_id: string;
+      sender_email: string;
+      description?: string;
+      files: Array<{
+        name: string;
+        size: number;
+      }>;
+    },
+  ) => {
+    const url = `${baseAppUrl}/peer/${transferDetails.session_id}`;
+    await resend.emails.send({
+      from: `BlackBridge <${emailConfig.DEFAULT_FROM_EMAIL}>`,
+      to: email,
+      subject: `${transferDetails.sender_email} wants to start a peer transfer with you`,
+      react: NewPeerTransferEmailTemplate({ ...transferDetails, url }),
     });
   },
 };

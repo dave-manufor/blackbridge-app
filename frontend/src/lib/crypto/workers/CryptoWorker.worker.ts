@@ -64,6 +64,7 @@ export class CryptoWorker implements CryptoApi {
    * Use this to explicitly remove sensitive material.
    */
   clearPrivateKey(): void {
+    // Remove reference to private key for garbage collection
     this.privateKey = null;
   }
 

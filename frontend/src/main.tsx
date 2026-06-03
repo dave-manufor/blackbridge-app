@@ -26,13 +26,13 @@ CryptoBridge.getInstance()
   });
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AppHeaderProvider>
-        <SidebarProvider>
-          <RouterProvider router={router} />
-        </SidebarProvider>
-      </AppHeaderProvider>
-    </QueryClientProvider>
-  </StrictMode>
+  // <StrictMode>
+  <QueryClientProvider client={queryClient}>
+    <AppHeaderProvider>
+      <SidebarProvider>
+        <RouterProvider router={router} />
+      </SidebarProvider>
+    </AppHeaderProvider>
+  </QueryClientProvider>
+  // </StrictMode>
 );
