@@ -1,0 +1,13 @@
+# Railway / Nixpacks build configuration
+# By default Nixpacks sets NPM_CONFIG_PRODUCTION=true, which skips devDependencies.
+# We need devDependencies (typescript, tsc-alias, prisma CLI) during the build phase
+# to compile TypeScript to dist/.
+
+[variables]
+NPM_CONFIG_PRODUCTION = "false"
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm run start"
