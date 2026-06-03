@@ -72,7 +72,7 @@ const PeerTransferSession = () => {
         setError(err.message || "An unknown error occurred.");
       },
       onFileReceived: (file: File) => {
-        saveFile(file).catch((err) =>
+        saveFile(file).catch(() =>
           setError(`Failed to save file: ${file.name}`)
         );
       },

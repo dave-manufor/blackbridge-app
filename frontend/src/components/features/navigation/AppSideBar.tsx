@@ -51,8 +51,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 interface MenuItemBase {
   label: string;
-  defaultIcon: React.ComponentType;
-  activeIcon: React.ComponentType;
+  defaultIcon: React.ComponentType<{ className?: string }>;
+  activeIcon: React.ComponentType<{ className?: string }>;
   badge?: string | number;
   children?: MenuItem[];
 }
@@ -292,7 +292,7 @@ const AppSideBar = () => {
               <SidebarFooter className="p-3 rounded-2xl hover:bg-sidebar-accent cursor-pointer transition-all duration-200 border border-transparent hover:border-sidebar-border group">
                 <ProfileSummary
                   email={user.email}
-                  profile_url={user.profile_picture_url}
+                  profile_url={user.profile_picture_url || undefined}
                   subText="Free plan"
                   className="w-full max-w-full"
                 />

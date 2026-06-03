@@ -38,7 +38,6 @@ const FileRequestCreate: React.FC = () => {
   const navigate = useNavigate();
   const { setHeaderTitle } = useAppHeader();
   const createMutation = useCreateFileRequest();
-  const [emailSearch, setEmailSearch] = useState("");
   const [debouncedEmailSearch, setDebouncedEmailSearch] = useState("");
   
   const debouncedSearch = useDebounceCallback((value: string) => {
@@ -114,7 +113,6 @@ const FileRequestCreate: React.FC = () => {
                       searchable
                       searchPlaceholder="Search emails..."
                       onSearchChange={(value) => {
-                        setEmailSearch(value);
                         debouncedSearch(value);
                       }}
                       isLoading={isLoadingEmails}

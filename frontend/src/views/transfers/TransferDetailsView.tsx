@@ -3,7 +3,7 @@ import useAppHeader from "@/hooks/context/useAppHeader";
 import { useGetTransferDetailsQuery } from "@/hooks/queries";
 import { AxiosError } from "axios";
 import { Fragment, useEffect, useState } from "react";
-import { FaArrowLeft, FaArrowRight, FaUser } from "react-icons/fa6";
+import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 import { useNavigate, useParams } from "react-router";
 import { formatDistance } from "date-fns";
 import { TransferStatusBadge, TransferTypeBadge } from "@/components/ui/badge";
