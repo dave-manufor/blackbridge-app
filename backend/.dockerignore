@@ -1,0 +1,14 @@
+node_modules
+dist
+npm-debug.log*
+.env
+.env.*
+!.env.template
+.git
+.vscode
+.idea
+*.swp
+.DS_Store
+certs
+react-email-starter
+digest-back.txt
