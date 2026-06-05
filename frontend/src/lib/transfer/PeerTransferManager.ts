@@ -1,4 +1,4 @@
-import Env from "../EnvManager";
+
 import { io, Socket } from "socket.io-client";
 import webrtcConfig from "@/config/webrtc.config";
 import { CryptoBridge } from "../crypto/workers/CryptoBridge";
@@ -106,7 +106,7 @@ class SignalingChannel {
   private socket: Socket;
 
   constructor() {
-    this.socket = io(Env.VITE_API_BASE_URL, {
+    this.socket = io({
       path: "/ws",
       withCredentials: true,
       autoConnect: false,

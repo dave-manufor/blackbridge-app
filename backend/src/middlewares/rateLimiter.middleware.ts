@@ -15,6 +15,7 @@ export const otpVerificationLimiter = (req: any, res: any, next: any) => {
       legacyHeaders: false,
       keyGenerator: (req) => req.session.userId, // Rate limit by user ID
       store: new RedisStore({
+        prefix: 'bb:rl:otp:',
         sendCommand: (...args: string[]) => cache.sendCommand(args),
       }),
     });
@@ -30,6 +31,7 @@ export const authRateLimiter = (req: any, res: any, next: any) => {
       max: authConfig.rateLimitMax,
       message: 'Too many login attempts. Please try again later.',
       store: new RedisStore({
+        prefix: 'bb:rl:auth:',
         sendCommand: (...args: string[]) => cache.sendCommand(args),
       }),
     });

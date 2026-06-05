@@ -3,8 +3,9 @@ variable "db_username" {
 }
 
 variable "db_password" {
-  default = "password123"
-  sensitive = true
+  description = "Database password"
+  type        = string
+  sensitive   = true
 }
 
 variable "bucket_name" {

@@ -31,4 +31,7 @@ export default {
     ],
     detail: (id: string) => ["/file-requests", "detail", id],
   },
+  analytics: {
+    overview: (timeframe: string) => ["/analytics", "overview", timeframe],
+  },
 };
