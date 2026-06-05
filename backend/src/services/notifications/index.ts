@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { BrevoClient } from '@getbrevo/brevo';
 import nodemailer from 'nodemailer';
 import { render } from '@react-email/components';
 import {
@@ -15,6 +16,11 @@ import notificationConfig from './config';
 import { getMailboxName } from './utils/format';
 
 const resend = notificationConfig.RESEND_API_KEY ? new Resend(notificationConfig.RESEND_API_KEY) : null;
+
+const brevo = notificationConfig.BREVO_API_KEY
+  ? new BrevoClient({ apiKey: notificationConfig.BREVO_API_KEY })
+  : null;
+
 const baseAppUrl = notificationConfig.BASE_URL;
 
 const transporter = notificationConfig.EMAIL_PROVIDER === 'smtp' 
@@ -26,33 +32,76 @@ const transporter = notificationConfig.EMAIL_PROVIDER === 'smtp'
         user: notificationConfig.SMTP_USER,
         pass: notificationConfig.SMTP_PASS,
       },
+      connectionTimeout: 10000,
     })
   : null;
 
+/**
+ * Parse a "Name <email>" formatted string into { name, email }
+ */
+const parseSender = (from: string): { name?: string; email: string } => {
+  const match = from.match(/^(.+?)\s*<(.+?)>$/);
+  if (match) {
+    return { name: match[1].trim(), email: match[2].trim() };
+  }
+  return { email: from.trim() };
+};
+
 const sendEmail = async (options: { from: string; to: string; subject: string; react: any }) => {
-  if (notificationConfig.EMAIL_PROVIDER === 'smtp' && transporter) {
-    const html = await render(options.react);
-    await transporter.sendMail({
-      from: options.from,
-      to: options.to,
-      subject: options.subject,
-      html: html,
-    });
-  } else {
-    if (!resend) {
-      throw new Error('Email provider is set to resend but RESEND_API_KEY is missing');
+  console.log(`[EmailService] Attempting to send email to ${options.to}. Provider: ${notificationConfig.EMAIL_PROVIDER}`);
+  
+  try {
+    if (notificationConfig.EMAIL_PROVIDER === 'brevo') {
+      if (!brevo) {
+        throw new Error('Email provider is set to brevo but BREVO_API_KEY is missing');
+      }
+      console.log(`[EmailService] Rendering React email template...`);
+      const html = await render(options.react);
+      const sender = parseSender(options.from);
+      console.log(`[EmailService] Sending via Brevo HTTP API...`);
+      const response = await brevo.transactionalEmails.sendTransacEmail({
+        sender: { email: sender.email, name: sender.name },
+        to: [{ email: options.to }],
+        subject: options.subject,
+        htmlContent: html,
+      });
+      console.log(`[EmailService] Email sent via Brevo:`, response);
+    } else if (notificationConfig.EMAIL_PROVIDER === 'smtp' && transporter) {
+      console.log(`[EmailService] Rendering React email template...`);
+      const html = await render(options.react);
+      console.log(`[EmailService] Sending via SMTP...`);
+      const info = await transporter.sendMail({
+        from: options.from,
+        to: options.to,
+        subject: options.subject,
+        html: html,
+      });
+      console.log(`[EmailService] Email sent successfully: ${info.messageId}`);
+    } else {
+      if (!resend) {
+        throw new Error('Email provider is set to resend but RESEND_API_KEY is missing');
+      }
+      console.log(`[EmailService] Sending via Resend...`);
+      const data = await resend.emails.send({
+        from: options.from,
+        to: options.to,
+        subject: options.subject,
+        react: options.react,
+      });
+      console.log(`[EmailService] Email sent via Resend: `, data);
     }
-    await resend.emails.send({
-      from: options.from,
-      to: options.to,
-      subject: options.subject,
-      react: options.react,
-    });
+  } catch (error) {
+    console.error(`[EmailService] FATAL ERROR sending email to ${options.to}:`, error);
+    throw error;
   }
 };
 
 const sendBatchEmail = async (optionsArray: { from: string; to: string; subject: string; react: any }[]) => {
-  if (notificationConfig.EMAIL_PROVIDER === 'smtp' && transporter) {
+  if (notificationConfig.EMAIL_PROVIDER === 'brevo') {
+    // Brevo doesn't have a native batch endpoint for different content per recipient,
+    // so we send them individually via Promise.all
+    await Promise.all(optionsArray.map((options) => sendEmail(options)));
+  } else if (notificationConfig.EMAIL_PROVIDER === 'smtp' && transporter) {
     await Promise.all(optionsArray.map(async (options) => {
       const html = await render(options.react);
       await transporter.sendMail({
@@ -153,7 +202,7 @@ const notificationService = {
         return {
           from: `BlackBridge <${notificationConfig.DEFAULT_FROM_EMAIL}>`,
           to: email,
-          subject: 'You’ve been invited to access a secure transfer on BlackBridge',
+          subject: 'You\u2019ve been invited to access a secure transfer on BlackBridge',
           react: NewInviteEmailTemplate({ email, inviteToken, transferDetails, url }),
         };
       })

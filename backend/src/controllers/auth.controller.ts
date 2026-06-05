@@ -372,15 +372,15 @@ class AuthController {
       res.cookie(jwtConfig.refreshToken.name, refreshToken, {
         domain: process.env.COOKIE_DOMAIN || undefined,
         httpOnly: true,
-        secure: true,
-        sameSite: 'none',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
         maxAge: jwtConfig.refreshToken.duration,
       });
       res.cookie(jwtConfig.accessToken.name, accessToken, {
         domain: process.env.COOKIE_DOMAIN || undefined,
         httpOnly: true,
-        secure: true,
-        sameSite: 'none',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
         maxAge: jwtConfig.accessToken.duration,
       });
 
@@ -477,15 +477,15 @@ class AuthController {
 
       res.cookie(jwtConfig.refreshToken.name, newRefreshToken, {
         httpOnly: true,
-        secure: true,
-        sameSite: 'none',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
         maxAge: jwtConfig.refreshToken.duration,
         domain: process.env.COOKIE_DOMAIN || undefined,
       });
       res.cookie(jwtConfig.accessToken.name, accessToken, {
         httpOnly: true,
-        secure: true,
-        sameSite: 'none',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
         maxAge: jwtConfig.accessToken.duration,
         domain: process.env.COOKIE_DOMAIN || undefined,
       });
@@ -529,10 +529,12 @@ class AuthController {
       res.clearCookie(jwtConfig.refreshToken.name, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
       });
       res.clearCookie(jwtConfig.accessToken.name, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
       });
 
       res.status(StatusCodesConfig.OK).json({

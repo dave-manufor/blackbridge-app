@@ -194,6 +194,10 @@ const SignUp = () => {
               </FormItem>
             )}
           />
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl text-sm leading-relaxed mt-2">
+            <strong className="block mb-1">⚠️ Important Warning</strong> 
+            Blackbridge uses end-to-end encryption. If you lose your password, we cannot recover it, and <strong>all your encrypted files will be permanently lost</strong>. Please save it securely.
+          </div>
           <Button 
             disabled={authLoading} 
             type="submit"
