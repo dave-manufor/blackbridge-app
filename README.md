@@ -12,7 +12,7 @@
 
 ![Blackbridge Dashboard](docs/assets/dashboard.png)
 
-Blackbridge is an enterprise-grade file transfer platform designed with a strict zero-knowledge architecture. Unlike traditional cloud storage that encrypts your data "at rest" (where the server holds the decryption keys), Blackbridge ensures that your files are **encrypted directly in your browser** before they ever leave your device. The server only handles ciphertext, meaning even in the event of a total database breach, your files remain mathematically secure.
+Blackbridge is an file transfer platform designed with a strict zero-knowledge architecture. Unlike traditional cloud storage that encrypts your data "at rest" (where the server holds the decryption keys), Blackbridge ensures that your files are **encrypted directly in your browser** before they ever leave your device. The server only handles ciphertext, meaning even in the event of a total database breach, your files remain mathematically secure.
 
 ---
 
